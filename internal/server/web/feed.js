@@ -1,5 +1,6 @@
 let currentIds = [];
 let authenticated = false;
+let csrfToken = '';
 
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
@@ -12,9 +13,13 @@ const userLogoutBtn = document.getElementById('userLogoutBtn');
 
 async function api(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
+  const method = String(opts.method || 'GET').toUpperCase();
   const hasBody = typeof opts.body !== 'undefined';
   if (hasBody && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
+  }
+  if (csrfToken && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    headers['X-CSRF-Token'] = csrfToken;
   }
   const res = await fetch(url, { ...opts, headers });
   const j = await res.json().catch(() => ({}));
@@ -90,7 +95,8 @@ userLoginBtn.addEventListener('click', async () => {
     return;
   }
   try {
-    await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
+    const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
+    csrfToken = j.csrf_token || '';
     authenticated = true;
     userSecretEl.value = '';
     setAuthUI();
@@ -108,6 +114,7 @@ userLogoutBtn.addEventListener('click', async () => {
     // best effort
   }
   authenticated = false;
+  csrfToken = '';
   setAuthUI();
   statusEl.textContent = `${new Date().toISOString()} signed out`;
 });
@@ -175,10 +182,16 @@ document.addEventListener('click', (e) => {
 setAuthUI();
 statusEl.textContent = `${new Date().toISOString()} checking session...`;
 (async () => {
-  authenticated = true;
-  setAuthUI();
-  await loadFeed();
-  if (!authenticated) {
+  try {
+    const j = await api('/api/session');
+    csrfToken = j.csrf_token || '';
+    authenticated = true;
+    setAuthUI();
+    await loadFeed();
+  } catch (_) {
+    authenticated = false;
+    csrfToken = '';
+    setAuthUI();
     statusEl.textContent = `${new Date().toISOString()} sign in to load your feed`;
   }
 })();

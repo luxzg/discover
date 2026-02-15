@@ -41,18 +41,19 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("/admin", a.serveAdminUI)
 
 	mux.Handle("/api/login", a.withJSON(http.HandlerFunc(a.handleUserLogin)))
-	mux.Handle("/api/logout", a.withJSON(http.HandlerFunc(a.handleUserLogout)))
+	mux.Handle("/api/logout", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleUserLogout)))))
+	mux.Handle("/api/session", a.withJSON(http.HandlerFunc(a.handleUserSession)))
 	mux.Handle("/api/feed", a.userOnly(a.withJSON(http.HandlerFunc(a.handleFeed))))
-	mux.Handle("/api/feed/seen", a.userOnly(a.withJSON(http.HandlerFunc(a.handleMarkSeen))))
-	mux.Handle("/api/articles/action", a.userOnly(a.withJSON(http.HandlerFunc(a.handleArticleAction))))
-	mux.Handle("/api/articles/click", a.userOnly(a.withJSON(http.HandlerFunc(a.handleArticleClick))))
-	mux.Handle("/api/articles/dontshow", a.userOnly(a.withJSON(http.HandlerFunc(a.handleDontShow))))
+	mux.Handle("/api/feed/seen", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleMarkSeen)))))
+	mux.Handle("/api/articles/action", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleAction)))))
+	mux.Handle("/api/articles/click", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleClick)))))
+	mux.Handle("/api/articles/dontshow", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleDontShow)))))
 
 	mux.Handle("/admin/api/login", a.withJSON(http.HandlerFunc(a.handleAdminLogin)))
-	mux.Handle("/admin/api/logout", a.withJSON(http.HandlerFunc(a.handleAdminLogout)))
-	mux.Handle("/admin/api/topics", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminTopics))))
-	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminRules))))
-	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminIngest))))
+	mux.Handle("/admin/api/logout", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminLogout)))))
+	mux.Handle("/admin/api/topics", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminTopics)))))
+	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminRules)))))
+	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
 	return mux
 }
@@ -320,6 +321,11 @@ func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
+	csrfToken, ok := a.guard.SessionCSRF(token, r.RemoteAddr)
+	if !ok {
+		respondErr(w, http.StatusInternalServerError, errors.New("session initialization failed"))
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.SessionCookieName,
 		Value:    token,
@@ -329,7 +335,7 @@ func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.cfg.EnableTLS,
 		Expires:  expires,
 	})
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
 }
 
 func (a *API) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
@@ -404,6 +410,11 @@ func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
+	csrfToken, ok := a.user.SessionCSRF(token, r.RemoteAddr)
+	if !ok {
+		respondErr(w, http.StatusInternalServerError, errors.New("session initialization failed"))
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.UserSessionCookieName,
 		Value:    token,
@@ -413,7 +424,7 @@ func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.cfg.EnableTLS,
 		Expires:  expires,
 	})
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
 }
 
 func (a *API) handleUserLogout(w http.ResponseWriter, r *http.Request) {
@@ -435,6 +446,24 @@ func (a *API) handleUserLogout(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Unix(0, 0),
 	})
 	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleUserSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	c, err := r.Cookie(auth.UserSessionCookieName)
+	if err != nil || !a.user.ValidSession(c.Value, r.RemoteAddr) {
+		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+		return
+	}
+	csrfToken, ok := a.user.SessionCSRF(c.Value, r.RemoteAddr)
+	if !ok {
+		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
 }
 
 func decodeJSON(r *http.Request, maxBody int64, out any) error {
@@ -462,6 +491,36 @@ func (a *API) userOnly(next http.Handler) http.Handler {
 		c, err := r.Cookie(auth.UserSessionCookieName)
 		if err != nil || !a.user.ValidSession(c.Value, r.RemoteAddr) {
 			respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *API) userCSRF(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		c, err := r.Cookie(auth.UserSessionCookieName)
+		if err != nil || !a.user.ValidateCSRF(c.Value, r.RemoteAddr, r.Header.Get("X-CSRF-Token")) {
+			respondErr(w, http.StatusForbidden, errors.New("csrf token invalid"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *API) adminCSRF(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		c, err := r.Cookie(auth.SessionCookieName)
+		if err != nil || !a.guard.ValidateCSRF(c.Value, r.RemoteAddr, r.Header.Get("X-CSRF-Token")) {
+			respondErr(w, http.StatusForbidden, errors.New("csrf token invalid"))
 			return
 		}
 		next.ServeHTTP(w, r)

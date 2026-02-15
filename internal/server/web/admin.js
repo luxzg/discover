@@ -12,6 +12,7 @@ const countsPanel = document.getElementById('countsPanel');
 
 let manualIngestInFlight = false;
 let authenticated = false;
+let csrfToken = '';
 
 function nowStamp() {
   const d = new Date();
@@ -39,9 +40,13 @@ function escHtml(v) {
 
 async function call(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
+  const method = String(opts.method || 'GET').toUpperCase();
   const hasBody = typeof opts.body !== 'undefined';
   if (hasBody && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
+  }
+  if (csrfToken && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    headers['X-CSRF-Token'] = csrfToken;
   }
   const r = await fetch(url, { ...opts, headers });
   const j = await r.json().catch(() => ({}));
@@ -71,7 +76,8 @@ loginBtn.onclick = async () => {
     return;
   }
   try {
-    await call('/admin/api/login', { method: 'POST', body: JSON.stringify({ secret }) });
+    const res = await call('/admin/api/login', { method: 'POST', body: JSON.stringify({ secret }) });
+    csrfToken = res.csrf_token || '';
     authenticated = true;
     setAuthUI();
     secretEl.value = '';
@@ -89,6 +95,7 @@ logoutBtn.onclick = async () => {
     // Best-effort logout.
   }
   authenticated = false;
+  csrfToken = '';
   manualIngestInFlight = false;
   setAuthUI();
   document.getElementById('topics').innerHTML = '';

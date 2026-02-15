@@ -95,7 +95,7 @@ Test by opening local IP like:
 http://192.168.1.2:8443/admin
 ```
 Sign in with your `admin_secret`, then set up a single topic (enabled), click Add/Update, and once it is there click `Run Now` in the `Ingestion` section.
-If ingestion finishes without error, continue to front end, eg. `http://192.168.1.2:8443/`
+If ingestion finishes without error, continue to front end, eg. `http://192.168.1.2:8443/`, and sign in with `user_name` + `user_secret`.
 If it works proceed setting up TLS, and systemd service (as root).
 
 ## 6. systemd Service

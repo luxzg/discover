@@ -1,10 +1,24 @@
 # Changelog
 
+## 2026-02-15 - Security Hardening (no version change)
+
+- Added CSRF token validation for all mutating user and admin APIs.
+- Added session CSRF token exposure on login and user session restore endpoint (`/api/session`) for UI usage.
+- Updated feed/admin frontends to send `X-CSRF-Token` on mutating requests.
+- Protected both logout endpoints with CSRF checks as well.
+
 ## 2026-02-15 - v2.1
 
 - Updated Discover sign-in panel behavior after authentication:
   - hide panel title, username/password fields, and Sign In button
   - keep only Sign Out visible in the panel while signed in
+
+## 2026-02-15 - Docs Consistency (no version change)
+
+- Aligned `README.md` and `INSTALL.md` with current split-auth model:
+  - feed sign-in uses `user_name` + `user_secret`
+  - admin sign-in uses `admin_secret`
+- Clarified manual test flow in `INSTALL.md` to include feed sign-in after successful ingestion.
 
 ## 2026-02-15 - v2.0
 

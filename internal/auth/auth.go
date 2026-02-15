@@ -26,6 +26,7 @@ type Guard struct {
 type session struct {
 	ExpiresAt time.Time
 	RemoteIP  string
+	CSRFToken string
 }
 
 type attempt struct {
@@ -105,16 +106,19 @@ func (g *Guard) NewSession(remoteAddr string, ttl time.Duration) (string, time.T
 	if ttl <= 0 {
 		ttl = 12 * time.Hour
 	}
-	tok := make([]byte, 32)
-	if _, err := rand.Read(tok); err != nil {
+	token, err := newRandomToken(32)
+	if err != nil {
 		return "", time.Time{}, err
 	}
-	token := base64.RawURLEncoding.EncodeToString(tok)
+	csrfToken, err := newRandomToken(24)
+	if err != nil {
+		return "", time.Time{}, err
+	}
 	expires := time.Now().Add(ttl)
 	ip := remoteIP(remoteAddr)
 	g.mu.Lock()
 	g.gcLocked()
-	g.sessions[token] = session{ExpiresAt: expires, RemoteIP: ip}
+	g.sessions[token] = session{ExpiresAt: expires, RemoteIP: ip, CSRFToken: csrfToken}
 	g.mu.Unlock()
 	return token, expires, nil
 }
@@ -151,6 +155,37 @@ func (g *Guard) validSession(token, remoteIP string) bool {
 		return false
 	}
 	return true
+}
+
+func (g *Guard) ValidateSession(token, remoteAddr string) bool {
+	return g.validSession(token, remoteIP(remoteAddr))
+}
+
+func (g *Guard) SessionCSRF(token, remoteAddr string) (string, bool) {
+	ip := remoteIP(remoteAddr)
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.gcLocked()
+	s, ok := g.sessions[token]
+	if !ok {
+		return "", false
+	}
+	if s.RemoteIP != "" && ip != "" && s.RemoteIP != ip {
+		return "", false
+	}
+	return s.CSRFToken, true
+}
+
+func (g *Guard) ValidateCSRF(token, remoteAddr, provided string) bool {
+	expected, ok := g.SessionCSRF(token, remoteAddr)
+	if !ok {
+		return false
+	}
+	p := strings.TrimSpace(provided)
+	if p == "" || len(p) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(p), []byte(expected)) == 1
 }
 
 func (g *Guard) isBlocked(ip string) bool {
@@ -243,4 +278,12 @@ func remoteIP(remoteAddr string) string {
 		return ""
 	}
 	return ip.String()
+}
+
+func newRandomToken(size int) (string, error) {
+	b := make([]byte, size)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

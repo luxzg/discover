@@ -15,6 +15,7 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 
 - Standalone `net/http` server (no reverse proxy required)
 - HTTPS via cert/key paths from config (or HTTP for local testing)
+- Feed access protected by user login session (`user_name` + `user_secret`)
 - SQLite persistence with `modernc.org/sqlite` (pure Go, no CGO)
 - Embedded frontend assets in the binary
 - Fixed-time daily ingestion scheduler (wall-clock anchored, no drift)
@@ -51,6 +52,9 @@ Edit at least:
 - `listen_address` and `searxng_instances`
 
 Then run again.
+
+Feed users sign in on `/` with `user_name` and `user_secret`.  
+Admin sign-in is separate on `/admin` using `admin_secret`.
 
 ## Update Existing Install
 

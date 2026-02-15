@@ -1,9 +1,7 @@
 package auth
 
 import (
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"strings"
 	"sync"
@@ -24,6 +22,7 @@ type UserGuard struct {
 type userSession struct {
 	ExpiresAt time.Time
 	RemoteIP  string
+	CSRFToken string
 }
 
 type userAttempt struct {
@@ -71,17 +70,20 @@ func (g *UserGuard) NewSession(remoteAddr string, ttl time.Duration) (string, ti
 	if ttl <= 0 {
 		ttl = 30 * 24 * time.Hour
 	}
-	tok := make([]byte, 32)
-	if _, err := rand.Read(tok); err != nil {
+	token, err := newRandomToken(32)
+	if err != nil {
 		return "", time.Time{}, err
 	}
-	token := base64.RawURLEncoding.EncodeToString(tok)
+	csrfToken, err := newRandomToken(24)
+	if err != nil {
+		return "", time.Time{}, err
+	}
 	expires := time.Now().Add(ttl)
 	ip := remoteIP(remoteAddr)
 
 	g.mu.Lock()
 	g.gcLocked()
-	g.sessions[token] = userSession{ExpiresAt: expires, RemoteIP: ip}
+	g.sessions[token] = userSession{ExpiresAt: expires, RemoteIP: ip, CSRFToken: csrfToken}
 	g.mu.Unlock()
 	return token, expires, nil
 }
@@ -108,6 +110,33 @@ func (g *UserGuard) ValidSession(token, remoteAddr string) bool {
 		return false
 	}
 	return true
+}
+
+func (g *UserGuard) SessionCSRF(token, remoteAddr string) (string, bool) {
+	ip := remoteIP(remoteAddr)
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.gcLocked()
+	s, ok := g.sessions[token]
+	if !ok {
+		return "", false
+	}
+	if s.RemoteIP != "" && ip != "" && s.RemoteIP != ip {
+		return "", false
+	}
+	return s.CSRFToken, true
+}
+
+func (g *UserGuard) ValidateCSRF(token, remoteAddr, provided string) bool {
+	expected, ok := g.SessionCSRF(token, remoteAddr)
+	if !ok {
+		return false
+	}
+	p := strings.TrimSpace(provided)
+	if p == "" || len(p) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(p), []byte(expected)) == 1
 }
 
 func (g *UserGuard) validUsername(v string) bool {
