@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-02-15 - v1.9
+
+- Admin UI now hides operational panels until authentication succeeds.
+- Visible before sign-in: Sign In/Out panel and Actions log panel.
+- Hidden before sign-in: Topics, Negative Rules, Ingestion, and Article Status Counts panels.
+
+## 2026-02-15 - v1.8
+
+- Removed lingering admin-auth compatibility fallback on protected routes: admin APIs now require valid session cookie only.
+- Restricted `/admin` HTML page itself with the same CIDR policy as admin APIs.
+- Added `Cache-Control: no-store` on `/admin` response to reduce browser caching of admin page state.
+
 ## 2026-02-15 - v1.7
 
 - Security hardening for admin authentication:

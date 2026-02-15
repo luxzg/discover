@@ -5,6 +5,10 @@ const secretEl = document.getElementById('secret');
 const runIngestBtn = document.getElementById('runIngest');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const topicsPanel = document.getElementById('topicsPanel');
+const rulesPanel = document.getElementById('rulesPanel');
+const ingestionPanel = document.getElementById('ingestionPanel');
+const countsPanel = document.getElementById('countsPanel');
 
 let manualIngestInFlight = false;
 let authenticated = false;
@@ -47,6 +51,10 @@ function setAuthUI() {
   logoutBtn.disabled = !authenticated;
   secretEl.disabled = authenticated;
   runIngestBtn.disabled = !authenticated || manualIngestInFlight;
+  topicsPanel.hidden = !authenticated;
+  rulesPanel.hidden = !authenticated;
+  ingestionPanel.hidden = !authenticated;
+  countsPanel.hidden = !authenticated;
 }
 
 loginBtn.onclick = async () => {

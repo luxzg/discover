@@ -67,7 +67,12 @@ func (a *API) serveAdminUI(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if !a.guard.AllowRemote(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
 	http.ServeFileFS(w, r, WebFS, "web/admin.html")
 }
 

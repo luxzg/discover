@@ -69,19 +69,6 @@ func (g *Guard) AdminOnly(next http.Handler) http.Handler {
 			return
 		}
 
-		secret := r.Header.Get("X-Admin-Secret")
-		if strings.TrimSpace(secret) != "" {
-			err := g.ValidateSecret(secret, ip)
-			if err == nil {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if errors.Is(err, ErrBlocked) {
-				http.Error(w, err.Error(), http.StatusTooManyRequests)
-				return
-			}
-		}
-
 		w.Header().Set("WWW-Authenticate", `Bearer realm="admin"`)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	})

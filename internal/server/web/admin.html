@@ -18,25 +18,25 @@
       <button id="logoutBtn">Sign Out</button>
     </div>
 
-    <section class="panel">
+    <section id="topicsPanel" class="panel" hidden>
       <h2>Topics</h2>
       <div class="row"><input id="topicQ" placeholder="query"><input id="topicW" type="number" step="0.1" value="1"><label><input id="topicE" type="checkbox" checked> enabled</label><button id="addTopic">Add/Update</button></div>
       <ul id="topics"></ul>
     </section>
 
-    <section class="panel">
+    <section id="rulesPanel" class="panel" hidden>
       <h2>Negative Rules</h2>
       <div class="row"><input id="ruleP" placeholder="pattern"><input id="rulePenalty" type="number" step="0.1" value="5"><label><input id="ruleE" type="checkbox" checked> enabled</label><button id="addRule">Add/Update</button></div>
       <ul id="rules"></ul>
     </section>
 
-    <section class="panel">
+    <section id="ingestionPanel" class="panel" hidden>
       <h2>Ingestion</h2>
       <button id="runIngest">Run Now</button>
       <pre id="ingestState"></pre>
     </section>
 
-    <section class="panel">
+    <section id="countsPanel" class="panel" hidden>
       <h2>Article Status Counts</h2>
       <pre id="counts"></pre>
     </section>
