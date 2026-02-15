@@ -1,17 +1,44 @@
 let currentIds = [];
+let authenticated = false;
+
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
 const statusEl = document.getElementById('status');
+const userNameEl = document.getElementById('userName');
+const userSecretEl = document.getElementById('userSecret');
+const userLoginBtn = document.getElementById('userLoginBtn');
+const userLogoutBtn = document.getElementById('userLogoutBtn');
 
 async function api(url, opts = {}) {
-  const res = await fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  const headers = { ...(opts.headers || {}) };
+  const hasBody = typeof opts.body !== 'undefined';
+  if (hasBody && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(url, { ...opts, headers });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j.error || res.statusText || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(j.error || res.statusText || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return j;
 }
 
 function esc(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function setAuthUI() {
+  userLoginBtn.disabled = authenticated;
+  userLogoutBtn.disabled = !authenticated;
+  userNameEl.disabled = authenticated;
+  userSecretEl.disabled = authenticated;
+  nextBtn.disabled = !authenticated;
+  if (!authenticated) {
+    feed.innerHTML = '';
+    currentIds = [];
+  }
 }
 
 function card(item) {
@@ -33,6 +60,7 @@ function card(item) {
 }
 
 async function loadFeed() {
+  if (!authenticated) return;
   try {
     const data = await api('/api/feed');
     const items = data.items || [];
@@ -40,11 +68,48 @@ async function loadFeed() {
     feed.innerHTML = items.map(card).join('');
     statusEl.textContent = `${new Date().toISOString()} loaded ${items.length} cards`;
   } catch (e) {
+    if (e.status === 401) {
+      authenticated = false;
+      setAuthUI();
+      statusEl.textContent = `${new Date().toISOString()} sign in required`;
+      return;
+    }
     statusEl.textContent = `${new Date().toISOString()} feed load failed: ${e.message}`;
   }
 }
 
+userLoginBtn.addEventListener('click', async () => {
+  const username = userNameEl.value.trim();
+  const secret = userSecretEl.value.trim();
+  if (!username || !secret) {
+    statusEl.textContent = `${new Date().toISOString()} enter username and secret`;
+    return;
+  }
+  try {
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
+    authenticated = true;
+    userSecretEl.value = '';
+    setAuthUI();
+    statusEl.textContent = `${new Date().toISOString()} signed in`;
+    await loadFeed();
+  } catch (e) {
+    statusEl.textContent = `${new Date().toISOString()} sign in failed: ${e.message}`;
+  }
+});
+
+userLogoutBtn.addEventListener('click', async () => {
+  try {
+    await api('/api/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch (_) {
+    // best effort
+  }
+  authenticated = false;
+  setAuthUI();
+  statusEl.textContent = `${new Date().toISOString()} signed out`;
+});
+
 nextBtn.addEventListener('click', async () => {
+  if (!authenticated) return;
   try {
     if (currentIds.length) await api('/api/feed/seen', { method: 'POST', body: JSON.stringify({ ids: currentIds }) });
     await loadFeed();
@@ -54,6 +119,7 @@ nextBtn.addEventListener('click', async () => {
 });
 
 feed.addEventListener('click', async (e) => {
+  if (!authenticated) return;
   const cardEl = e.target.closest('.card');
   if (!cardEl) return;
   const id = Number(cardEl.dataset.id);
@@ -96,10 +162,19 @@ feed.addEventListener('click', async (e) => {
   }
 });
 
-loadFeed();
-
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.menu')) {
     document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
   }
 });
+
+setAuthUI();
+statusEl.textContent = `${new Date().toISOString()} checking session...`;
+(async () => {
+  authenticated = true;
+  setAuthUI();
+  await loadFeed();
+  if (!authenticated) {
+    statusEl.textContent = `${new Date().toISOString()} sign in to load your feed`;
+  }
+})();

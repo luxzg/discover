@@ -156,6 +156,7 @@ func (g *Guard) validSession(token, remoteIP string) bool {
 func (g *Guard) isBlocked(ip string) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.gcAttemptsLocked(time.Now())
 	a, ok := g.attempts[ip]
 	if !ok {
 		return false
@@ -180,6 +181,7 @@ func (g *Guard) recordFailure(ip string) {
 	now := time.Now()
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.gcAttemptsLocked(now)
 	a := g.attempts[ip]
 	if a.WindowStart.IsZero() || now.Sub(a.WindowStart) > window {
 		a.WindowStart = now
@@ -205,6 +207,15 @@ func (g *Guard) gcLocked() {
 	for token, s := range g.sessions {
 		if now.After(s.ExpiresAt) {
 			delete(g.sessions, token)
+		}
+	}
+	g.gcAttemptsLocked(now)
+}
+
+func (g *Guard) gcAttemptsLocked(now time.Time) {
+	for ip, a := range g.attempts {
+		if (!a.BlockedUntil.IsZero() && now.After(a.BlockedUntil)) || (!a.WindowStart.IsZero() && now.Sub(a.WindowStart) > 30*time.Minute) {
+			delete(g.attempts, ip)
 		}
 	}
 }

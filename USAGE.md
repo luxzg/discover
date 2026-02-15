@@ -3,6 +3,7 @@
 ## Feed UI
 
 - Open `/` in browser
+- Sign in with `user_name` and `user_secret`
 - Feed shows top unread cards sorted by score/date
 - Tap card to open article (marks it as `read`)
 - Card menu actions:

@@ -73,6 +73,8 @@ Example important keys:
   "enable_tls": true,
   "tls_cert_path": "/etc/letsencrypt/live/example.com/fullchain.pem",
   "tls_key_path": "/etc/letsencrypt/live/example.com/privkey.pem",
+  "user_name": "discover",
+  "user_secret": "replace-with-strong-random-user-secret",
   "admin_secret": "replace-with-strong-random-secret",
   "database_path": "discover.db",
   "daily_ingest_time": "07:30",

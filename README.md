@@ -44,6 +44,8 @@ If `config.json` does not exist, the app creates it and exits.
 
 Edit at least:
 - `admin_secret`
+- `user_name`
+- `user_secret`
 - `enable_tls`
 - `tls_cert_path` and `tls_key_path` when TLS is enabled
 - `listen_address` and `searxng_instances`

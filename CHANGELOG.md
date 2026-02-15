@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-02-15 - v2.0
+
+- Added end-user access protection for feed service with `user_name` + `user_secret` from config.
+- Added user sign-in/sign-out endpoints (`/api/login`, `/api/logout`) with 30-day session cookie (`HttpOnly`, `SameSite=Strict`, `Secure` when TLS enabled).
+- Protected all feed APIs behind authenticated user session:
+  - `/api/feed`
+  - `/api/feed/seen`
+  - `/api/articles/action`
+  - `/api/articles/click`
+  - `/api/articles/dontshow`
+- Updated Discover web UI with user sign-in panel and session-aware behavior (including session resume on reload).
+- Fixed admin stored-XSS risk by escaping visible topic/rule text before rendering list HTML.
+- Hardened ingestion link safety by accepting only `http`/`https` URL schemes during normalization.
+- Added required config keys and defaults:
+  - `user_name`
+  - `user_secret`
+  and updated docs/examples accordingly.
+
 ## 2026-02-15 - v1.9
 
 - Admin UI now hides operational panels until authentication succeeds.

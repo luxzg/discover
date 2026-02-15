@@ -3,6 +3,8 @@
   "enable_tls": true,
   "tls_cert_path": "/etc/letsencrypt/live/example.com/fullchain.pem",
   "tls_key_path": "/etc/letsencrypt/live/example.com/privkey.pem",
+  "user_name": "discover",
+  "user_secret": "CHANGEME_USER_SECRET",
   "admin_secret": "CHANGEME_STRONG_SECRET",
   "admin_bind_cidrs": [
     "127.0.0.1/32",

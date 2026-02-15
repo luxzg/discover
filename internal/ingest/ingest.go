@@ -311,9 +311,13 @@ func normalizeURL(raw string) (normalized, hash, domain string, err error) {
 	if err != nil {
 		return "", "", "", err
 	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", "", "", fmt.Errorf("unsupported URL scheme")
+	}
 	u.Fragment = ""
 	u.Host = strings.ToLower(u.Host)
-	u.Scheme = strings.ToLower(u.Scheme)
+	u.Scheme = scheme
 	q := u.Query()
 	for key := range q {
 		lk := strings.ToLower(key)

@@ -22,6 +22,7 @@ type API struct {
 	scheduler *scheduler.Scheduler
 	progress  progressSource
 	guard     *auth.Guard
+	user      *auth.UserGuard
 	assets    http.Handler
 }
 
@@ -29,8 +30,8 @@ type progressSource interface {
 	LastProgress() (string, time.Time)
 }
 
-func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, assets http.Handler) *API {
-	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, assets: assets}
+func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, user *auth.UserGuard, assets http.Handler) *API {
+	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets}
 }
 
 func (a *API) Routes() http.Handler {
@@ -39,11 +40,13 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("/", a.serveFeedUI)
 	mux.HandleFunc("/admin", a.serveAdminUI)
 
-	mux.Handle("/api/feed", a.withJSON(http.HandlerFunc(a.handleFeed)))
-	mux.Handle("/api/feed/seen", a.withJSON(http.HandlerFunc(a.handleMarkSeen)))
-	mux.Handle("/api/articles/action", a.withJSON(http.HandlerFunc(a.handleArticleAction)))
-	mux.Handle("/api/articles/click", a.withJSON(http.HandlerFunc(a.handleArticleClick)))
-	mux.Handle("/api/articles/dontshow", a.withJSON(http.HandlerFunc(a.handleDontShow)))
+	mux.Handle("/api/login", a.withJSON(http.HandlerFunc(a.handleUserLogin)))
+	mux.Handle("/api/logout", a.withJSON(http.HandlerFunc(a.handleUserLogout)))
+	mux.Handle("/api/feed", a.userOnly(a.withJSON(http.HandlerFunc(a.handleFeed))))
+	mux.Handle("/api/feed/seen", a.userOnly(a.withJSON(http.HandlerFunc(a.handleMarkSeen))))
+	mux.Handle("/api/articles/action", a.userOnly(a.withJSON(http.HandlerFunc(a.handleArticleAction))))
+	mux.Handle("/api/articles/click", a.userOnly(a.withJSON(http.HandlerFunc(a.handleArticleClick))))
+	mux.Handle("/api/articles/dontshow", a.userOnly(a.withJSON(http.HandlerFunc(a.handleDontShow))))
 
 	mux.Handle("/admin/api/login", a.withJSON(http.HandlerFunc(a.handleAdminLogin)))
 	mux.Handle("/admin/api/logout", a.withJSON(http.HandlerFunc(a.handleAdminLogout)))
@@ -375,6 +378,65 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Secret   string `json:"secret"`
+	}
+	if err := decodeJSON(r, a.cfg.MaxBodyBytes, &req); err != nil {
+		respondErr(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := a.user.ValidateCredentials(req.Username, req.Secret, r.RemoteAddr); err != nil {
+		if errors.Is(err, auth.ErrUserBlocked) {
+			respondErr(w, http.StatusTooManyRequests, err)
+			return
+		}
+		respondErr(w, http.StatusUnauthorized, err)
+		return
+	}
+	token, expires, err := a.user.NewSession(r.RemoteAddr, 30*24*time.Hour)
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.UserSessionCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		Expires:  expires,
+	})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleUserLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if token, err := r.Cookie(auth.UserSessionCookieName); err == nil {
+		a.user.DeleteSession(token.Value)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.UserSessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func decodeJSON(r *http.Request, maxBody int64, out any) error {
 	if maxBody <= 0 {
 		maxBody = 1 << 20
@@ -391,6 +453,17 @@ func decodeJSON(r *http.Request, maxBody int64, out any) error {
 func (a *API) withJSON(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *API) userOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(auth.UserSessionCookieName)
+		if err != nil || !a.user.ValidSession(c.Value, r.RemoteAddr) {
+			respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

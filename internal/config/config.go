@@ -10,12 +10,15 @@ import (
 )
 
 const defaultAdminSecret = "CHANGEME_STRONG_SECRET"
+const defaultUserSecret = "CHANGEME_USER_SECRET"
 
 type Config struct {
 	ListenAddress         string   `json:"listen_address"`
 	EnableTLS             bool     `json:"enable_tls"`
 	TLSCertPath           string   `json:"tls_cert_path"`
 	TLSKeyPath            string   `json:"tls_key_path"`
+	UserName              string   `json:"user_name"`
+	UserSecret            string   `json:"user_secret"`
 	AdminSecret           string   `json:"admin_secret"`
 	AdminBindCIDRs        []string `json:"admin_bind_cidrs"`
 	DatabasePath          string   `json:"database_path"`
@@ -38,6 +41,8 @@ func defaultConfig() Config {
 		EnableTLS:             true,
 		TLSCertPath:           "/etc/letsencrypt/live/example.com/fullchain.pem",
 		TLSKeyPath:            "/etc/letsencrypt/live/example.com/privkey.pem",
+		UserName:              "discover",
+		UserSecret:            defaultUserSecret,
 		AdminSecret:           defaultAdminSecret,
 		AdminBindCIDRs:        []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
 		DatabasePath:          "discover.db",
@@ -98,6 +103,12 @@ func (c Config) Validate() error {
 	}
 	if c.AdminSecret == "" || c.AdminSecret == defaultAdminSecret {
 		return errors.New("admin_secret must be set to a non-default value")
+	}
+	if strings.TrimSpace(c.UserName) == "" {
+		return errors.New("user_name is required")
+	}
+	if c.UserSecret == "" || c.UserSecret == defaultUserSecret {
+		return errors.New("user_secret must be set to a non-default value")
 	}
 	if len(c.SearxngInstances) == 0 {
 		return errors.New("at least one searxng_instances entry is required")

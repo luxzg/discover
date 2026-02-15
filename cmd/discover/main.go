@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if created {
-		fmt.Printf("Created default config at %s. Edit it (especially admin_secret and TLS paths), then rerun.\n", configPath)
+		fmt.Printf("Created default config at %s. Edit it (especially user_secret, admin_secret, and TLS paths), then rerun.\n", configPath)
 		os.Exit(0)
 	}
 
@@ -46,10 +46,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("init auth: %v", err)
 	}
+	userGuard, err := auth.NewUserGuard(cfg.UserName, cfg.UserSecret)
+	if err != nil {
+		log.Fatalf("init user auth: %v", err)
+	}
 	ingester := ingest.New(cfg, st)
 	sched := scheduler.New(cfg.DailyIngestTime, ingester)
 
-	api := server.New(cfg, st, sched, ingester, guard, server.AssetsHandler())
+	api := server.New(cfg, st, sched, ingester, guard, userGuard, server.AssetsHandler())
 	httpServer := &http.Server{
 		Addr:         cfg.ListenAddress,
 		Handler:      api.Routes(),
