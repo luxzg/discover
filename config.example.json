@@ -1,0 +1,27 @@
+{
+  "listen_address": ":8443",
+  "enable_tls": true,
+  "tls_cert_path": "/etc/letsencrypt/live/example.com/fullchain.pem",
+  "tls_key_path": "/etc/letsencrypt/live/example.com/privkey.pem",
+  "admin_secret": "CHANGEME_STRONG_SECRET",
+  "admin_bind_cidrs": [
+    "127.0.0.1/32",
+    "::1/128",
+    "192.168.0.0/16",
+    "10.0.0.0/8"
+  ],
+  "database_path": "discover.db",
+  "daily_ingest_time": "07:30",
+  "searxng_instances": [
+    "http://localhost:8888"
+  ],
+  "per_query_delay_seconds": 5,
+  "per_query_jitter_seconds": 5,
+  "http_read_timeout_sec": 10,
+  "http_write_timeout_sec": 20,
+  "http_idle_timeout_sec": 60,
+  "max_body_bytes": 1048576,
+  "default_batch_size": 10,
+  "cull_unread_days": 30,
+  "cull_max_score": 0
+}

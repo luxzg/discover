@@ -1,0 +1,48 @@
+# Runtime secrets / local config
+config.json
+*.local.json
+.env
+.env.*
+*.pem
+*.key
+
+# Database and runtime state
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.wal
+*.shm
+
+# Local cookies/session artifacts
+cookies.txt
+
+# Build artifacts / binaries
+/discover
+/bin/
+/dist/
+/build/
+out/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go coverage / profiling
+*.out
+*.test
+coverage.*
+*.prof
+
+# Logs
+*.log
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
