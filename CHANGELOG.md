@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-02-15 - Security Hardening (no version change)
+## 2026-02-15 - v2.2
 
 - Added CSRF token validation for all mutating user and admin APIs.
 - Added session CSRF token exposure on login and user session restore endpoint (`/api/session`) for UI usage.
@@ -19,6 +19,7 @@
   - feed sign-in uses `user_name` + `user_secret`
   - admin sign-in uses `admin_secret`
 - Clarified manual test flow in `INSTALL.md` to include feed sign-in after successful ingestion.
+- Added explicit uninstall/remove steps in `INSTALL.md` and linked them from `README.md`.
 
 ## 2026-02-15 - v2.0
 

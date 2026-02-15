@@ -79,3 +79,5 @@ sudo systemctl status discover
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
 - `SEARXNG.md` for SearXNG install and uninstall
+
+For service uninstall/removal steps, see `INSTALL.md` section `8. Uninstall`.

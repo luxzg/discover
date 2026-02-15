@@ -155,3 +155,24 @@ systemctl status discover
 ```
 
 If you changed config keys in a new release, review and update `config.json` before starting the service.
+
+## 8. Uninstall
+
+If you want to remove Discover completely:
+
+```bash
+sudo systemctl stop discover
+sudo systemctl disable discover
+sudo rm -f /etc/systemd/system/discover.service
+sudo systemctl daemon-reload
+sudo systemctl reset-failed
+```
+
+Optional data cleanup (permanent):
+
+```bash
+sudo rm -rf /home/discover/apps/discover
+sudo userdel -r discover
+```
+
+If you want to keep article/history data, back up `discover.db` before deleting the app directory.
