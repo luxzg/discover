@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-02-15 - v2.1
+
+- Updated Discover sign-in panel behavior after authentication:
+  - hide panel title, username/password fields, and Sign In button
+  - keep only Sign Out visible in the panel while signed in
+
 ## 2026-02-15 - v2.0
 
 - Added end-user access protection for feed service with `user_name` + `user_secret` from config.

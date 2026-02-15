@@ -4,6 +4,7 @@ let authenticated = false;
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
 const statusEl = document.getElementById('status');
+const userAuthTitle = document.getElementById('userAuthTitle');
 const userNameEl = document.getElementById('userName');
 const userSecretEl = document.getElementById('userSecret');
 const userLoginBtn = document.getElementById('userLoginBtn');
@@ -30,8 +31,11 @@ function esc(s) {
 }
 
 function setAuthUI() {
-  userLoginBtn.disabled = authenticated;
-  userLogoutBtn.disabled = !authenticated;
+  userAuthTitle.hidden = authenticated;
+  userNameEl.hidden = authenticated;
+  userSecretEl.hidden = authenticated;
+  userLoginBtn.hidden = authenticated;
+  userLogoutBtn.hidden = !authenticated;
   userNameEl.disabled = authenticated;
   userSecretEl.disabled = authenticated;
   nextBtn.disabled = !authenticated;
