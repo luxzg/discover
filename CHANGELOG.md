@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-02-15 - v1.6
+
+- Added unobtrusive “Powered by luxzg/discover” project link in both Discover and Admin page headers.
+- Increased Discover card title font size by ~30% for better readability.
+
+## 2026-02-15 - Docs Update (no version change)
+
+- Reworked `INSTALL.md` to follow dedicated-user deployment flow:
+  - create `discover` user first
+  - install Go and PATH for that user
+  - clone/build under user home directory
+  - run systemd using the same user and home-based paths
+- Kept install instructions focused on required steps only (no optional tooling additions).
+- Updated Go install example in `INSTALL.md` to user-local install (`$HOME/go`) without `sudo` for tar extraction.
+- Added update workflow documentation in `README.md` and `INSTALL.md` for existing `systemd` deployments (`stop -> pull -> tidy -> build -> start`).
+
+## 2026-02-15 - v1.5
+
+- Updated `README.md` with official project home link: `https://github.com/luxzg/discover`.
+- Updated build instructions in `README.md` and `INSTALL.md` to include `git clone` + `cd discover` before build commands.
+- Updated remaining install config example from public SearXNG URL to local self-hosted default (`http://localhost:8888`).
+
 ## 2026-02-15 - v1.4
 
 - Updated default SearXNG config to local self-hosted instance:

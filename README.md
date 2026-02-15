@@ -1,11 +1,13 @@
 # Discover (Self-Hosted Personal Feed)
 
-Discover is a single-binary Go application that builds a personal, Discover-like feed by ingesting fresh search results from public SearXNG instances, ranking/deduplicating them in SQLite, and serving a mobile-first web UI.
+Official project home: https://github.com/luxzg/discover
+
+Discover is a single-binary Go application that builds a personal, Discover-like feed by ingesting fresh search results from SearXNG instances, ranking/deduplicating them in SQLite, and serving a mobile-first web UI.
 
 ## Goals
 
 - Replace Google Discover-style daily reading with a private self-hosted service
-- Use public SearXNG JSON endpoints (swappable instances)
+- Use SearXNG JSON endpoints (self-hosted/local by default, swappable instances)
 - Keep deployment simple: one Go binary + one JSON config + SQLite file
 - Provide `/admin` management for topic queries and negative rules
 
@@ -26,6 +28,8 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 ## Build
 
 ```bash
+git clone https://github.com/luxzg/discover.git
+cd discover
 go mod tidy
 go build -o discover ./cmd/discover
 ```
@@ -45,6 +49,22 @@ Edit at least:
 - `listen_address` and `searxng_instances`
 
 Then run again.
+
+## Update Existing Install
+
+If you run Discover via `systemd`, use this update flow:
+
+```bash
+sudo systemctl stop discover
+sudo su - discover
+cd ~/apps/discover
+git pull
+go mod tidy
+go build -o discover ./cmd/discover
+exit
+sudo systemctl start discover
+sudo systemctl status discover
+```
 
 ## Project Docs
 

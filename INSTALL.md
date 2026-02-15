@@ -3,12 +3,50 @@
 ## 1. Prerequisites
 
 - Debian/Ubuntu server
-- Go toolchain for building (or copy prebuilt binary)
+- `sudo` access
 - Existing TLS cert/key files (Let’s Encrypt) if running HTTPS directly
 
-## 2. Build
+### 1.1 Create dedicated service user
 
 ```bash
+sudo useradd -m -s /bin/bash discover
+sudo su - discover
+```
+
+### 1.2 Install Go (manual) and add PATH for this user
+
+For downloads and official install instructions:
+- https://go.dev/dl/
+- https://go.dev/doc/install
+
+Example (amd64 Linux):
+
+```bash
+wget https://go.dev/dl/go1.26.0.linux-amd64.tar.gz
+tar -C "$HOME" -xzf go1.26.0.linux-amd64.tar.gz
+
+echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
+source ~/.bashrc
+# use ~/.bashrc or ~/.profile depending on environment
+
+go version
+```
+
+### 1.3 Create project directory
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+```
+
+## 2. Clone and Build
+
+Keep running commands as user `discover`:
+
+```bash
+git clone https://github.com/luxzg/discover.git
+cd discover
+git status
 go mod tidy
 go build -o discover ./cmd/discover
 ```
@@ -16,10 +54,14 @@ go build -o discover ./cmd/discover
 ## 3. Create Config
 
 ```bash
-./discover -config /etc/discover/config.json
+./discover -config config.json
 ```
 
-The binary writes a default config and exits. Edit it before next start.
+The binary writes a default `config.json` and exits. Edit it before next start.
+
+```bash
+nano config.json
+```
 
 ## 4. Configure
 
@@ -32,23 +74,32 @@ Example important keys:
   "tls_cert_path": "/etc/letsencrypt/live/example.com/fullchain.pem",
   "tls_key_path": "/etc/letsencrypt/live/example.com/privkey.pem",
   "admin_secret": "replace-with-strong-random-secret",
-  "database_path": "/var/lib/discover/discover.db",
+  "database_path": "discover.db",
   "daily_ingest_time": "07:30",
-  "searxng_instances": ["https://search.unredacted.org"]
+  "searxng_instances": ["http://localhost:8888"]
 }
 ```
 
 For local testing you can set `"enable_tls": false` and use `http://localhost:<port>`.
 
-## 5. Run Manually
+## 5. Run Manually and Test
 
 ```bash
-./discover -config /etc/discover/config.json
+./discover -config config.json
 ```
+
+Test by opening local IP like:
+```
+http://192.168.1.2:8443/admin?secret=your-super-secret
+```
+Setup a single topic, make sure it is enabled, click Add/Update button, and once it is there click `Run Now` in the `Ingestion` section.
+If ingestion finishes without error, continue to front end, eg. `http://192.168.1.2:8443/`
+If it works proceed setting up TLS, and systemd service (as root).
 
 ## 6. systemd Service
 
-Create `/etc/systemd/system/discover.service`:
+Create `/etc/systemd/system/discover.service` (as root):
+`nano /etc/systemd/system/discover.service`
 
 ```ini
 [Unit]
@@ -60,15 +111,15 @@ Wants=network-online.target
 Type=simple
 User=discover
 Group=discover
-WorkingDirectory=/opt/discover
-ExecStart=/opt/discover/discover -config /etc/discover/config.json
+WorkingDirectory=/home/discover/apps/discover
+ExecStart=/home/discover/apps/discover/discover -config /home/discover/apps/discover/config.json
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/var/lib/discover
+ProtectHome=false
+ReadWritePaths=/home/discover/apps/discover
 
 [Install]
 WantedBy=multi-user.target
@@ -77,7 +128,28 @@ WantedBy=multi-user.target
 Then enable and start:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now discover.service
-sudo systemctl status discover.service
+systemctl daemon-reload
+systemctl enable --now discover.service
+systemctl status discover.service
 ```
+
+If you've setup DNS and TLS you should be able to read it now by visiting public URL like:
+`https://discover-feed.example.org:8443/`
+
+## 7. Update Existing Installation
+
+Use this flow when updating a running instance from GitHub:
+
+```bash
+sudo systemctl stop discover
+sudo su - discover
+cd ~/apps/discover
+git pull
+go mod tidy
+go build -o discover ./cmd/discover
+exit
+sudo systemctl start discover
+sudo systemctl status discover
+```
+
+If you changed config keys in a new release, review and update `config.json` before starting the service.

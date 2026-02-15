@@ -17,7 +17,8 @@ git status
 git init
 git add .
 git commit -m "Initial public commit of discover project, starting with version 1.4"
-git remote add origin https://github.com/luxzg/discover.git
+git remote add origin git@github.com:luxzg/discover.git
+git remote set-url origin git@github.com:luxzg/discover.git
 git branch -M main
 git push -u origin main
 ```
