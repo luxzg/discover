@@ -68,9 +68,8 @@ sudo systemctl status discover
 
 ## Project Docs
 
+- `README.md` (this file)
 - `INSTALL.md` for deployment and systemd setup
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
 - `SEARXNG.md` for SearXNG install and uninstall
-
-## END

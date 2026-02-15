@@ -90,9 +90,9 @@ For local testing you can set `"enable_tls": false` and use `http://localhost:<p
 
 Test by opening local IP like:
 ```
-http://192.168.1.2:8443/admin?secret=your-super-secret
+http://192.168.1.2:8443/admin
 ```
-Setup a single topic, make sure it is enabled, click Add/Update button, and once it is there click `Run Now` in the `Ingestion` section.
+Sign in with your `admin_secret`, then set up a single topic (enabled), click Add/Update, and once it is there click `Run Now` in the `Ingestion` section.
 If ingestion finishes without error, continue to front end, eg. `http://192.168.1.2:8443/`
 If it works proceed setting up TLS, and systemd service (as root).
 
@@ -138,18 +138,18 @@ If you've setup DNS and TLS you should be able to read it now by visiting public
 
 ## 7. Update Existing Installation
 
-Use this flow when updating a running instance from GitHub:
+Use this flow when updating a running instance from GitHub (run as root):
 
 ```bash
-sudo systemctl stop discover
+systemctl stop discover
 sudo su - discover
 cd ~/apps/discover
 git pull
 go mod tidy
 go build -o discover ./cmd/discover
 exit
-sudo systemctl start discover
-sudo systemctl status discover
+systemctl start discover
+systemctl status discover
 ```
 
 If you changed config keys in a new release, review and update `config.json` before starting the service.

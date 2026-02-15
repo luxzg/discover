@@ -37,7 +37,7 @@ func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", a.assets)
 	mux.HandleFunc("/", a.serveFeedUI)
-	mux.Handle("/admin", a.guard.AdminOnly(http.HandlerFunc(a.serveAdminUI)))
+	mux.HandleFunc("/admin", a.serveAdminUI)
 
 	mux.Handle("/api/feed", a.withJSON(http.HandlerFunc(a.handleFeed)))
 	mux.Handle("/api/feed/seen", a.withJSON(http.HandlerFunc(a.handleMarkSeen)))
@@ -45,6 +45,8 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/api/articles/click", a.withJSON(http.HandlerFunc(a.handleArticleClick)))
 	mux.Handle("/api/articles/dontshow", a.withJSON(http.HandlerFunc(a.handleDontShow)))
 
+	mux.Handle("/admin/api/login", a.withJSON(http.HandlerFunc(a.handleAdminLogin)))
+	mux.Handle("/admin/api/logout", a.withJSON(http.HandlerFunc(a.handleAdminLogout)))
 	mux.Handle("/admin/api/topics", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminTopics))))
 	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminRules))))
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminIngest))))
@@ -65,6 +67,7 @@ func (a *API) serveAdminUI(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	http.ServeFileFS(w, r, WebFS, "web/admin.html")
 }
 
@@ -276,6 +279,70 @@ func (a *API) handleAdminIngest(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !a.guard.AllowRemote(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Secret string `json:"secret"`
+	}
+	if err := decodeJSON(r, a.cfg.MaxBodyBytes, &req); err != nil {
+		respondErr(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := a.guard.ValidateSecret(req.Secret, r.RemoteAddr); err != nil {
+		if errors.Is(err, auth.ErrBlocked) {
+			respondErr(w, http.StatusTooManyRequests, err)
+			return
+		}
+		respondErr(w, http.StatusUnauthorized, err)
+		return
+	}
+	token, expires, err := a.guard.NewSession(r.RemoteAddr, 12*time.Hour)
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		Expires:  expires,
+	})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if token, err := r.Cookie(auth.SessionCookieName); err == nil {
+		a.guard.DeleteSession(token.Value)
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.SessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
 	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

@@ -13,7 +13,7 @@
 
 ## Admin UI
 
-- Open `/admin?secret=<ADMIN_SECRET>` or use `X-Admin-Secret` header
+- Open `/admin` and sign in using the Admin Secret field
 - Admin routes can be CIDR-restricted by config
 - Manage topics (query, weight, enabled)
 - Manage negative rules (pattern, penalty, enabled)

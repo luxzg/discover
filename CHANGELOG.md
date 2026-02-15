@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-02-15 - v1.7
+
+- Security hardening for admin authentication:
+  - removed query-string admin auth flow from UI/docs (`?secret=` no longer used)
+  - added cookie-based admin sessions (`/admin/api/login`, `/admin/api/logout`) with HttpOnly and SameSite=Strict
+  - added auth brute-force protection with failed-attempt tracking and temporary blocking
+- Added `Referrer-Policy: no-referrer` for admin page and admin auth API responses.
+- Updated admin UI to explicit Sign In/Sign Out flow and session-aware behavior.
+- Updated docs (`USAGE.md`, `INSTALL.md`) to match the new admin sign-in flow.
+
 ## 2026-02-15 - v1.6
 
 - Added unobtrusive “Powered by luxzg/discover” project link in both Discover and Admin page headers.

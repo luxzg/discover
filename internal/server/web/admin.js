@@ -3,18 +3,11 @@ const ingestStateEl = document.getElementById('ingestState');
 const countsEl = document.getElementById('counts');
 const secretEl = document.getElementById('secret');
 const runIngestBtn = document.getElementById('runIngest');
-const urlSecret = new URLSearchParams(window.location.search).get('secret') || '';
-secretEl.value = localStorage.getItem('admin_secret') || urlSecret;
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+
 let manualIngestInFlight = false;
-
-document.getElementById('saveSecret').onclick = () => {
-  localStorage.setItem('admin_secret', secretEl.value);
-  status('saved secret');
-};
-
-function headers() {
-  return { 'Content-Type': 'application/json', 'X-Admin-Secret': secretEl.value.trim() };
-}
+let authenticated = false;
 
 function nowStamp() {
   const d = new Date();
@@ -34,15 +27,61 @@ function escAttr(v) {
 }
 
 async function call(url, opts = {}) {
-  const reqURL = new URL(url, window.location.origin);
-  if (urlSecret && !reqURL.searchParams.get('secret')) {
-    reqURL.searchParams.set('secret', urlSecret);
+  const headers = { ...(opts.headers || {}) };
+  const hasBody = typeof opts.body !== 'undefined';
+  if (hasBody && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
   }
-  const r = await fetch(reqURL.toString(), { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+  const r = await fetch(url, { ...opts, headers });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || r.statusText);
+  if (!r.ok) {
+    const err = new Error(j.error || r.statusText);
+    err.status = r.status;
+    throw err;
+  }
   return j;
 }
+
+function setAuthUI() {
+  loginBtn.disabled = authenticated;
+  logoutBtn.disabled = !authenticated;
+  secretEl.disabled = authenticated;
+  runIngestBtn.disabled = !authenticated || manualIngestInFlight;
+}
+
+loginBtn.onclick = async () => {
+  const secret = secretEl.value.trim();
+  if (!secret) {
+    status('enter admin secret first');
+    return;
+  }
+  try {
+    await call('/admin/api/login', { method: 'POST', body: JSON.stringify({ secret }) });
+    authenticated = true;
+    setAuthUI();
+    secretEl.value = '';
+    status('signed in');
+    await bootstrapAfterAuth();
+  } catch (e) {
+    status(`sign in failed: ${e.message}`);
+  }
+};
+
+logoutBtn.onclick = async () => {
+  try {
+    await call('/admin/api/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch (_) {
+    // Best-effort logout.
+  }
+  authenticated = false;
+  manualIngestInFlight = false;
+  setAuthUI();
+  document.getElementById('topics').innerHTML = '';
+  document.getElementById('rules').innerHTML = '';
+  ingestStateEl.textContent = '';
+  countsEl.textContent = '';
+  status('signed out');
+};
 
 async function loadTopics() {
   const j = await call('/admin/api/topics');
@@ -55,6 +94,10 @@ async function loadRules() {
 }
 
 document.getElementById('addTopic').onclick = async () => {
+  if (!authenticated) {
+    status('sign in first');
+    return;
+  }
   try {
     await call('/admin/api/topics', { method: 'POST', body: JSON.stringify({ query: document.getElementById('topicQ').value, weight: Number(document.getElementById('topicW').value || 1), enabled: document.getElementById('topicE').checked }) });
     await loadTopics();
@@ -65,6 +108,10 @@ document.getElementById('addTopic').onclick = async () => {
 };
 
 document.getElementById('addRule').onclick = async () => {
+  if (!authenticated) {
+    status('sign in first');
+    return;
+  }
   try {
     await call('/admin/api/rules', { method: 'POST', body: JSON.stringify({ pattern: document.getElementById('ruleP').value, penalty: Number(document.getElementById('rulePenalty').value || 5), enabled: document.getElementById('ruleE').checked }) });
     await loadRules();
@@ -85,7 +132,7 @@ runIngestBtn.onclick = async () => {
     runIngestBtn.classList.add('is-busy');
     runIngestBtn.textContent = 'Run Now (Running...)';
     status('manual ingest requested (running...)');
-    await call('/admin/api/ingest', { method: 'POST' });
+    await call('/admin/api/ingest', { method: 'POST', body: JSON.stringify({}) });
     status('manual ingest completed');
     await refreshStatus();
   } catch (e) {
@@ -135,43 +182,57 @@ document.body.addEventListener('click', async (e) => {
   }
 });
 
-(function setupPolling() {
-  setInterval(() => {
-    refreshStatus().catch(() => {});
-  }, 3000);
-})();
-
 async function refreshStatus() {
-  const j = await call('/admin/api/status');
-  const ingest = j.ingest || {};
-  const ingestState = ingest.state || {};
-  const counts = j.counts || {};
-  const running = manualIngestInFlight || Boolean(ingestState.running);
-  runIngestBtn.disabled = running;
-  runIngestBtn.classList.toggle('is-busy', running);
-  runIngestBtn.textContent = running ? 'Run Now (Running...)' : 'Run Now';
-  ingestStateEl.textContent =
-    `running: ${Boolean(ingestState.running)}\n` +
-    `source: ${ingestState.current_source || ingestState.last_source || '-'}\n` +
-    `started_at: ${ingestState.started_at || '-'}\n` +
-    `last_completed_at: ${ingestState.last_completed_at || '-'}\n` +
-    `last_duration_ms: ${ingestState.last_duration_ms || 0}\n` +
-    `last_error: ${ingestState.last_error || '-'}\n` +
-    `last_message: ${ingest.last_message || '-'}\n` +
-    `last_message_at: ${ingest.last_message_at || '-'}`;
-  countsEl.textContent =
-    `unread: ${counts.unread || 0}\n` +
-    `seen: ${counts.seen || 0}\n` +
-    `read: ${counts.read || 0}\n` +
-    `useful: ${counts.useful || 0}\n` +
-    `hidden: ${counts.hidden || 0}`;
+  if (!authenticated) return;
+  try {
+    const j = await call('/admin/api/status');
+    const ingest = j.ingest || {};
+    const ingestState = ingest.state || {};
+    const counts = j.counts || {};
+    const running = manualIngestInFlight || Boolean(ingestState.running);
+    runIngestBtn.disabled = !authenticated || running;
+    runIngestBtn.classList.toggle('is-busy', running);
+    runIngestBtn.textContent = running ? 'Run Now (Running...)' : 'Run Now';
+    ingestStateEl.textContent =
+      `running: ${Boolean(ingestState.running)}\n` +
+      `source: ${ingestState.current_source || ingestState.last_source || '-'}\n` +
+      `started_at: ${ingestState.started_at || '-'}\n` +
+      `last_completed_at: ${ingestState.last_completed_at || '-'}\n` +
+      `last_duration_ms: ${ingestState.last_duration_ms || 0}\n` +
+      `last_error: ${ingestState.last_error || '-'}\n` +
+      `last_message: ${ingest.last_message || '-'}\n` +
+      `last_message_at: ${ingest.last_message_at || '-'}`;
+    countsEl.textContent =
+      `unread: ${counts.unread || 0}\n` +
+      `seen: ${counts.seen || 0}\n` +
+      `read: ${counts.read || 0}\n` +
+      `useful: ${counts.useful || 0}\n` +
+      `hidden: ${counts.hidden || 0}`;
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) {
+      authenticated = false;
+      manualIngestInFlight = false;
+      setAuthUI();
+      status('session expired; sign in again');
+      return;
+    }
+    status(`status refresh failed: ${e.message}`);
+  }
 }
 
-(async () => {
+async function bootstrapAfterAuth() {
   try {
     await loadTopics();
     await loadRules();
     await refreshStatus();
+  } catch (e) {
+    status(e.message);
   }
-  catch (e) { status(e.message); }
-})();
+}
+
+setAuthUI();
+status('sign in to access admin actions');
+
+setInterval(() => {
+  refreshStatus().catch(() => {});
+}, 3000);
