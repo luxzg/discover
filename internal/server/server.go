@@ -278,7 +278,7 @@ func (a *API) handleAdminIngest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	if err := a.scheduler.RunNow(ctx); err != nil {
 		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -31,6 +32,7 @@ type Config struct {
 	HTTPIdleTimeoutSec    int      `json:"http_idle_timeout_sec"`
 	MaxBodyBytes          int64    `json:"max_body_bytes"`
 	DefaultBatchSize      int      `json:"default_batch_size"`
+	AutoHideBelowScore    float64  `json:"auto_hide_below_score"`
 	CullUnreadDays        int      `json:"cull_unread_days"`
 	CullMaxScore          float64  `json:"cull_max_score"`
 }
@@ -55,6 +57,7 @@ func defaultConfig() Config {
 		HTTPIdleTimeoutSec:    60,
 		MaxBodyBytes:          1 << 20,
 		DefaultBatchSize:      10,
+		AutoHideBelowScore:    1,
 		CullUnreadDays:        30,
 		CullMaxScore:          0,
 	}
@@ -73,7 +76,7 @@ func LoadOrInit(path string) (Config, bool, error) {
 	if err != nil {
 		return Config{}, false, fmt.Errorf("read config: %w", err)
 	}
-	var cfg Config
+	cfg := defaultConfig()
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return Config{}, false, fmt.Errorf("parse config: %w", err)
 	}
@@ -122,8 +125,53 @@ func (c Config) Validate() error {
 	if c.DefaultBatchSize <= 0 || c.DefaultBatchSize > 100 {
 		return errors.New("default_batch_size must be 1..100")
 	}
+	if c.AutoHideBelowScore < -100 || c.AutoHideBelowScore > 1000 {
+		return errors.New("auto_hide_below_score out of range")
+	}
 	if c.MaxBodyBytes <= 0 {
 		return errors.New("max_body_bytes must be positive")
 	}
 	return nil
+}
+
+func MissingKeys(path string) ([]string, error) {
+	b, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	expected := []string{
+		"listen_address",
+		"enable_tls",
+		"tls_cert_path",
+		"tls_key_path",
+		"user_name",
+		"user_secret",
+		"admin_secret",
+		"admin_bind_cidrs",
+		"database_path",
+		"daily_ingest_time",
+		"searxng_instances",
+		"per_query_delay_seconds",
+		"per_query_jitter_seconds",
+		"http_read_timeout_sec",
+		"http_write_timeout_sec",
+		"http_idle_timeout_sec",
+		"max_body_bytes",
+		"default_batch_size",
+		"auto_hide_below_score",
+		"cull_unread_days",
+		"cull_max_score",
+	}
+	missing := make([]string, 0, len(expected))
+	for _, key := range expected {
+		if _, ok := raw[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+	slices.Sort(missing)
+	return missing, nil
 }

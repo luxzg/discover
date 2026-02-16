@@ -58,6 +58,7 @@ go build -o discover ./cmd/discover
 ```
 
 The binary writes a default `config.json` and exits. Edit it before next start.
+On later runs existing config is not overwritten.
 
 ```bash
 nano config.json
@@ -78,6 +79,7 @@ Example important keys:
   "admin_secret": "replace-with-strong-random-secret",
   "database_path": "discover.db",
   "daily_ingest_time": "07:30",
+  "auto_hide_below_score": 1,
   "searxng_instances": ["http://localhost:8888"]
 }
 ```

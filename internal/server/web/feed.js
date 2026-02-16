@@ -124,6 +124,7 @@ nextBtn.addEventListener('click', async () => {
   try {
     if (currentIds.length) await api('/api/feed/seen', { method: 'POST', body: JSON.stringify({ ids: currentIds }) });
     await loadFeed();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     statusEl.textContent = `${new Date().toISOString()} next batch failed: ${e.message}`;
   }

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"discover/internal/config"
+	"discover/internal/matcher"
 	"discover/internal/model"
 	"discover/internal/store"
 )
@@ -109,7 +110,7 @@ func (s *Service) Run(ctx context.Context) error {
 			if err != nil || e.Title == "" {
 				continue
 			}
-			penalty := computePenalty(rules, e.Title, e.Content, domain)
+			penalty := computePenalty(rules, e.Title, e.Content, domain, e.URL)
 			extra := termBoost(topic.Query, e.Title, e.Content)
 			published := parsePublished(e.PublishedDate, e.Pubdate)
 			thumb := strings.TrimSpace(firstNonEmpty(e.Thumbnail, e.ImgSrc))
@@ -138,6 +139,14 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 		}
 		s.logf("ingest: topic done (%d/%d) query=%q results=%d took=%s", i+1, len(topics), topic.Query, len(entries), time.Since(topicStart).Round(time.Millisecond))
+	}
+	if s.cfg.AutoHideBelowScore > -100 {
+		hiddenCount, err := s.store.HideUnreadBelowScore(ctx, s.cfg.AutoHideBelowScore)
+		if err != nil {
+			s.logf("ingest: auto-hide error: %v", err)
+		} else if hiddenCount > 0 {
+			s.logf("ingest: auto-hidden %d unread article(s) with score < %.2f", hiddenCount, s.cfg.AutoHideBelowScore)
+		}
 	}
 	deleted, err := s.store.CullOldUnread(ctx, s.cfg.CullUnreadDays, s.cfg.CullMaxScore)
 	if err != nil {
@@ -318,14 +327,10 @@ func normalizeURL(raw string) (normalized, hash, domain string, err error) {
 	u.Fragment = ""
 	u.Host = strings.ToLower(u.Host)
 	u.Scheme = scheme
-	q := u.Query()
-	for key := range q {
-		lk := strings.ToLower(key)
-		if strings.HasPrefix(lk, "utm_") || lk == "fbclid" || lk == "gclid" || lk == "mc_cid" || lk == "mc_eid" {
-			q.Del(key)
-		}
+	u.RawQuery = ""
+	if u.Path == "" {
+		u.Path = "/"
 	}
-	u.RawQuery = q.Encode()
 	normalized = u.String()
 	sum := sha256.Sum256([]byte(normalized))
 	hash = hex.EncodeToString(sum[:])
@@ -333,12 +338,10 @@ func normalizeURL(raw string) (normalized, hash, domain string, err error) {
 	return normalized, hash, domain, nil
 }
 
-func computePenalty(rules []model.NegativeRule, title, content, domain string) float64 {
-	text := strings.ToLower(title + " " + content + " " + domain)
+func computePenalty(rules []model.NegativeRule, title, content, domain, articleURL string) float64 {
 	pen := 0.0
 	for _, r := range rules {
-		p := strings.ToLower(strings.TrimSpace(r.Pattern))
-		if p != "" && strings.Contains(text, p) {
+		if matcher.MatchRule(r.Pattern, title, content, domain, articleURL) {
 			pen += r.Penalty
 		}
 	}

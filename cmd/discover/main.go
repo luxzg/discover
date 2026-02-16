@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,6 +34,10 @@ func main() {
 	if created {
 		fmt.Printf("Created default config at %s. Edit it (especially user_secret, admin_secret, and TLS paths), then rerun.\n", configPath)
 		os.Exit(0)
+	}
+	if missing, err := config.MissingKeys(configPath); err == nil && len(missing) > 0 {
+		log.Printf("config: warning: missing key(s) in %s: %s", configPath, strings.Join(missing, ", "))
+		log.Printf("config: warning: existing values are not overwritten; consider adding missing keys explicitly")
 	}
 
 	database, err := db.Open(cfg.DatabasePath)

@@ -10,6 +10,7 @@
   <main class="wrap">
     <header class="topbar">
       <h1>Admin</h1>
+      <a class="powered" href="/" rel="noopener">Open Discover</a>
       <a class="powered" href="https://github.com/luxzg/discover" target="_blank" rel="noopener">Powered by luxzg/discover</a>
     </header>
     <div class="panel">
@@ -20,12 +21,14 @@
 
     <section id="topicsPanel" class="panel" hidden>
       <h2>Topics</h2>
+      <p class="hint">Examples: <code>first person shooter</code>, <code>site:wccftech.com gpu review</code>. <a href="https://github.com/luxzg/discover/blob/main/USAGE.md#query-and-rule-tips" target="_blank" rel="noopener">Learn more</a></p>
       <div class="row"><input id="topicQ" placeholder="query"><input id="topicW" type="number" step="0.1" value="1"><label><input id="topicE" type="checkbox" checked> enabled</label><button id="addTopic">Add/Update</button></div>
       <ul id="topics"></ul>
     </section>
 
     <section id="rulesPanel" class="panel" hidden>
       <h2>Negative Rules</h2>
+      <p class="hint">Examples: <code>get off</code>, <code>theinformation.com</code>, <code>msn.com sponsored</code>. <a href="https://github.com/luxzg/discover/blob/main/USAGE.md#query-and-rule-tips" target="_blank" rel="noopener">Learn more</a></p>
       <div class="row"><input id="ruleP" placeholder="pattern"><input id="rulePenalty" type="number" step="0.1" value="5"><label><input id="ruleE" type="checkbox" checked> enabled</label><button id="addRule">Add/Update</button></div>
       <ul id="rules"></ul>
     </section>

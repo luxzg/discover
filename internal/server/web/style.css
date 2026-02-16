@@ -14,6 +14,8 @@ h1, h2 { margin: 8px 0 16px; }
 .topbar { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .powered { font-size: 0.82rem; color: var(--muted); text-decoration: none; }
 .powered:hover { color: var(--text); text-decoration: underline; }
+.hint { margin: 0 0 10px; font-size: 0.84rem; color: var(--muted); }
+.hint code { color: var(--text); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 input, button { background: #12171c; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px; }

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-02-16 - v2.3
+
+- Config behavior hardening:
+  - existing `config.json` is never overwritten
+  - missing config keys now emit startup warnings
+  - missing keys in older configs inherit defaults at runtime
+- Added new config key `auto_hide_below_score` (default `1`):
+  - after ingestion, unread items with score below threshold are auto-marked `hidden`
+- Improved manual ingest stability:
+  - manual ingest run no longer gets canceled by request/client disconnects
+- Improved rule matching behavior:
+  - negative rules now use token matching (space or `+` separated words)
+  - matching now applies against title/content/domain/url
+  - retroactive rule application on unread entries uses the same matcher
+- Feed UX:
+  - `Load Next` now scrolls to top automatically
+- Admin UI:
+  - added direct `Open Discover` link from `/admin` to `/`
+  - added concise topic/rule examples with `Learn more` docs link
+- Dedupe normalization:
+  - URL normalization now strips query strings before hashing to reduce duplicate links with tracking parameters
+- Docs updated:
+  - `README.md`, `INSTALL.md`, `USAGE.md`, `config.example.json` aligned with new config key and query/rule guidance.
+
 ## 2026-02-15 - v2.2
 
 - Added CSRF token validation for all mutating user and admin APIs.

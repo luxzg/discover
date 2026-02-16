@@ -24,6 +24,7 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Score model with positive and negative weights
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next
+- Optional auto-hide for low-score unread items via `auto_hide_below_score`
 - Retention culling for old low-value unread items
 
 ## Build
@@ -42,6 +43,7 @@ go build -o discover ./cmd/discover
 ```
 
 If `config.json` does not exist, the app creates it and exits.
+If `config.json` exists, it is never overwritten; startup warns if expected keys are missing.
 
 Edit at least:
 - `admin_secret`
@@ -50,11 +52,13 @@ Edit at least:
 - `enable_tls`
 - `tls_cert_path` and `tls_key_path` when TLS is enabled
 - `listen_address` and `searxng_instances`
+- `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
 
 Then run again.
 
 Feed users sign in on `/` with `user_name` and `user_secret`.  
 Admin sign-in is separate on `/admin` using `admin_secret`.
+For topic/rule examples (`site:domain`, multi-word rule matching), see `USAGE.md`.
 
 ## Update Existing Install
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"discover/internal/matcher"
 	"discover/internal/model"
 )
 
@@ -144,20 +145,60 @@ func (s *Store) DeleteNegativeRule(ctx context.Context, id int64) error {
 }
 
 func (s *Store) ApplyRuleRetroactively(ctx context.Context, pattern string, penalty float64) error {
-	pattern = strings.ToLower(strings.TrimSpace(pattern))
+	pattern = strings.TrimSpace(pattern)
 	if pattern == "" {
 		return errors.New("empty pattern")
 	}
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE articles
-		SET score = score - ?, updated_at=CURRENT_TIMESTAMP
-		WHERE status='unread' AND (
-			instr(lower(title), ?) > 0 OR
-			instr(lower(content), ?) > 0 OR
-			instr(lower(source_domain), ?) > 0
-		)
-	`, penalty, pattern, pattern, pattern)
-	return err
+	type unreadArticle struct {
+		id           int64
+		title        string
+		content      string
+		sourceDomain string
+		articleURL   string
+	}
+	articles := make([]unreadArticle, 0, 128)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, title, content, source_domain, url
+		FROM articles
+		WHERE status='unread'
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var a unreadArticle
+		if err := rows.Scan(&a.id, &a.title, &a.content, &a.sourceDomain, &a.articleURL); err != nil {
+			return err
+		}
+		articles = append(articles, a)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, `UPDATE articles SET score = score - ?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, a := range articles {
+		if !matcher.MatchRule(pattern, a.title, a.content, a.sourceDomain, a.articleURL) {
+			continue
+		}
+		if _, err := stmt.ExecContext(ctx, penalty, a.id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 type UpsertArticleInput struct {
@@ -319,6 +360,18 @@ func (s *Store) CullOldUnread(ctx context.Context, olderThanDays int, maxScore f
 		  AND score <= ?
 		  AND ingested_at < datetime('now', ?)
 	`, maxScore, fmt.Sprintf("-%d days", olderThanDays))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func (s *Store) HideUnreadBelowScore(ctx context.Context, threshold float64) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE articles
+		SET status='hidden', updated_at=CURRENT_TIMESTAMP
+		WHERE status='unread' AND score < ?
+	`, threshold)
 	if err != nil {
 		return 0, err
 	}
