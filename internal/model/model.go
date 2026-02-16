@@ -20,10 +20,11 @@ type Topic struct {
 }
 
 type NegativeRule struct {
-	ID      int64   `json:"id"`
-	Pattern string  `json:"pattern"`
-	Penalty float64 `json:"penalty"`
-	Enabled bool    `json:"enabled"`
+	ID           int64   `json:"id"`
+	Pattern      string  `json:"pattern"`
+	Penalty      float64 `json:"penalty"`
+	Enabled      bool    `json:"enabled"`
+	AppliedCount int64   `json:"applied_count"`
 }
 
 type Article struct {

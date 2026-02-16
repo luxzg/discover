@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-02-16 - v2.4
+
+- Admin auth/session improvements:
+  - admin session cookie lifetime increased to 24 hours
+  - added admin session restore endpoint (`/admin/api/session`)
+  - admin UI now restores authenticated state after page reload when cookie is still valid
+- Added admin statistics (Part A):
+  - topics list now shows `unread` and `total` article counts per topic
+  - negative rules list now shows lifetime `applied` count
+- Added negative rule applied-count tracking:
+  - new DB column `negative_rules.applied_count` with safe migration
+  - counter increments during ingest when a rule penalty is matched
+  - counter increments during retroactive apply for unread matches
+- Added `TODO.md` with future roadmap item for automatic topic suggestions from reading history.
+
 ## 2026-02-16 - v2.3
 
 - Config behavior hardening:

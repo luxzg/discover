@@ -83,6 +83,7 @@ func (s *Service) Run(ctx context.Context) error {
 	totalEntries := 0
 	failedTopics := 0
 	lastTopicErr := ""
+	ruleApplyCounts := map[int64]int64{}
 
 	for i, topic := range topics {
 		if i > 0 {
@@ -110,7 +111,10 @@ func (s *Service) Run(ctx context.Context) error {
 			if err != nil || e.Title == "" {
 				continue
 			}
-			penalty := computePenalty(rules, e.Title, e.Content, domain, e.URL)
+			penalty, matchedRuleIDs := computePenalty(rules, e.Title, e.Content, domain, e.URL)
+			for _, ruleID := range matchedRuleIDs {
+				ruleApplyCounts[ruleID]++
+			}
 			extra := termBoost(topic.Query, e.Title, e.Content)
 			published := parsePublished(e.PublishedDate, e.Pubdate)
 			thumb := strings.TrimSpace(firstNonEmpty(e.Thumbnail, e.ImgSrc))
@@ -147,6 +151,9 @@ func (s *Service) Run(ctx context.Context) error {
 		} else if hiddenCount > 0 {
 			s.logf("ingest: auto-hidden %d unread article(s) with score < %.2f", hiddenCount, s.cfg.AutoHideBelowScore)
 		}
+	}
+	if err := s.store.IncrementNegativeRuleAppliedCounts(ctx, ruleApplyCounts); err != nil {
+		s.logf("ingest: negative rule counter update error: %v", err)
 	}
 	deleted, err := s.store.CullOldUnread(ctx, s.cfg.CullUnreadDays, s.cfg.CullMaxScore)
 	if err != nil {
@@ -338,14 +345,18 @@ func normalizeURL(raw string) (normalized, hash, domain string, err error) {
 	return normalized, hash, domain, nil
 }
 
-func computePenalty(rules []model.NegativeRule, title, content, domain, articleURL string) float64 {
+func computePenalty(rules []model.NegativeRule, title, content, domain, articleURL string) (float64, []int64) {
 	pen := 0.0
+	matched := make([]int64, 0, 2)
 	for _, r := range rules {
 		if matcher.MatchRule(r.Pattern, title, content, domain, articleURL) {
 			pen += r.Penalty
+			if r.ID > 0 {
+				matched = append(matched, r.ID)
+			}
 		}
 	}
-	return pen
+	return pen, matched
 }
 
 func termBoost(query, title, content string) float64 {

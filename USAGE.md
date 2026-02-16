@@ -33,6 +33,9 @@
 
 - Topic query can be plain words: `first person shooter`
 - Domain-focused topic query: `site:wccftech.com gpu`
-- Negative rule matching is token-based (no regex): `get off` matches text containing both words, even with words between
+- Negative rule matching is token-based (no regex):
+  - `get+off` is the same as `get off`
+  - `get off` is the same as `off get` (token order does not matter)
+  - match succeeds when all tokens exist anywhere in title/content/domain/url
 - Domain block rule example: `theinformation.com`
 - Negative rules apply immediately and retroactively to current `unread` entries

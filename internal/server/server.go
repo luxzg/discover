@@ -51,6 +51,7 @@ func (a *API) Routes() http.Handler {
 
 	mux.Handle("/admin/api/login", a.withJSON(http.HandlerFunc(a.handleAdminLogin)))
 	mux.Handle("/admin/api/logout", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminLogout)))))
+	mux.Handle("/admin/api/session", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminSession))))
 	mux.Handle("/admin/api/topics", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminTopics)))))
 	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminRules)))))
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
@@ -203,7 +204,12 @@ func (a *API) handleAdminTopics(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusInternalServerError, err)
 			return
 		}
-		respondJSON(w, http.StatusOK, map[string]any{"items": topics})
+		stats, err := a.store.TopicStats(r.Context())
+		if err != nil {
+			respondErr(w, http.StatusInternalServerError, err)
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]any{"items": topics, "topic_stats": stats})
 	case http.MethodPost:
 		var req model.Topic
 		if err := decodeJSON(r, a.cfg.MaxBodyBytes, &req); err != nil {
@@ -316,7 +322,7 @@ func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, err)
 		return
 	}
-	token, expires, err := a.guard.NewSession(r.RemoteAddr, 12*time.Hour)
+	token, expires, err := a.guard.NewSession(r.RemoteAddr, 24*time.Hour)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
@@ -382,6 +388,24 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		},
 		"counts": counts,
 	})
+}
+
+func (a *API) handleAdminSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	c, err := r.Cookie(auth.SessionCookieName)
+	if err != nil || !a.guard.ValidateSession(c.Value, r.RemoteAddr) {
+		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+		return
+	}
+	csrfToken, ok := a.guard.SessionCSRF(c.Value, r.RemoteAddr)
+	if !ok {
+		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
 }
 
 func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {

@@ -107,12 +107,18 @@ logoutBtn.onclick = async () => {
 
 async function loadTopics() {
   const j = await call('/admin/api/topics');
-  document.getElementById('topics').innerHTML = (j.items || []).map(t => `<li>${escHtml(t.query)} (w=${t.weight}, enabled=${t.enabled}) <button data-edit-topic="1" data-topic-query="${escAttr(t.query)}" data-topic-weight="${t.weight}" data-topic-enabled="${t.enabled}">edit</button> <button data-del-topic="${t.id}">delete</button></li>`).join('');
+  const stats = j.topic_stats || {};
+  document.getElementById('topics').innerHTML = (j.items || []).map(t => {
+    const s = stats[String(t.id)] || {};
+    const unread = Number(s.unread || 0);
+    const total = Number(s.total || 0);
+    return `<li>${escHtml(t.query)} (w=${t.weight}, enabled=${t.enabled}, unread=${unread}, total=${total}) <button data-edit-topic="1" data-topic-query="${escAttr(t.query)}" data-topic-weight="${t.weight}" data-topic-enabled="${t.enabled}">edit</button> <button data-del-topic="${t.id}">delete</button></li>`;
+  }).join('');
 }
 
 async function loadRules() {
   const j = await call('/admin/api/rules');
-  document.getElementById('rules').innerHTML = (j.items || []).map(r => `<li>${escHtml(r.pattern)} (-${r.penalty}, enabled=${r.enabled}) <button data-edit-rule="1" data-rule-pattern="${escAttr(r.pattern)}" data-rule-penalty="${r.penalty}" data-rule-enabled="${r.enabled}">edit</button> <button data-del-rule="${r.id}">delete</button></li>`).join('');
+  document.getElementById('rules').innerHTML = (j.items || []).map(r => `<li>${escHtml(r.pattern)} (-${r.penalty}, enabled=${r.enabled}, applied=${Number(r.applied_count || 0)}) <button data-edit-rule="1" data-rule-pattern="${escAttr(r.pattern)}" data-rule-penalty="${r.penalty}" data-rule-enabled="${r.enabled}">edit</button> <button data-del-rule="${r.id}">delete</button></li>`).join('');
 }
 
 document.getElementById('addTopic').onclick = async () => {
@@ -253,7 +259,23 @@ async function bootstrapAfterAuth() {
 }
 
 setAuthUI();
-status('sign in to access admin actions');
+status('checking session...');
+
+(async () => {
+  try {
+    const j = await call('/admin/api/session');
+    csrfToken = j.csrf_token || '';
+    authenticated = true;
+    setAuthUI();
+    status('session restored');
+    await bootstrapAfterAuth();
+  } catch (_) {
+    authenticated = false;
+    csrfToken = '';
+    setAuthUI();
+    status('sign in to access admin actions');
+  }
+})();
 
 setInterval(() => {
   refreshStatus().catch(() => {});

@@ -25,6 +25,11 @@ type StatusCounts struct {
 	Hidden int `json:"hidden"`
 }
 
+type TopicStats struct {
+	Unread int `json:"unread"`
+	Total  int `json:"total"`
+}
+
 func New(db *sql.DB) *Store {
 	return &Store{db: db}
 }
@@ -87,7 +92,7 @@ func (s *Store) DeleteTopic(ctx context.Context, id int64) error {
 }
 
 func (s *Store) ListEnabledNegativeRules(ctx context.Context) ([]model.NegativeRule, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, pattern, penalty, enabled FROM negative_rules WHERE enabled=1 ORDER BY id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, pattern, penalty, enabled, applied_count FROM negative_rules WHERE enabled=1 ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +101,7 @@ func (s *Store) ListEnabledNegativeRules(ctx context.Context) ([]model.NegativeR
 	for rows.Next() {
 		var r model.NegativeRule
 		var en int
-		if err := rows.Scan(&r.ID, &r.Pattern, &r.Penalty, &en); err != nil {
+		if err := rows.Scan(&r.ID, &r.Pattern, &r.Penalty, &en, &r.AppliedCount); err != nil {
 			return nil, err
 		}
 		r.Enabled = en == 1
@@ -106,7 +111,7 @@ func (s *Store) ListEnabledNegativeRules(ctx context.Context) ([]model.NegativeR
 }
 
 func (s *Store) ListNegativeRules(ctx context.Context) ([]model.NegativeRule, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, pattern, penalty, enabled FROM negative_rules ORDER BY id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, pattern, penalty, enabled, applied_count FROM negative_rules ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +120,7 @@ func (s *Store) ListNegativeRules(ctx context.Context) ([]model.NegativeRule, er
 	for rows.Next() {
 		var r model.NegativeRule
 		var en int
-		if err := rows.Scan(&r.ID, &r.Pattern, &r.Penalty, &en); err != nil {
+		if err := rows.Scan(&r.ID, &r.Pattern, &r.Penalty, &en, &r.AppliedCount); err != nil {
 			return nil, err
 		}
 		r.Enabled = en == 1
@@ -189,6 +194,7 @@ func (s *Store) ApplyRuleRetroactively(ctx context.Context, pattern string, pena
 		return err
 	}
 	defer stmt.Close()
+	matches := int64(0)
 
 	for _, a := range articles {
 		if !matcher.MatchRule(pattern, a.title, a.content, a.sourceDomain, a.articleURL) {
@@ -197,8 +203,69 @@ func (s *Store) ApplyRuleRetroactively(ctx context.Context, pattern string, pena
 		if _, err := stmt.ExecContext(ctx, penalty, a.id); err != nil {
 			return err
 		}
+		matches++
+	}
+	if matches > 0 {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE negative_rules
+			SET applied_count = applied_count + ?, updated_at=CURRENT_TIMESTAMP
+			WHERE pattern=?
+		`, matches, pattern); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
+}
+
+func (s *Store) IncrementNegativeRuleAppliedCounts(ctx context.Context, counts map[int64]int64) error {
+	if len(counts) == 0 {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `UPDATE negative_rules SET applied_count = applied_count + ?, updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for id, n := range counts {
+		if id <= 0 || n <= 0 {
+			continue
+		}
+		if _, err := stmt.ExecContext(ctx, n, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) TopicStats(ctx context.Context) (map[int64]TopicStats, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT at.topic_id,
+		       COUNT(*) AS total_count,
+		       SUM(CASE WHEN a.status='unread' THEN 1 ELSE 0 END) AS unread_count
+		FROM article_topics at
+		JOIN articles a ON a.id = at.article_id
+		GROUP BY at.topic_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64]TopicStats)
+	for rows.Next() {
+		var topicID int64
+		var total int
+		var unread int
+		if err := rows.Scan(&topicID, &total, &unread); err != nil {
+			return nil, err
+		}
+		out[topicID] = TopicStats{Unread: unread, Total: total}
+	}
+	return out, rows.Err()
 }
 
 type UpsertArticleInput struct {
