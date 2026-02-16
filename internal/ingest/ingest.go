@@ -202,6 +202,11 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 		for _, category := range []string{"news", ""} {
 			results, retryAfter, err := s.fetchFromInstance(ctx, base, q, category)
 			if err == nil {
+				if category == "news" && len(results) == 0 {
+					// News category can validly return 200 with no hits for site-limited
+					// or niche queries; fall back to general search before giving up.
+					continue
+				}
 				return results, nil
 			}
 			if retryAfter > 0 {
