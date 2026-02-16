@@ -1,10 +1,13 @@
 # Changelog
 
-## 2026-02-16 - Changelog Note (no version change)
+## 2026-02-16 - v2.5
 
-- Documented post-v2.4 ingest fix:
+- Ingest query fallback fix:
   - when `categories=news` returns HTTP 200 with zero results, ingest now falls back to general search instead of stopping early
-  - this improves topic coverage for `site:...` queries and other niche filters
+  - improves coverage for `site:...` queries and other niche filters that may be missing from the news category
+
+## 2026-02-16 - Docs Note (no version change)
+
 - Clarified rule-token syntax in docs:
   - `get+off` is equivalent to `get off`
   - token order does not matter (`get off` == `off get`)
