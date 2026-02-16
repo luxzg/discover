@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-02-16 - Changelog Note (no version change)
+
+- Documented post-v2.4 ingest fix:
+  - when `categories=news` returns HTTP 200 with zero results, ingest now falls back to general search instead of stopping early
+  - this improves topic coverage for `site:...` queries and other niche filters
+- Clarified rule-token syntax in docs:
+  - `get+off` is equivalent to `get off`
+  - token order does not matter (`get off` == `off get`)
+
 ## 2026-02-16 - v2.4
 
 - Admin auth/session improvements:
