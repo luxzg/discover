@@ -69,21 +69,23 @@ function card(item) {
 }
 
 async function loadFeed() {
-  if (!authenticated) return;
+  if (!authenticated) return 0;
   try {
     const data = await api('/api/feed');
     const items = data.items || [];
     currentIds = items.map(i => i.id);
     feed.innerHTML = items.map(card).join('');
     statusEl.textContent = `${new Date().toISOString()} loaded ${items.length} cards`;
+    return items.length;
   } catch (e) {
     if (e.status === 401) {
       authenticated = false;
       setAuthUI();
       statusEl.textContent = `${new Date().toISOString()} sign in required`;
-      return;
+      return 0;
     }
     statusEl.textContent = `${new Date().toISOString()} feed load failed: ${e.message}`;
+    return 0;
   }
 }
 
@@ -123,7 +125,20 @@ nextBtn.addEventListener('click', async () => {
   if (!authenticated) return;
   try {
     if (currentIds.length) await api('/api/feed/seen', { method: 'POST', body: JSON.stringify({ ids: currentIds }) });
-    await loadFeed();
+    let count = await loadFeed();
+    if (count === 0) {
+      statusEl.textContent = `${new Date().toISOString()} no cards left; trying ingest refresh...`;
+      try {
+        await api('/api/feed/refresh', { method: 'POST', body: JSON.stringify({}) });
+        statusEl.textContent = `${new Date().toISOString()} ingest refresh completed; loading feed`;
+      } catch (refreshErr) {
+        statusEl.textContent = `${new Date().toISOString()} ingest refresh skipped: ${refreshErr.message}`;
+      }
+      count = await loadFeed();
+      if (count === 0) {
+        statusEl.textContent = `${new Date().toISOString()} no cards available right now`;
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     statusEl.textContent = `${new Date().toISOString()} next batch failed: ${e.message}`;

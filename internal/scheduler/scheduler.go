@@ -15,14 +15,19 @@ type Runner interface {
 
 type Scheduler struct {
 	dailyHHMM string
+	interval  time.Duration
 	runner    Runner
 	mu        sync.Mutex
 	running   bool
 	state     RunState
 }
 
-func New(dailyHHMM string, runner Runner) *Scheduler {
-	return &Scheduler{dailyHHMM: dailyHHMM, runner: runner}
+func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
+	var d time.Duration
+	if intervalMinutes > 0 {
+		d = time.Duration(intervalMinutes) * time.Minute
+	}
+	return &Scheduler{dailyHHMM: dailyHHMM, interval: d, runner: runner}
 }
 
 type RunState struct {
@@ -37,27 +42,55 @@ type RunState struct {
 
 func (s *Scheduler) Start(ctx context.Context) {
 	go func() {
-		for {
-			next, err := nextRun(time.Now(), s.dailyHHMM)
-			if err != nil {
-				log.Printf("scheduler: invalid daily time %q: %v", s.dailyHHMM, err)
-				return
-			}
-			wait := time.Until(next)
-			if wait < 0 {
-				wait = 0
-			}
-			log.Printf("scheduler: next ingestion at %s", next.Format(time.RFC3339))
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(wait):
-			}
-			if err := s.run(ctx, "scheduled"); err != nil {
-				log.Printf("scheduler: ingestion run error: %v", err)
-			}
+		if s.interval > 0 {
+			s.startInterval(ctx)
+			return
 		}
+		s.startDaily(ctx)
 	}()
+}
+
+func (s *Scheduler) startInterval(ctx context.Context) {
+	next := time.Now().Add(s.interval)
+	for {
+		wait := time.Until(next)
+		if wait < 0 {
+			wait = 0
+		}
+		log.Printf("scheduler: next ingestion at %s", next.Format(time.RFC3339))
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		if err := s.run(ctx, "scheduled"); err != nil {
+			log.Printf("scheduler: ingestion run error: %v", err)
+		}
+		next = time.Now().Add(s.interval)
+	}
+}
+
+func (s *Scheduler) startDaily(ctx context.Context) {
+	for {
+		next, err := nextRun(time.Now(), s.dailyHHMM)
+		if err != nil {
+			log.Printf("scheduler: invalid daily time %q: %v", s.dailyHHMM, err)
+			return
+		}
+		wait := time.Until(next)
+		if wait < 0 {
+			wait = 0
+		}
+		log.Printf("scheduler: next ingestion at %s", next.Format(time.RFC3339))
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		if err := s.run(ctx, "scheduled"); err != nil {
+			log.Printf("scheduler: ingestion run error: %v", err)
+		}
+	}
 }
 
 func (s *Scheduler) RunNow(ctx context.Context) error {
@@ -75,7 +108,7 @@ func (s *Scheduler) run(ctx context.Context, source string) error {
 		sinceLast := time.Since(s.state.LastCompletedAt)
 		if sinceLast < minRunGap {
 			s.mu.Unlock()
-			return &runErr{msg: "ingestion just completed; wait a few seconds before starting again"}
+			return ErrIngestCooldown
 		}
 	}
 	s.running = true
@@ -117,7 +150,10 @@ func (s *Scheduler) Snapshot() RunState {
 	return s.state
 }
 
-var ErrIngestAlreadyRunning = &runErr{"ingestion already running"}
+var (
+	ErrIngestAlreadyRunning = &runErr{"ingestion already running"}
+	ErrIngestCooldown       = &runErr{"ingestion just completed; wait a few seconds before starting again"}
+)
 
 type runErr struct{ msg string }
 

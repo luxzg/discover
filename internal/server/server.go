@@ -45,6 +45,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/api/session", a.withJSON(http.HandlerFunc(a.handleUserSession)))
 	mux.Handle("/api/feed", a.userOnly(a.withJSON(http.HandlerFunc(a.handleFeed))))
 	mux.Handle("/api/feed/seen", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleMarkSeen)))))
+	mux.Handle("/api/feed/refresh", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleFeedRefresh)))))
 	mux.Handle("/api/articles/action", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleAction)))))
 	mux.Handle("/api/articles/click", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleClick)))))
 	mux.Handle("/api/articles/dontshow", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleDontShow)))))
@@ -92,7 +93,7 @@ func (a *API) handleFeed(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-	items, err := a.store.FetchTopUnread(r.Context(), limit)
+	items, err := a.store.FetchTopUnread(r.Context(), limit, a.cfg.FeedMinScore)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
@@ -113,6 +114,24 @@ func (a *API) handleMarkSeen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.store.MarkIDsAsSeen(r.Context(), req.IDs); err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *API) handleFeedRefresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := a.scheduler.RunNow(ctx); err != nil {
+		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) {
+			respondErr(w, http.StatusConflict, err)
+			return
+		}
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -287,7 +306,7 @@ func (a *API) handleAdminIngest(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	if err := a.scheduler.RunNow(ctx); err != nil {
-		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) {
+		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) {
 			respondErr(w, http.StatusConflict, err)
 			return
 		}

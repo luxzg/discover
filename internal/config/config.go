@@ -24,6 +24,7 @@ type Config struct {
 	AdminBindCIDRs        []string `json:"admin_bind_cidrs"`
 	DatabasePath          string   `json:"database_path"`
 	DailyIngestTime       string   `json:"daily_ingest_time"`
+	IngestIntervalMinutes int      `json:"ingest_interval_minutes"`
 	SearxngInstances      []string `json:"searxng_instances"`
 	PerQueryDelaySeconds  int      `json:"per_query_delay_seconds"`
 	PerQueryJitterSeconds int      `json:"per_query_jitter_seconds"`
@@ -32,6 +33,7 @@ type Config struct {
 	HTTPIdleTimeoutSec    int      `json:"http_idle_timeout_sec"`
 	MaxBodyBytes          int64    `json:"max_body_bytes"`
 	DefaultBatchSize      int      `json:"default_batch_size"`
+	FeedMinScore          float64  `json:"feed_min_score"`
 	AutoHideBelowScore    float64  `json:"auto_hide_below_score"`
 	CullUnreadDays        int      `json:"cull_unread_days"`
 	CullMaxScore          float64  `json:"cull_max_score"`
@@ -49,6 +51,7 @@ func defaultConfig() Config {
 		AdminBindCIDRs:        []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
 		DatabasePath:          "discover.db",
 		DailyIngestTime:       "07:30",
+		IngestIntervalMinutes: 120,
 		SearxngInstances:      []string{"http://localhost:8888"},
 		PerQueryDelaySeconds:  5,
 		PerQueryJitterSeconds: 5,
@@ -57,6 +60,7 @@ func defaultConfig() Config {
 		HTTPIdleTimeoutSec:    60,
 		MaxBodyBytes:          1 << 20,
 		DefaultBatchSize:      10,
+		FeedMinScore:          1,
 		AutoHideBelowScore:    1,
 		CullUnreadDays:        30,
 		CullMaxScore:          0,
@@ -125,6 +129,15 @@ func (c Config) Validate() error {
 	if c.DefaultBatchSize <= 0 || c.DefaultBatchSize > 100 {
 		return errors.New("default_batch_size must be 1..100")
 	}
+	if c.IngestIntervalMinutes < 0 || c.IngestIntervalMinutes > 24*60 {
+		return errors.New("ingest_interval_minutes out of range")
+	}
+	if c.IngestIntervalMinutes > 0 && c.IngestIntervalMinutes < 5 {
+		return errors.New("ingest_interval_minutes must be >=5 when enabled")
+	}
+	if c.FeedMinScore < -100 || c.FeedMinScore > 1000 {
+		return errors.New("feed_min_score out of range")
+	}
 	if c.AutoHideBelowScore < -100 || c.AutoHideBelowScore > 1000 {
 		return errors.New("auto_hide_below_score out of range")
 	}
@@ -154,6 +167,7 @@ func MissingKeys(path string) ([]string, error) {
 		"admin_bind_cidrs",
 		"database_path",
 		"daily_ingest_time",
+		"ingest_interval_minutes",
 		"searxng_instances",
 		"per_query_delay_seconds",
 		"per_query_jitter_seconds",
@@ -162,6 +176,7 @@ func MissingKeys(path string) ([]string, error) {
 		"http_idle_timeout_sec",
 		"max_body_bytes",
 		"default_batch_size",
+		"feed_min_score",
 		"auto_hide_below_score",
 		"cull_unread_days",
 		"cull_max_score",

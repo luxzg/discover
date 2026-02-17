@@ -56,7 +56,7 @@ func main() {
 		log.Fatalf("init user auth: %v", err)
 	}
 	ingester := ingest.New(cfg, st)
-	sched := scheduler.New(cfg.DailyIngestTime, ingester)
+	sched := scheduler.New(cfg.DailyIngestTime, cfg.IngestIntervalMinutes, ingester)
 
 	api := server.New(cfg, st, sched, ingester, guard, userGuard, server.AssetsHandler())
 	httpServer := &http.Server{

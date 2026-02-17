@@ -79,6 +79,8 @@ Example important keys:
   "admin_secret": "replace-with-strong-random-secret",
   "database_path": "discover.db",
   "daily_ingest_time": "07:30",
+  "ingest_interval_minutes": 120,
+  "feed_min_score": 1,
   "auto_hide_below_score": 1,
   "searxng_instances": ["http://localhost:8888"]
 }

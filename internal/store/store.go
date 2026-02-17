@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"discover/internal/matcher"
 	"discover/internal/model"
@@ -340,22 +341,30 @@ func (s *Store) UpsertArticleHit(ctx context.Context, in UpsertArticleInput) err
 	return tx.Commit()
 }
 
-func (s *Store) FetchTopUnread(ctx context.Context, limit int) ([]model.Article, error) {
+func (s *Store) FetchTopUnread(ctx context.Context, limit int, minScore float64) ([]model.Article, error) {
+	queryLimit := limit * 6
+	if queryLimit < 50 {
+		queryLimit = 50
+	}
+	if queryLimit > 600 {
+		queryLimit = 600
+	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, url, normalized_url, url_hash, title, content, thumbnail_url,
 			source_domain, COALESCE(published_at, ingested_at), ingested_at,
 			status, score, hit_count, engine_count, searx_score
 		FROM articles
-		WHERE status='unread'
+		WHERE status='unread' AND score >= ?
 		ORDER BY score DESC, COALESCE(published_at, ingested_at) DESC, id DESC
 		LIMIT ?
-	`, limit)
+	`, minScore, queryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	out := make([]model.Article, 0, limit)
+	seenSubject := make(map[string]struct{}, limit*2)
 	for rows.Next() {
 		var a model.Article
 		var status string
@@ -368,9 +377,22 @@ func (s *Store) FetchTopUnread(ctx context.Context, limit int) ([]model.Article,
 		a.PublishedAt = parseDBTime(publishedRaw)
 		a.IngestedAt = parseDBTime(ingestedRaw)
 		a.Status = model.ArticleStatus(status)
+		key := subjectKey(a.Title)
+		if key != "" {
+			if _, ok := seenSubject[key]; ok {
+				continue
+			}
+			seenSubject[key] = struct{}{}
+		}
 		out = append(out, a)
+		if len(out) >= limit {
+			break
+		}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *Store) MarkIDsAsSeen(ctx context.Context, ids []int64) error {
@@ -529,4 +551,27 @@ func parseDBTimeString(s string) time.Time {
 		}
 	}
 	return time.Time{}
+}
+
+func subjectKey(title string) string {
+	title = strings.ToLower(strings.TrimSpace(title))
+	if title == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(title))
+	lastSpace := false
+	for _, r := range title {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(r)
+			lastSpace = false
+			continue
+		}
+		if !lastSpace {
+			b.WriteByte(' ')
+			lastSpace = true
+		}
+	}
+	key := strings.Join(strings.Fields(b.String()), " ")
+	return key
 }

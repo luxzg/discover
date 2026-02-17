@@ -197,24 +197,17 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 			lastErr = fmt.Errorf("instance %s temporarily blocked for %s after previous 429", base, wait.Round(time.Second))
 			continue
 		}
-
-		// Prefer news category first, then fallback to general if needed.
-		for _, category := range []string{"news", ""} {
-			results, retryAfter, err := s.fetchFromInstance(ctx, base, q, category)
-			if err == nil {
-				if category == "news" && len(results) == 0 {
-					// News category can validly return 200 with no hits for site-limited
-					// or niche queries; fall back to general search before giving up.
-					continue
-				}
-				return results, nil
-			}
-			if retryAfter > 0 {
-				rateLimited++
-				s.setBlocked(base, retryAfter)
-				lastErr = fmt.Errorf("instance %s rate-limited (429), retry after %s", base, retryAfter.Round(time.Second))
-				break
-			}
+		results, retryAfter, err := s.fetchHarvestFromInstance(ctx, base, q)
+		if err == nil && len(results) > 0 {
+			return results, nil
+		}
+		if retryAfter > 0 {
+			rateLimited++
+			s.setBlocked(base, retryAfter)
+			lastErr = fmt.Errorf("instance %s rate-limited (429), retry after %s", base, retryAfter.Round(time.Second))
+			continue
+		}
+		if err != nil {
 			lastErr = err
 		}
 	}
@@ -227,7 +220,48 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 	return nil, lastErr
 }
 
-func (s *Service) fetchFromInstance(ctx context.Context, base, q, category string) ([]searxEntry, time.Duration, error) {
+func (s *Service) fetchHarvestFromInstance(ctx context.Context, base, q string) ([]searxEntry, time.Duration, error) {
+	categories := []string{"news", ""}
+	timeRanges := []string{"day", "week"}
+	pages := []int{1, 2}
+	const count = 50
+
+	out := make([]searxEntry, 0, 128)
+	seen := make(map[string]struct{}, 256)
+	var lastErr error
+
+	for _, category := range categories {
+		for _, timeRange := range timeRanges {
+			for _, page := range pages {
+				results, retryAfter, err := s.fetchFromInstance(ctx, base, q, category, timeRange, page, count)
+				if retryAfter > 0 {
+					return nil, retryAfter, err
+				}
+				if err != nil {
+					lastErr = err
+					continue
+				}
+				for _, r := range results {
+					key := strings.TrimSpace(r.URL)
+					if key == "" {
+						continue
+					}
+					if _, ok := seen[key]; ok {
+						continue
+					}
+					seen[key] = struct{}{}
+					out = append(out, r)
+				}
+			}
+		}
+	}
+	if len(out) == 0 && lastErr != nil {
+		return nil, 0, lastErr
+	}
+	return out, 0, nil
+}
+
+func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, timeRange string, page, count int) ([]searxEntry, time.Duration, error) {
 	u, err := url.Parse(strings.TrimRight(base, "/"))
 	if err != nil {
 		return nil, 0, err
@@ -235,8 +269,10 @@ func (s *Service) fetchFromInstance(ctx context.Context, base, q, category strin
 	u.Path = path.Join(u.Path, "/search")
 	params := u.Query()
 	params.Set("q", q)
-	params.Set("time_range", "week")
+	params.Set("time_range", timeRange)
 	params.Set("format", "json")
+	params.Set("pageno", strconv.Itoa(page))
+	params.Set("count", strconv.Itoa(count))
 	if category != "" {
 		params.Set("categories", category)
 	}

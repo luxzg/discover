@@ -11,6 +11,7 @@
   - `👎 Hide` -> `hidden`
   - `🚫 Don't show` -> creates negative rule, retroactively penalizes unread, hides card
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
+- If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
 
 ## Admin UI
 
@@ -22,12 +23,17 @@
 
 ## Ingestion Behavior
 
-- Scheduled once daily at fixed local wall-clock `daily_ingest_time`
+- Scheduling modes:
+  - interval mode via `ingest_interval_minutes` (default every 2 hours)
+  - daily mode via `daily_ingest_time` when interval mode is disabled (`ingest_interval_minutes=0`)
 - Queries are run sequentially with configurable delay+jitter
-- Query scope uses `time_range=week`
-- Ingest tries `categories=news` first, then falls back to general search when needed
+- Query scope uses both `time_range=day` and `time_range=week`
+- Ingest pulls both `categories=news` and general search (no category)
+- Each query pulls page 1 and page 2 with larger result count per request
 - If one SearXNG instance fails, the next is tried
-- Dedup is by hash(normalized URL)
+- Dedup is two-pass:
+  - URL-based hash dedupe at ingest
+  - subject/title dedupe at feed selection time
 
 ## Query And Rule Tips
 

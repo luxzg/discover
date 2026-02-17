@@ -18,7 +18,9 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Feed access protected by user login session (`user_name` + `user_secret`)
 - SQLite persistence with `modernc.org/sqlite` (pure Go, no CGO)
 - Embedded frontend assets in the binary
-- Fixed-time daily ingestion scheduler (wall-clock anchored, no drift)
+- Configurable scheduler:
+  - interval mode (`ingest_interval_minutes`, default 120)
+  - daily wall-clock mode (`daily_ingest_time`) when interval is disabled
 - Manual ingest trigger in admin UI
 - URL normalization + hash dedup
 - Score model with positive and negative weights
@@ -52,6 +54,8 @@ Edit at least:
 - `enable_tls`
 - `tls_cert_path` and `tls_key_path` when TLS is enabled
 - `listen_address` and `searxng_instances`
+- `ingest_interval_minutes` (default `120`; set `0` to use `daily_ingest_time`)
+- `feed_min_score` (recommended `1` to avoid low-score cards in feed)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
 
 Then run again.

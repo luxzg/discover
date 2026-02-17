@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-02-17 - v2.6
+
+- Feed selection hardening:
+  - added `feed_min_score` config filter to exclude low-score unread items from user feed query
+  - added second-pass feed dedupe by normalized subject/title to suppress repeated story headlines
+- Scheduler frequency improvements:
+  - added configurable interval mode via `ingest_interval_minutes` (default 120 minutes)
+  - daily mode remains available via `daily_ingest_time` when interval mode is disabled (`ingest_interval_minutes=0`)
+- Ingestion expansion for more coverage:
+  - for each topic, ingest now requests both `categories=news` and general search
+  - ingest now requests both `time_range=day` and `time_range=week`
+  - ingest now requests page 1 and page 2 with larger page size (`count=50`)
+- Feed empty-state refresh:
+  - added user endpoint `/api/feed/refresh` to run manual ingest from feed UI
+  - `Load Next` now triggers refresh when zero cards are returned, while honoring running/cooldown guards
+- Scheduler/API consistency:
+  - introduced explicit cooldown error sentinel handling for both admin/manual and feed-triggered refresh paths
+- Docs/config updates:
+  - added new keys to config/docs/examples: `ingest_interval_minutes`, `feed_min_score`
+  - updated usage docs with new ingest scope and refresh behavior.
+
 ## 2026-02-16 - v2.5
 
 - Ingest query fallback fix:
