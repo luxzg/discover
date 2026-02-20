@@ -36,6 +36,21 @@ function esc(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function publishedLabel(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (!Number.isFinite(d.getTime()) || d.getUTCFullYear() < 2000) return '';
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const days = Math.floor((now.getTime() - d.getTime()) / dayMs);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 14) return `${days} days ago`;
+  if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+  if (days < 365) return `${Math.floor(days / 30)} months ago`;
+  return `${Math.floor(days / 365)} years ago`;
+}
+
 function setAuthUI() {
   userAuthTitle.hidden = authenticated;
   userNameEl.hidden = authenticated;
@@ -53,12 +68,14 @@ function setAuthUI() {
 
 function card(item) {
   const img = item.thumbnail_url ? `<img class="thumb" src="${esc(item.thumbnail_url)}" alt="">` : '';
+  const pub = publishedLabel(item.published_at);
+  const pubPart = pub ? ` | ${esc(pub)}` : '';
   return `<article class="card" data-id="${item.id}">
     ${img}
     <a class="card-link" href="${esc(item.url)}" target="_blank" rel="noopener" data-click="1">
       <div class="card-main">
         <h3 class="card-title">${esc(item.title)}</h3>
-        <div class="card-source">${esc(item.source_domain || 'unknown')} | score ${Number(item.score).toFixed(2)}</div>
+        <div class="card-source">${esc(item.source_domain || 'unknown')} | score ${Number(item.score).toFixed(2)}${pubPart}</div>
       </div>
     </a>
     <div class="menu"><button data-menu="1">⋯</button><div class="menu-panel">

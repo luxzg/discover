@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-02-20 - v2.9
+
+- Feed card metadata update:
+  - added human-friendly relative publish-time label (`today`, `yesterday`, `N days/weeks/months ago`) when publish date is available
+  - if publish date is missing/invalid, date text is omitted entirely and card meta remains `domain | score`
+
 ## 2026-02-20 - v2.8
 
 - Fixed feed hide-action penalty prefill source:
