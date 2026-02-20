@@ -475,7 +475,11 @@ func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.cfg.EnableTLS,
 		Expires:  expires,
 	})
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"ok":                        true,
+		"csrf_token":                csrfToken,
+		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+	})
 }
 
 func (a *API) handleUserLogout(w http.ResponseWriter, r *http.Request) {
@@ -514,7 +518,11 @@ func (a *API) handleUserSession(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"ok":                        true,
+		"csrf_token":                csrfToken,
+		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+	})
 }
 
 func decodeJSON(r *http.Request, maxBody int64, out any) error {

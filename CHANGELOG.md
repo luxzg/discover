@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-02-20 - v2.8
+
+- Fixed feed hide-action penalty prefill source:
+  - `/api/login` and `/api/session` (user auth endpoints) now return `hide_rule_default_penalty`
+  - feed popup penalty defaults now correctly follow `config.json` value (fallback remains `10`)
+
 ## 2026-02-20 - v2.7
 
 - Feed negative-action improvements:
