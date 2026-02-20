@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-02-20 - v2.7
+
+- Feed negative-action improvements:
+  - renamed menu action to `Hide This`
+  - added new `Hide Domain` action that extracts URL hostname automatically
+  - both actions now prompt for editable penalty (prefilled from config default)
+- Added config key `hide_rule_default_penalty` (default `10`) used by feed hide-action penalty prefill.
+- User auth API enhancements:
+  - `/api/login` and `/api/session` now return `hide_rule_default_penalty` for feed UI defaults
+- Negative rule update behavior corrected:
+  - updating an existing rule now reapplies penalty by delta for current unread entries
+  - disabling a rule reverses its unread penalty effect by delta
+  - retroactive `applied_count` increments only on positive-penalty applications
+
 ## 2026-02-17 - v2.6
 
 - Feed selection hardening:

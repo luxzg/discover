@@ -131,18 +131,42 @@ func (s *Store) ListNegativeRules(ctx context.Context) ([]model.NegativeRule, er
 }
 
 func (s *Store) UpsertNegativeRule(ctx context.Context, rule model.NegativeRule) error {
-	_, err := s.db.ExecContext(ctx, `
+	pattern := strings.TrimSpace(rule.Pattern)
+	if pattern == "" {
+		return errors.New("empty pattern")
+	}
+	var prevPenalty float64
+	var prevEnabled int
+	err := s.db.QueryRowContext(ctx, `SELECT penalty, enabled FROM negative_rules WHERE pattern=?`, pattern).Scan(&prevPenalty, &prevEnabled)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO negative_rules(pattern, penalty, enabled, updated_at)
 		VALUES(?,?,?,CURRENT_TIMESTAMP)
 		ON CONFLICT(pattern) DO UPDATE SET
 			penalty=excluded.penalty,
 			enabled=excluded.enabled,
 			updated_at=CURRENT_TIMESTAMP
-	`, strings.TrimSpace(rule.Pattern), rule.Penalty, boolInt(rule.Enabled))
+	`, pattern, rule.Penalty, boolInt(rule.Enabled))
 	if err != nil {
 		return err
 	}
-	return s.ApplyRuleRetroactively(ctx, rule.Pattern, rule.Penalty)
+
+	prevActive := 0.0
+	if prevEnabled == 1 {
+		prevActive = prevPenalty
+	}
+	newActive := 0.0
+	if rule.Enabled {
+		newActive = rule.Penalty
+	}
+	delta := newActive - prevActive
+	if delta == 0 {
+		return nil
+	}
+	return s.ApplyRuleRetroactively(ctx, pattern, delta)
 }
 
 func (s *Store) DeleteNegativeRule(ctx context.Context, id int64) error {
@@ -206,7 +230,7 @@ func (s *Store) ApplyRuleRetroactively(ctx context.Context, pattern string, pena
 		}
 		matches++
 	}
-	if matches > 0 {
+	if matches > 0 && penalty > 0 {
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE negative_rules
 			SET applied_count = applied_count + ?, updated_at=CURRENT_TIMESTAMP

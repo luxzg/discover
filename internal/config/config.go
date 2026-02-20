@@ -14,56 +14,58 @@ const defaultAdminSecret = "CHANGEME_STRONG_SECRET"
 const defaultUserSecret = "CHANGEME_USER_SECRET"
 
 type Config struct {
-	ListenAddress         string   `json:"listen_address"`
-	EnableTLS             bool     `json:"enable_tls"`
-	TLSCertPath           string   `json:"tls_cert_path"`
-	TLSKeyPath            string   `json:"tls_key_path"`
-	UserName              string   `json:"user_name"`
-	UserSecret            string   `json:"user_secret"`
-	AdminSecret           string   `json:"admin_secret"`
-	AdminBindCIDRs        []string `json:"admin_bind_cidrs"`
-	DatabasePath          string   `json:"database_path"`
-	DailyIngestTime       string   `json:"daily_ingest_time"`
-	IngestIntervalMinutes int      `json:"ingest_interval_minutes"`
-	SearxngInstances      []string `json:"searxng_instances"`
-	PerQueryDelaySeconds  int      `json:"per_query_delay_seconds"`
-	PerQueryJitterSeconds int      `json:"per_query_jitter_seconds"`
-	HTTPReadTimeoutSec    int      `json:"http_read_timeout_sec"`
-	HTTPWriteTimeoutSec   int      `json:"http_write_timeout_sec"`
-	HTTPIdleTimeoutSec    int      `json:"http_idle_timeout_sec"`
-	MaxBodyBytes          int64    `json:"max_body_bytes"`
-	DefaultBatchSize      int      `json:"default_batch_size"`
-	FeedMinScore          float64  `json:"feed_min_score"`
-	AutoHideBelowScore    float64  `json:"auto_hide_below_score"`
-	CullUnreadDays        int      `json:"cull_unread_days"`
-	CullMaxScore          float64  `json:"cull_max_score"`
+	ListenAddress          string   `json:"listen_address"`
+	EnableTLS              bool     `json:"enable_tls"`
+	TLSCertPath            string   `json:"tls_cert_path"`
+	TLSKeyPath             string   `json:"tls_key_path"`
+	UserName               string   `json:"user_name"`
+	UserSecret             string   `json:"user_secret"`
+	AdminSecret            string   `json:"admin_secret"`
+	AdminBindCIDRs         []string `json:"admin_bind_cidrs"`
+	DatabasePath           string   `json:"database_path"`
+	DailyIngestTime        string   `json:"daily_ingest_time"`
+	IngestIntervalMinutes  int      `json:"ingest_interval_minutes"`
+	SearxngInstances       []string `json:"searxng_instances"`
+	PerQueryDelaySeconds   int      `json:"per_query_delay_seconds"`
+	PerQueryJitterSeconds  int      `json:"per_query_jitter_seconds"`
+	HTTPReadTimeoutSec     int      `json:"http_read_timeout_sec"`
+	HTTPWriteTimeoutSec    int      `json:"http_write_timeout_sec"`
+	HTTPIdleTimeoutSec     int      `json:"http_idle_timeout_sec"`
+	MaxBodyBytes           int64    `json:"max_body_bytes"`
+	DefaultBatchSize       int      `json:"default_batch_size"`
+	FeedMinScore           float64  `json:"feed_min_score"`
+	AutoHideBelowScore     float64  `json:"auto_hide_below_score"`
+	HideRuleDefaultPenalty float64  `json:"hide_rule_default_penalty"`
+	CullUnreadDays         int      `json:"cull_unread_days"`
+	CullMaxScore           float64  `json:"cull_max_score"`
 }
 
 func defaultConfig() Config {
 	return Config{
-		ListenAddress:         ":8443",
-		EnableTLS:             true,
-		TLSCertPath:           "/etc/letsencrypt/live/example.com/fullchain.pem",
-		TLSKeyPath:            "/etc/letsencrypt/live/example.com/privkey.pem",
-		UserName:              "discover",
-		UserSecret:            defaultUserSecret,
-		AdminSecret:           defaultAdminSecret,
-		AdminBindCIDRs:        []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
-		DatabasePath:          "discover.db",
-		DailyIngestTime:       "07:30",
-		IngestIntervalMinutes: 120,
-		SearxngInstances:      []string{"http://localhost:8888"},
-		PerQueryDelaySeconds:  5,
-		PerQueryJitterSeconds: 5,
-		HTTPReadTimeoutSec:    10,
-		HTTPWriteTimeoutSec:   20,
-		HTTPIdleTimeoutSec:    60,
-		MaxBodyBytes:          1 << 20,
-		DefaultBatchSize:      10,
-		FeedMinScore:          1,
-		AutoHideBelowScore:    1,
-		CullUnreadDays:        30,
-		CullMaxScore:          0,
+		ListenAddress:          ":8443",
+		EnableTLS:              true,
+		TLSCertPath:            "/etc/letsencrypt/live/example.com/fullchain.pem",
+		TLSKeyPath:             "/etc/letsencrypt/live/example.com/privkey.pem",
+		UserName:               "discover",
+		UserSecret:             defaultUserSecret,
+		AdminSecret:            defaultAdminSecret,
+		AdminBindCIDRs:         []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
+		DatabasePath:           "discover.db",
+		DailyIngestTime:        "07:30",
+		IngestIntervalMinutes:  120,
+		SearxngInstances:       []string{"http://localhost:8888"},
+		PerQueryDelaySeconds:   5,
+		PerQueryJitterSeconds:  5,
+		HTTPReadTimeoutSec:     10,
+		HTTPWriteTimeoutSec:    20,
+		HTTPIdleTimeoutSec:     60,
+		MaxBodyBytes:           1 << 20,
+		DefaultBatchSize:       10,
+		FeedMinScore:           1,
+		AutoHideBelowScore:     1,
+		HideRuleDefaultPenalty: 10,
+		CullUnreadDays:         30,
+		CullMaxScore:           0,
 	}
 }
 
@@ -138,6 +140,9 @@ func (c Config) Validate() error {
 	if c.FeedMinScore < -100 || c.FeedMinScore > 1000 {
 		return errors.New("feed_min_score out of range")
 	}
+	if c.HideRuleDefaultPenalty <= 0 || c.HideRuleDefaultPenalty > 1000 {
+		return errors.New("hide_rule_default_penalty must be >0 and <=1000")
+	}
 	if c.AutoHideBelowScore < -100 || c.AutoHideBelowScore > 1000 {
 		return errors.New("auto_hide_below_score out of range")
 	}
@@ -178,6 +183,7 @@ func MissingKeys(path string) ([]string, error) {
 		"default_batch_size",
 		"feed_min_score",
 		"auto_hide_below_score",
+		"hide_rule_default_penalty",
 		"cull_unread_days",
 		"cull_max_score",
 	}

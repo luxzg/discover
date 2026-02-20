@@ -27,6 +27,7 @@
   "default_batch_size": 10,
   "feed_min_score": 1,
   "auto_hide_below_score": 1,
+  "hide_rule_default_penalty": 10,
   "cull_unread_days": 30,
   "cull_max_score": 0
 }

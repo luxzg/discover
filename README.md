@@ -57,6 +57,7 @@ Edit at least:
 - `ingest_interval_minutes` (default `120`; set `0` to use `daily_ingest_time`)
 - `feed_min_score` (recommended `1` to avoid low-score cards in feed)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
+- `hide_rule_default_penalty` (default penalty prefill used by feed menu hide actions)
 
 Then run again.
 

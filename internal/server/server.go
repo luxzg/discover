@@ -360,7 +360,11 @@ func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   a.cfg.EnableTLS,
 		Expires:  expires,
 	})
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"ok":                        true,
+		"csrf_token":                csrfToken,
+		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+	})
 }
 
 func (a *API) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
@@ -424,7 +428,11 @@ func (a *API) handleAdminSession(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "csrf_token": csrfToken})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"ok":                        true,
+		"csrf_token":                csrfToken,
+		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+	})
 }
 
 func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {

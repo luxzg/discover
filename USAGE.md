@@ -9,7 +9,8 @@
 - Card menu actions:
   - `👍 Useful` -> `useful`
   - `👎 Hide` -> `hidden`
-  - `🚫 Don't show` -> creates negative rule, retroactively penalizes unread, hides card
+  - `🚫 Hide This` -> prompts for pattern + editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
+  - `🌐 Hide Domain` -> extracts domain from article URL, prompts editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
 - If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
 
@@ -45,3 +46,4 @@
   - match succeeds when all tokens exist anywhere in title/content/domain/url
 - Domain block rule example: `theinformation.com`
 - Negative rules apply immediately and retroactively to current `unread` entries
+- Updating an existing rule penalty re-applies by delta to unread entries (for example changing `1` -> `100` applies an extra `99`)

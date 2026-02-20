@@ -1,6 +1,7 @@
 let currentIds = [];
 let authenticated = false;
 let csrfToken = '';
+let defaultHidePenalty = 10;
 
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
@@ -63,7 +64,8 @@ function card(item) {
     <div class="menu"><button data-menu="1">⋯</button><div class="menu-panel">
       <button data-action="up">👍 Useful</button>
       <button data-action="down">👎 Hide</button>
-      <button data-action="dont" class="danger">🚫 Don't show</button>
+      <button data-action="dont" class="danger">🚫 Hide This</button>
+      <button data-action="domain" class="danger">🌐 Hide Domain</button>
     </div></div>
   </article>`;
 }
@@ -99,6 +101,7 @@ userLoginBtn.addEventListener('click', async () => {
   try {
     const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
     csrfToken = j.csrf_token || '';
+    defaultHidePenalty = Number(j.hide_rule_default_penalty || 10);
     authenticated = true;
     userSecretEl.value = '';
     setAuthUI();
@@ -165,9 +168,27 @@ feed.addEventListener('click', async (e) => {
     try {
       const action = e.target.dataset.action;
       if (action === 'dont') {
-        const pattern = prompt('Negative pattern to block:');
+        const suggested = (cardEl.querySelector('.card-title')?.textContent || '').trim();
+        const pattern = prompt('Pattern to hide (text/domain):', suggested);
         if (!pattern) return;
-        await api('/api/articles/dontshow', { method: 'POST', body: JSON.stringify({ id, pattern, penalty: 10 }) });
+        const penaltyIn = prompt('Penalty weight:', String(defaultHidePenalty));
+        const penalty = Number(penaltyIn);
+        if (!Number.isFinite(penalty) || penalty <= 0) return;
+        await api('/api/articles/dontshow', { method: 'POST', body: JSON.stringify({ id, pattern, penalty }) });
+      } else if (action === 'domain') {
+        const link = cardEl.querySelector('.card-link');
+        let suggestedDomain = '';
+        try {
+          suggestedDomain = new URL(link?.href || '').hostname || '';
+        } catch (_) {
+          suggestedDomain = '';
+        }
+        const pattern = prompt('Domain to hide:', suggestedDomain);
+        if (!pattern) return;
+        const penaltyIn = prompt('Penalty weight:', String(defaultHidePenalty));
+        const penalty = Number(penaltyIn);
+        if (!Number.isFinite(penalty) || penalty <= 0) return;
+        await api('/api/articles/dontshow', { method: 'POST', body: JSON.stringify({ id, pattern, penalty }) });
       } else {
         await api('/api/articles/action', { method: 'POST', body: JSON.stringify({ id, action }) });
       }
@@ -201,6 +222,7 @@ statusEl.textContent = `${new Date().toISOString()} checking session...`;
   try {
     const j = await api('/api/session');
     csrfToken = j.csrf_token || '';
+    defaultHidePenalty = Number(j.hide_rule_default_penalty || 10);
     authenticated = true;
     setAuthUI();
     await loadFeed();

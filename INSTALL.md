@@ -82,6 +82,7 @@ Example important keys:
   "ingest_interval_minutes": 120,
   "feed_min_score": 1,
   "auto_hide_below_score": 1,
+  "hide_rule_default_penalty": 10,
   "searxng_instances": ["http://localhost:8888"]
 }
 ```
