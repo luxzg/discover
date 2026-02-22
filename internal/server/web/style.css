@@ -17,6 +17,23 @@ h1, h2 { margin: 8px 0 16px; }
 .hint { margin: 0 0 10px; font-size: 0.84rem; color: var(--muted); }
 .hint code { color: var(--text); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+}
+.collapsible > summary::-webkit-details-marker { display: none; }
+.collapsible > summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.collapsible[open] > summary::before { transform: rotate(90deg); }
+.collapsible-body { padding-top: 10px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 input, button { background: #12171c; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px; }
 button { cursor: pointer; }

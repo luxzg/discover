@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-02-22 09:47 CET - v2.12
+
+- Admin UI cleanup for dense lists:
+  - Topics and Negative Rules panels are now collapsible via arrow toggles
+  - both sections are collapsed by default after sign-in to reduce visual clutter
+  - expand only when you want to view/edit those lists
+
+## 2026-02-22 09:29 CET - Docs Note (no version change)
+
+- Added service diagnostics logging commands to install docs:
+  - `journalctl -u discover --since today`
+  - date-range filtering via `--since` / `--until`
+  - tailing recent lines via `-n`
+  - live follow mode via `-f`
+- Added README pointer to `INSTALL.md` diagnostics section.
+
 ## 2026-02-22 09:23 CET - v2.11
 
 - Added admin-triggered retroactive dedupe API and UI action:

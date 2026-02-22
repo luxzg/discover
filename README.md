@@ -96,4 +96,5 @@ sudo systemctl status discover
 - `CHANGELOG.md` for versioned changes
 - `SEARXNG.md` for SearXNG install and uninstall
 
+For log checks and diagnostics commands, see `INSTALL.md` section `6.1 Diagnostics (journalctl)`.
 For service uninstall/removal steps, see `INSTALL.md` section `8. Uninstall`.

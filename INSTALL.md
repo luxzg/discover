@@ -144,6 +144,24 @@ systemctl status discover.service
 If you've setup DNS and TLS you should be able to read it now by visiting public URL like:
 `https://discover-feed.example.org:8443/`
 
+### 6.1 Diagnostics (journalctl)
+
+Useful log checks for the running service:
+
+```bash
+# today's logs (from midnight)
+journalctl -u discover --since today --no-pager
+
+# specific date/time range
+journalctl -u discover --since "2026-02-22 00:00:00" --until "2026-02-22 23:59:59" --no-pager
+
+# last N lines
+journalctl -u discover -n 200 --no-pager
+
+# follow live logs
+journalctl -u discover --since today -f
+```
+
 ## 7. Update Existing Installation
 
 Use this flow when updating a running instance from GitHub (run as root):
