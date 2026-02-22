@@ -35,6 +35,7 @@ type Config struct {
 	DefaultBatchSize       int      `json:"default_batch_size"`
 	FeedMinScore           float64  `json:"feed_min_score"`
 	AutoHideBelowScore     float64  `json:"auto_hide_below_score"`
+	DedupeTitleKeyChars    int      `json:"dedupe_title_key_chars"`
 	HideRuleDefaultPenalty float64  `json:"hide_rule_default_penalty"`
 	CullUnreadDays         int      `json:"cull_unread_days"`
 	CullMaxScore           float64  `json:"cull_max_score"`
@@ -63,6 +64,7 @@ func defaultConfig() Config {
 		DefaultBatchSize:       10,
 		FeedMinScore:           1,
 		AutoHideBelowScore:     1,
+		DedupeTitleKeyChars:    50,
 		HideRuleDefaultPenalty: 10,
 		CullUnreadDays:         30,
 		CullMaxScore:           0,
@@ -146,6 +148,9 @@ func (c Config) Validate() error {
 	if c.AutoHideBelowScore < -100 || c.AutoHideBelowScore > 1000 {
 		return errors.New("auto_hide_below_score out of range")
 	}
+	if c.DedupeTitleKeyChars < 10 || c.DedupeTitleKeyChars > 200 {
+		return errors.New("dedupe_title_key_chars must be 10..200")
+	}
 	if c.MaxBodyBytes <= 0 {
 		return errors.New("max_body_bytes must be positive")
 	}
@@ -183,6 +188,7 @@ func MissingKeys(path string) ([]string, error) {
 		"default_batch_size",
 		"feed_min_score",
 		"auto_hide_below_score",
+		"dedupe_title_key_chars",
 		"hide_rule_default_penalty",
 		"cull_unread_days",
 		"cull_max_score",

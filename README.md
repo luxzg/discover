@@ -22,7 +22,13 @@ Discover is a single-binary Go application that builds a personal, Discover-like
   - interval mode (`ingest_interval_minutes`, default 120)
   - daily wall-clock mode (`daily_ingest_time`) when interval is disabled
 - Manual ingest trigger in admin UI
+- Manual retroactive unread dedupe trigger in admin UI
 - URL normalization + hash dedup
+- Ingest-time title dedupe:
+  - keeps highest-score unread per normalized title key within each ingest run
+  - hides newly ingested items when same normalized title already exists as `seen`/`read`/`useful`/`hidden`
+- Persistent dedupe counter:
+  - stores cumulative hidden-duplicate total in DB and shows it in admin status
 - Score model with positive and negative weights
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next
@@ -57,6 +63,7 @@ Edit at least:
 - `ingest_interval_minutes` (default `120`; set `0` to use `daily_ingest_time`)
 - `feed_min_score` (recommended `1` to avoid low-score cards in feed)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
+- `dedupe_title_key_chars` (default `50`; title-key prefix length used by ingest duplicate hiding)
 - `hide_rule_default_penalty` (default penalty prefill used by feed menu hide actions)
 
 Then run again.

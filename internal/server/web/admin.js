@@ -3,6 +3,7 @@ const ingestStateEl = document.getElementById('ingestState');
 const countsEl = document.getElementById('counts');
 const secretEl = document.getElementById('secret');
 const runIngestBtn = document.getElementById('runIngest');
+const runDedupeBtn = document.getElementById('runDedupe');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const topicsPanel = document.getElementById('topicsPanel');
@@ -11,6 +12,7 @@ const ingestionPanel = document.getElementById('ingestionPanel');
 const countsPanel = document.getElementById('countsPanel');
 
 let manualIngestInFlight = false;
+let manualDedupeInFlight = false;
 let authenticated = false;
 let csrfToken = '';
 
@@ -63,6 +65,7 @@ function setAuthUI() {
   logoutBtn.disabled = !authenticated;
   secretEl.disabled = authenticated;
   runIngestBtn.disabled = !authenticated || manualIngestInFlight;
+  runDedupeBtn.disabled = !authenticated || manualDedupeInFlight || manualIngestInFlight;
   topicsPanel.hidden = !authenticated;
   rulesPanel.hidden = !authenticated;
   ingestionPanel.hidden = !authenticated;
@@ -97,6 +100,7 @@ logoutBtn.onclick = async () => {
   authenticated = false;
   csrfToken = '';
   manualIngestInFlight = false;
+  manualDedupeInFlight = false;
   setAuthUI();
   document.getElementById('topics').innerHTML = '';
   document.getElementById('rules').innerHTML = '';
@@ -175,6 +179,29 @@ runIngestBtn.onclick = async () => {
   }
 };
 
+runDedupeBtn.onclick = async () => {
+  if (manualDedupeInFlight || runDedupeBtn.disabled) {
+    status('retroactive dedupe ignored: already running');
+    return;
+  }
+  try {
+    manualDedupeInFlight = true;
+    runDedupeBtn.disabled = true;
+    runDedupeBtn.classList.add('is-busy');
+    runDedupeBtn.textContent = 'Run Retroactive Dedupe (Running...)';
+    status('retroactive dedupe requested (running...)');
+    const res = await call('/admin/api/dedupe', { method: 'POST', body: JSON.stringify({}) });
+    const st = res.stats || {};
+    status(`retroactive dedupe completed: hidden=${Number(st.same_run_hidden || 0) + Number(st.historical_hidden || 0)} (highest_only=${Number(st.same_run_hidden || 0)}, historical=${Number(st.historical_hidden || 0)})`);
+    await refreshStatus();
+  } catch (e) {
+    status(`retroactive dedupe failed: ${e.message}`);
+  } finally {
+    manualDedupeInFlight = false;
+    await refreshStatus().catch(() => {});
+  }
+};
+
 document.body.addEventListener('click', async (e) => {
   if (e.target.matches('[data-edit-topic]')) {
     document.getElementById('topicQ').value = e.target.dataset.topicQuery || '';
@@ -221,6 +248,9 @@ async function refreshStatus() {
     runIngestBtn.disabled = !authenticated || running;
     runIngestBtn.classList.toggle('is-busy', running);
     runIngestBtn.textContent = running ? 'Run Now (Running...)' : 'Run Now';
+    runDedupeBtn.disabled = !authenticated || running || manualDedupeInFlight;
+    runDedupeBtn.classList.toggle('is-busy', manualDedupeInFlight);
+    runDedupeBtn.textContent = manualDedupeInFlight ? 'Run Retroactive Dedupe (Running...)' : 'Run Retroactive Dedupe';
     ingestStateEl.textContent =
       `running: ${Boolean(ingestState.running)}\n` +
       `source: ${ingestState.current_source || ingestState.last_source || '-'}\n` +
@@ -235,11 +265,13 @@ async function refreshStatus() {
       `seen: ${counts.seen || 0}\n` +
       `read: ${counts.read || 0}\n` +
       `useful: ${counts.useful || 0}\n` +
-      `hidden: ${counts.hidden || 0}`;
+      `hidden: ${counts.hidden || 0}\n` +
+      `dedupe_hidden_total: ${Number(j.dedupe_hidden_total || 0)}`;
   } catch (e) {
     if (e.status === 401 || e.status === 403) {
       authenticated = false;
       manualIngestInFlight = false;
+      manualDedupeInFlight = false;
       setAuthUI();
       status('session expired; sign in again');
       return;

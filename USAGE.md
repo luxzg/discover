@@ -21,6 +21,11 @@
 - Manage topics (query, weight, enabled)
 - Manage negative rules (pattern, penalty, enabled)
 - Run ingestion manually from UI
+- Run retroactive title dedupe manually from UI (`Run Retroactive Dedupe`)
+  - across all current `unread` items:
+    - if same normalized title exists in any non-unread status, unread matches are hidden
+    - otherwise highest-score unread is kept and remaining unread duplicates are hidden
+- Article Status Counts includes `dedupe_hidden_total` as cumulative all-time hidden-by-dedupe count
 
 ## Ingestion Behavior
 
@@ -34,6 +39,11 @@
 - If one SearXNG instance fails, the next is tried
 - Dedup is two-pass:
   - URL-based hash dedupe at ingest
+  - ingest-time title dedupe for newly ingested unread:
+    - title normalization uses lowercase alphanumeric-only key
+    - first `dedupe_title_key_chars` (default `50`) are used as key prefix
+    - within same ingest run, highest-score item is kept, others are hidden
+    - if same key already exists in non-unread history (`seen/read/useful/hidden`), newly ingested matches are hidden
   - subject/title dedupe at feed selection time
 
 ## Query And Rule Tips

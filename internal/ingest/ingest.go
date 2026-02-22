@@ -152,6 +152,17 @@ func (s *Service) Run(ctx context.Context) error {
 			s.logf("ingest: auto-hidden %d unread article(s) with score < %.2f", hiddenCount, s.cfg.AutoHideBelowScore)
 		}
 	}
+	dedupeStats, err := s.store.HideIngestTitleDuplicates(ctx, ingestedAt, s.cfg.DedupeTitleKeyChars)
+	if err != nil {
+		s.logf("ingest: title dedupe error: %v", err)
+	} else if dedupeStats.SameRunHidden > 0 || dedupeStats.HistoricalHidden > 0 {
+		s.logf("ingest: title dedupe hidden %d unread article(s) (same_run=%d, historical_seen=%d, key_chars=%d)",
+			dedupeStats.SameRunHidden+dedupeStats.HistoricalHidden,
+			dedupeStats.SameRunHidden,
+			dedupeStats.HistoricalHidden,
+			s.cfg.DedupeTitleKeyChars,
+		)
+	}
 	if err := s.store.IncrementNegativeRuleAppliedCounts(ctx, ruleApplyCounts); err != nil {
 		s.logf("ingest: negative rule counter update error: %v", err)
 	}

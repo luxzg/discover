@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-02-22 09:23 CET - v2.11
+
+- Added admin-triggered retroactive dedupe API and UI action:
+  - new endpoint: `POST /admin/api/dedupe`
+  - new admin button: `Run Retroactive Dedupe`
+  - scans whole unread set and applies title-key duplicate suppression
+- Retroactive dedupe behavior:
+  - when non-unread history exists for a title key, all unread matches are hidden
+  - when only unread duplicates exist for a title key, highest-score unread is kept and others are hidden
+- Added persistent dedupe counter in DB settings:
+  - cumulative all-time hidden duplicate count stored as `app_settings.dedupe_hidden_total`
+  - counter increments on ingest-time dedupe and admin retroactive dedupe
+  - exposed in `/admin/api/status` and shown in `Article Status Counts` as `dedupe_hidden_total`
+- Docs updates:
+  - updated `README.md` and `USAGE.md` with retroactive dedupe and persistent counter behavior
+
+## 2026-02-22 09:15 CET - v2.10
+
+- Added ingest-time title duplicate suppression for unread entries:
+  - title key is normalized as lowercase alphanumeric-only text
+  - key uses configurable prefix length via new `dedupe_title_key_chars` (default `50`)
+  - within a single ingest run, the highest-score duplicate is kept unread and the rest are auto-marked `hidden`
+  - if a matching title key already exists in non-unread history (`seen`, `read`, `useful`, `hidden`), newly ingested matches are auto-marked `hidden`
+- Added ingest progress logging for title dedupe results:
+  - reports same-run hidden count and historical-match hidden count
+- Config/docs updates:
+  - added new config key `dedupe_title_key_chars` to defaults and `config.example.json`
+  - updated `README.md`, `USAGE.md`, and `INSTALL.md` with dedupe behavior and configuration details
+
 ## 2026-02-20 - v2.9
 
 - Feed card metadata update:

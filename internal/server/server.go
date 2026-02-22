@@ -56,6 +56,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/topics", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminTopics)))))
 	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminRules)))))
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
+	mux.Handle("/admin/api/dedupe", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminDedupe)))))
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
 	return mux
 }
@@ -316,6 +317,30 @@ func (a *API) handleAdminIngest(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (a *API) handleAdminDedupe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	stats, err := a.store.HideAllUnreadTitleDuplicates(ctx, a.cfg.DedupeTitleKeyChars)
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	total, err := a.store.DedupeHiddenTotal(r.Context())
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]any{
+		"ok":                  true,
+		"stats":               stats,
+		"dedupe_hidden_total": total,
+	})
+}
+
 func (a *API) handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.Method != http.MethodPost {
@@ -399,6 +424,11 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
+	dedupeHiddenTotal, err := a.store.DedupeHiddenTotal(r.Context())
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
 	msg, msgAt := "", time.Time{}
 	if a.progress != nil {
 		msg, msgAt = a.progress.LastProgress()
@@ -409,7 +439,8 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 			"last_message":    msg,
 			"last_message_at": msgAt,
 		},
-		"counts": counts,
+		"counts":              counts,
+		"dedupe_hidden_total": dedupeHiddenTotal,
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,13 @@ type TopicStats struct {
 	Unread int `json:"unread"`
 	Total  int `json:"total"`
 }
+
+type IngestDedupeStats struct {
+	SameRunHidden    int64 `json:"same_run_hidden"`
+	HistoricalHidden int64 `json:"historical_hidden"`
+}
+
+const dedupeHiddenTotalSetting = "dedupe_hidden_total"
 
 func New(db *sql.DB) *Store {
 	return &Store{db: db}
@@ -491,6 +499,246 @@ func (s *Store) HideUnreadBelowScore(ctx context.Context, threshold float64) (in
 	return res.RowsAffected()
 }
 
+func (s *Store) HideIngestTitleDuplicates(ctx context.Context, ingestedAt time.Time, keyChars int) (IngestDedupeStats, error) {
+	if keyChars < 10 {
+		keyChars = 10
+	}
+	type row struct {
+		id    int64
+		title string
+		score float64
+	}
+	runRows := make([]row, 0, 256)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, title, score
+		FROM articles
+		WHERE status='unread' AND ingested_at=?
+	`, ingestedAt.UTC())
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.title, &r.score); err != nil {
+			return IngestDedupeStats{}, err
+		}
+		runRows = append(runRows, r)
+	}
+	if err := rows.Err(); err != nil {
+		return IngestDedupeStats{}, err
+	}
+	if len(runRows) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	groups := make(map[string][]row, len(runRows))
+	for _, r := range runRows {
+		key := dedupeTitleKey(r.title, keyChars)
+		if key == "" {
+			continue
+		}
+		groups[key] = append(groups[key], r)
+	}
+	if len(groups) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	historical := make(map[string]struct{}, len(groups))
+	otherRows, err := s.db.QueryContext(ctx, `
+		SELECT title
+		FROM articles
+		WHERE status<>'unread'
+	`)
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	defer otherRows.Close()
+	for otherRows.Next() {
+		var title string
+		if err := otherRows.Scan(&title); err != nil {
+			return IngestDedupeStats{}, err
+		}
+		key := dedupeTitleKey(title, keyChars)
+		if key == "" {
+			continue
+		}
+		if _, ok := groups[key]; ok {
+			historical[key] = struct{}{}
+		}
+	}
+	if err := otherRows.Err(); err != nil {
+		return IngestDedupeStats{}, err
+	}
+
+	toHide := make(map[int64]string, len(runRows))
+	stats := IngestDedupeStats{}
+	for key, items := range groups {
+		if len(items) == 0 {
+			continue
+		}
+		if _, seenBefore := historical[key]; seenBefore {
+			for _, it := range items {
+				toHide[it.id] = "historical"
+			}
+			stats.HistoricalHidden += int64(len(items))
+			continue
+		}
+		if len(items) == 1 {
+			continue
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].score == items[j].score {
+				return items[i].id < items[j].id
+			}
+			return items[i].score > items[j].score
+		})
+		for _, dupe := range items[1:] {
+			toHide[dupe.id] = "same_run"
+		}
+		stats.SameRunHidden += int64(len(items) - 1)
+	}
+	if len(toHide) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	ids := make([]int64, 0, len(toHide))
+	for id := range toHide {
+		ids = append(ids, id)
+	}
+	q, args := inClause(ids)
+	_, err = s.db.ExecContext(ctx, `UPDATE articles SET status='hidden', updated_at=CURRENT_TIMESTAMP WHERE status='unread' AND id IN (`+q+`)`, args...)
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	if err := s.addToSettingInt(ctx, dedupeHiddenTotalSetting, stats.SameRunHidden+stats.HistoricalHidden); err != nil {
+		return IngestDedupeStats{}, err
+	}
+	return stats, nil
+}
+
+func (s *Store) HideAllUnreadTitleDuplicates(ctx context.Context, keyChars int) (IngestDedupeStats, error) {
+	if keyChars < 10 {
+		keyChars = 10
+	}
+	type row struct {
+		id    int64
+		title string
+		score float64
+	}
+	runRows := make([]row, 0, 1024)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, title, score
+		FROM articles
+		WHERE status='unread'
+	`)
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.title, &r.score); err != nil {
+			return IngestDedupeStats{}, err
+		}
+		runRows = append(runRows, r)
+	}
+	if err := rows.Err(); err != nil {
+		return IngestDedupeStats{}, err
+	}
+	if len(runRows) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	groups := make(map[string][]row, len(runRows))
+	for _, r := range runRows {
+		key := dedupeTitleKey(r.title, keyChars)
+		if key == "" {
+			continue
+		}
+		groups[key] = append(groups[key], r)
+	}
+	if len(groups) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	historical := make(map[string]struct{}, len(groups))
+	otherRows, err := s.db.QueryContext(ctx, `
+		SELECT title
+		FROM articles
+		WHERE status<>'unread'
+	`)
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	defer otherRows.Close()
+	for otherRows.Next() {
+		var title string
+		if err := otherRows.Scan(&title); err != nil {
+			return IngestDedupeStats{}, err
+		}
+		key := dedupeTitleKey(title, keyChars)
+		if key == "" {
+			continue
+		}
+		if _, ok := groups[key]; ok {
+			historical[key] = struct{}{}
+		}
+	}
+	if err := otherRows.Err(); err != nil {
+		return IngestDedupeStats{}, err
+	}
+
+	toHide := make(map[int64]struct{}, len(runRows))
+	stats := IngestDedupeStats{}
+	for key, items := range groups {
+		if len(items) == 0 {
+			continue
+		}
+		if _, seenBefore := historical[key]; seenBefore {
+			for _, it := range items {
+				toHide[it.id] = struct{}{}
+			}
+			stats.HistoricalHidden += int64(len(items))
+			continue
+		}
+		if len(items) == 1 {
+			continue
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].score == items[j].score {
+				return items[i].id < items[j].id
+			}
+			return items[i].score > items[j].score
+		})
+		for _, dupe := range items[1:] {
+			toHide[dupe.id] = struct{}{}
+		}
+		stats.SameRunHidden += int64(len(items) - 1)
+	}
+	if len(toHide) == 0 {
+		return IngestDedupeStats{}, nil
+	}
+
+	ids := make([]int64, 0, len(toHide))
+	for id := range toHide {
+		ids = append(ids, id)
+	}
+	q, args := inClause(ids)
+	_, err = s.db.ExecContext(ctx, `UPDATE articles SET status='hidden', updated_at=CURRENT_TIMESTAMP WHERE status='unread' AND id IN (`+q+`)`, args...)
+	if err != nil {
+		return IngestDedupeStats{}, err
+	}
+	if err := s.addToSettingInt(ctx, dedupeHiddenTotalSetting, stats.SameRunHidden+stats.HistoricalHidden); err != nil {
+		return IngestDedupeStats{}, err
+	}
+	return stats, nil
+}
+
+func (s *Store) DedupeHiddenTotal(ctx context.Context) (int, error) {
+	return s.GetSettingInt(ctx, dedupeHiddenTotalSetting, 0)
+}
+
 func (s *Store) ArticleStatusCounts(ctx context.Context) (StatusCounts, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT status, COUNT(*) FROM articles GROUP BY status`)
 	if err != nil {
@@ -577,6 +825,17 @@ func parseDBTimeString(s string) time.Time {
 	return time.Time{}
 }
 
+func (s *Store) addToSettingInt(ctx context.Context, key string, delta int64) error {
+	if delta == 0 {
+		return nil
+	}
+	current, err := s.GetSettingInt(ctx, key, 0)
+	if err != nil {
+		return err
+	}
+	return s.SetSetting(ctx, key, strconv.Itoa(current+int(delta)))
+}
+
 func subjectKey(title string) string {
 	title = strings.ToLower(strings.TrimSpace(title))
 	if title == "" {
@@ -598,4 +857,22 @@ func subjectKey(title string) string {
 	}
 	key := strings.Join(strings.Fields(b.String()), " ")
 	return key
+}
+
+func dedupeTitleKey(title string, maxChars int) string {
+	title = strings.ToLower(strings.TrimSpace(title))
+	if title == "" || maxChars <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(title))
+	for _, r := range title {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(r)
+			if b.Len() >= maxChars {
+				break
+			}
+		}
+	}
+	return b.String()
 }
