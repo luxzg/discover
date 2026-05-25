@@ -69,6 +69,36 @@ Historical context docs (read-only unless explicitly requested):
   summary line first, then short detail lines when useful.
 - Push after commit when user requests it and remote is reachable.
 
+## Command Execution Discipline
+
+- Do not stack commands with shell chaining/operators for normal workflow
+  steps (for example `&&`, `||`, `;`) when steps are logically sequential.
+- Run sequential operations as separate commands and wait for each command
+  result before running the next one.
+- Do not run steps in parallel when there is an order dependency between them
+  (for example stage -> commit -> push, or stop service -> build -> start
+  service).
+- Prefer one command per tool call unless there is a clear, safe reason to
+  combine independent read-only checks.
+
+## Commit Discipline
+
+- When the user says `commit`, perform the commit in that same turn unless a
+  hard environment blocker prevents it.
+- If commit fails, report the exact error and retry when user asks; do not
+  claim completion until commit actually succeeds.
+- After commit, always report the commit hash and what was included.
+
+## Versioning Verification Discipline
+
+- For any code/runtime change requiring version bump, update all version touch
+  points in the same change:
+  - `CHANGELOG.md` new version entry
+  - `internal/buildinfo/buildinfo.go` `Version`
+- Before marking task done, verify version consistency by checking both files.
+- Never announce a new version complete if runtime/buildinfo version still
+  points to previous release.
+
 ## Discover-Specific Operational Notes
 
 - Existing `config.json` must never be overwritten on startup.
