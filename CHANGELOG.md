@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-05-25 09:52 CEST - Docs Note (no version change)
+
+- Expanded `TODO.md` with newly requested backlog items:
+  - thumbnail backfill on URL-dedup ingest hits
+  - optional thumbnail-focused fallback fetch strategy
+  - broken thumbnail rendering diagnostics task
+  - feed action UX consistency for positive vs negative actions
+  - session stability / long idle timeout investigation
+  - optional deferred offline action queue idea
+- Updated `AGENTS.md` git workflow wording to explicitly require multiline
+  commit messages (summary + short details).
+
+## 2026-05-25 09:27 CEST - Docs Note (no version change)
+
+- Added project-specific `AGENTS.md` to align repository workflow with the
+  coding skill rulebook and current Discover docs.
+- Documented explicit read-first order, version/changelog policy, build/format
+  defaults, git workflow, and Discover-specific doc-sync expectations for future
+  agent sessions.
+- Updated `README.md` project docs index to include `AGENTS.md`.
+
 ## 2026-02-22 09:47 CET - v2.12
 
 - Admin UI cleanup for dense lists:

@@ -90,6 +90,7 @@ sudo systemctl status discover
 
 ## Project Docs
 
+- `AGENTS.md` for project-specific AI agent workflow/rules
 - `README.md` (this file)
 - `INSTALL.md` for deployment and systemd setup
 - `USAGE.md` for feed/admin usage
