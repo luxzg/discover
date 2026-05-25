@@ -13,6 +13,7 @@ import (
 )
 
 const SessionCookieName = "discover_admin_session"
+const defaultAdminSessionTTL = 24 * time.Hour
 
 type Guard struct {
 	secret []byte
@@ -104,7 +105,7 @@ func (g *Guard) AllowRemote(remoteAddr string) bool {
 
 func (g *Guard) NewSession(remoteAddr string, ttl time.Duration) (string, time.Time, error) {
 	if ttl <= 0 {
-		ttl = 12 * time.Hour
+		ttl = defaultAdminSessionTTL
 	}
 	token, err := newRandomToken(32)
 	if err != nil {
@@ -151,9 +152,12 @@ func (g *Guard) validSession(token, remoteIP string) bool {
 	if !ok {
 		return false
 	}
-	if s.RemoteIP != "" && remoteIP != "" && s.RemoteIP != remoteIP {
-		return false
+	// Do not hard-fail on IP drift (IPv4/IPv6/WiFi edge cases); keep session stable.
+	if s.RemoteIP == "" && remoteIP != "" {
+		s.RemoteIP = remoteIP
 	}
+	s.ExpiresAt = time.Now().Add(defaultAdminSessionTTL)
+	g.sessions[token] = s
 	return true
 }
 
@@ -170,9 +174,11 @@ func (g *Guard) SessionCSRF(token, remoteAddr string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	if s.RemoteIP != "" && ip != "" && s.RemoteIP != ip {
-		return "", false
+	if s.RemoteIP == "" && ip != "" {
+		s.RemoteIP = ip
 	}
+	s.ExpiresAt = time.Now().Add(defaultAdminSessionTTL)
+	g.sessions[token] = s
 	return s.CSRFToken, true
 }
 

@@ -30,6 +30,8 @@
     - otherwise highest-score unread is kept and remaining unread duplicates are hidden
 - Article Status Counts includes `dedupe_hidden_total` as cumulative all-time hidden-by-dedupe count
 - Ingestion status panel includes build metadata (`version`, `commit`, `built_at`) for quick runtime verification after updates
+- Ingestion status panel now shows the last two progress messages (`last_messages`) plus `last_message_at`
+- Admin session now uses sliding refresh behavior and tolerates client IP drift (similar to feed session) to reduce surprise sign-outs
 
 ## Ingestion Behavior
 

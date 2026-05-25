@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-05-25 20:02 CEST - v2.18
+
+- Admin session stability hardening:
+  - admin session validation no longer hard-fails on client IP drift (IPv4/IPv6/WiFi changes)
+  - admin session now uses sliding TTL refresh on valid activity
+  - `/admin/api/session` now refreshes admin cookie expiry to keep browser/session state aligned
+- Admin ingestion status visibility:
+  - status API now returns `last_messages` (last two progress lines)
+  - admin UI ingestion panel now renders `last_messages` while keeping `last_message_at`
+- Docs/task alignment:
+  - updated `USAGE.md` for admin session and `last_messages`
+  - cleaned `TODO.md` (removed completed admin-session follow-up)
+  - moved completed tasks into `FINISHED_TASKS.md`
+
 ## 2026-05-25 19:42 CEST - v2.17
 
 - Ingest error semantics improved for zero-result topics:

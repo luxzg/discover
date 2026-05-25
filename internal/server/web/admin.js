@@ -244,6 +244,8 @@ async function refreshStatus() {
     const build = j.build || {};
     const ingest = j.ingest || {};
     const ingestState = ingest.state || {};
+    const lastMessages = Array.isArray(ingest.last_messages) ? ingest.last_messages.filter(Boolean) : [];
+    const lastMessagesText = lastMessages.length > 0 ? lastMessages.join('\n') : (ingest.last_message || '-');
     const counts = j.counts || {};
     const running = manualIngestInFlight || Boolean(ingestState.running);
     runIngestBtn.disabled = !authenticated || running;
@@ -260,7 +262,7 @@ async function refreshStatus() {
       `last_completed_at: ${ingestState.last_completed_at || '-'}\n` +
       `last_duration_ms: ${ingestState.last_duration_ms || 0}\n` +
       `last_error: ${ingestState.last_error || '-'}\n` +
-      `last_message: ${ingest.last_message || '-'}\n` +
+      `last_messages:\n${lastMessagesText}\n` +
       `last_message_at: ${ingest.last_message_at || '-'}`;
     countsEl.textContent =
       `build_version: ${build.version || '-'}\n` +

@@ -31,6 +31,7 @@ type API struct {
 
 type progressSource interface {
 	LastProgress() (string, time.Time)
+	LastProgressMessages(limit int) []string
 }
 
 func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, user *auth.UserGuard, assets http.Handler) *API {
@@ -433,8 +434,10 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg, msgAt := "", time.Time{}
+	msgs := []string{}
 	if a.progress != nil {
 		msg, msgAt = a.progress.LastProgress()
+		msgs = a.progress.LastProgressMessages(2)
 	}
 	respondJSON(w, http.StatusOK, map[string]any{
 		"build": map[string]any{
@@ -446,6 +449,7 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		"ingest": map[string]any{
 			"state":           a.scheduler.Snapshot(),
 			"last_message":    msg,
+			"last_messages":   msgs,
 			"last_message_at": msgAt,
 		},
 		"counts":              counts,
@@ -468,6 +472,15 @@ func (a *API) handleAdminSession(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
 		return
 	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.SessionCookieName,
+		Value:    c.Value,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
 	respondJSON(w, http.StatusOK, map[string]any{
 		"ok":                        true,
 		"csrf_token":                csrfToken,

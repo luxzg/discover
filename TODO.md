@@ -8,10 +8,6 @@ Possible next improvements:
 - add per-domain cooldown/cache for repeated fetch failures
 - add configurable hard cap by total runtime budget per ingest
 
-## Admin Session Stability Follow-Up
-
-User session stability has been improved, but admin session behavior under long-running mixed-network use may still need dedicated verification/tuning.
-
 ## Offline / Deferred Action Queue (Optional, Later)
 
 Explore partial offline mode for feed interactions:

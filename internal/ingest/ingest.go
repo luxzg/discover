@@ -34,6 +34,12 @@ type Service struct {
 	instanceBlock map[string]time.Time
 	lastMessage   string
 	lastMessageAt time.Time
+	lastMessages  []progressEntry
+}
+
+type progressEntry struct {
+	Message string
+	At      time.Time
 }
 
 func New(cfg config.Config, st *store.Store) *Service {
@@ -200,6 +206,10 @@ func (s *Service) logf(format string, args ...any) {
 	s.mu.Lock()
 	s.lastMessage = msg
 	s.lastMessageAt = time.Now()
+	s.lastMessages = append(s.lastMessages, progressEntry{Message: msg, At: s.lastMessageAt})
+	if len(s.lastMessages) > 2 {
+		s.lastMessages = s.lastMessages[len(s.lastMessages)-2:]
+	}
 	s.mu.Unlock()
 }
 
@@ -207,6 +217,23 @@ func (s *Service) LastProgress() (string, time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastMessage, s.lastMessageAt
+}
+
+func (s *Service) LastProgressMessages(limit int) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 || len(s.lastMessages) == 0 {
+		return nil
+	}
+	if limit > len(s.lastMessages) {
+		limit = len(s.lastMessages)
+	}
+	out := make([]string, limit)
+	start := len(s.lastMessages) - limit
+	for i := 0; i < limit; i++ {
+		out[i] = s.lastMessages[start+i].Message
+	}
+	return out
 }
 
 func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error) {

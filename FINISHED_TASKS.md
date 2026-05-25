@@ -52,3 +52,17 @@ Archive of completed (or intentionally closed) TODO items.
     - selects unread rows with empty thumbnails above threshold and attempts metadata extraction from article pages
     - extracts `og:image`, `twitter:image`, `twitter:image:src`, and `link rel=image_src` where available
   - Updates are applied only when thumbnail is still empty at write time (`set-if-empty` safety).
+
+## 2026-05-25 20:02 CEST
+
+### Completed
+
+- **Admin Session Stability Follow-Up**
+  - Implemented in `v2.18`:
+    - admin session validation no longer hard-fails on IP drift
+    - admin session uses sliding TTL refresh on valid requests
+    - `/admin/api/session` now refreshes admin cookie expiry
+- **Admin Ingestion Status Readability**
+  - Implemented in `v2.18`:
+    - admin status API now exposes `last_messages` (last two ingest progress lines)
+    - admin UI displays `last_messages` while keeping `last_message_at`
