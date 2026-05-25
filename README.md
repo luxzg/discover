@@ -95,6 +95,8 @@ sudo systemctl status discover
 - `INSTALL.md` for deployment and systemd setup
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
+- `TODO.md` for active open work
+- `FINISHED_TASKS.md` for completed/deferred task archive
 - `SEARXNG.md` for SearXNG install and uninstall
 
 For log checks and diagnostics commands, see `INSTALL.md` section `6.1 Diagnostics (journalctl)`.

@@ -9,6 +9,7 @@ import (
 )
 
 const UserSessionCookieName = "discover_user_session"
+const defaultUserSessionTTL = 90 * 24 * time.Hour
 
 type UserGuard struct {
 	username string
@@ -68,7 +69,7 @@ func (g *UserGuard) ValidateCredentials(username, secret, remoteAddr string) err
 
 func (g *UserGuard) NewSession(remoteAddr string, ttl time.Duration) (string, time.Time, error) {
 	if ttl <= 0 {
-		ttl = 30 * 24 * time.Hour
+		ttl = defaultUserSessionTTL
 	}
 	token, err := newRandomToken(32)
 	if err != nil {
@@ -106,9 +107,12 @@ func (g *UserGuard) ValidSession(token, remoteAddr string) bool {
 	if !ok {
 		return false
 	}
-	if s.RemoteIP != "" && ip != "" && s.RemoteIP != ip {
-		return false
+	// Do not hard-fail on IP drift (IPv4/IPv6/WiFi edge cases); keep session stable.
+	if s.RemoteIP == "" && ip != "" {
+		s.RemoteIP = ip
 	}
+	s.ExpiresAt = time.Now().Add(defaultUserSessionTTL)
+	g.sessions[token] = s
 	return true
 }
 
@@ -121,9 +125,11 @@ func (g *UserGuard) SessionCSRF(token, remoteAddr string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	if s.RemoteIP != "" && ip != "" && s.RemoteIP != ip {
-		return "", false
+	if s.RemoteIP == "" && ip != "" {
+		s.RemoteIP = ip
 	}
+	s.ExpiresAt = time.Now().Add(defaultUserSessionTTL)
+	g.sessions[token] = s
 	return s.CSRFToken, true
 }
 

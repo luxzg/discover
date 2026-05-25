@@ -16,6 +16,8 @@ import (
 	"discover/internal/store"
 )
 
+const userSessionTTL = 90 * 24 * time.Hour
+
 type API struct {
 	cfg       config.Config
 	store     *store.Store
@@ -487,7 +489,7 @@ func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, err)
 		return
 	}
-	token, expires, err := a.user.NewSession(r.RemoteAddr, 30*24*time.Hour)
+	token, expires, err := a.user.NewSession(r.RemoteAddr, userSessionTTL)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
@@ -549,6 +551,15 @@ func (a *API) handleUserSession(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
 		return
 	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.UserSessionCookieName,
+		Value:    c.Value,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   a.cfg.EnableTLS,
+		Expires:  time.Now().Add(userSessionTTL),
+	})
 	respondJSON(w, http.StatusOK, map[string]any{
 		"ok":                        true,
 		"csrf_token":                csrfToken,

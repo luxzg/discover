@@ -209,8 +209,10 @@ feed.addEventListener('click', async (e) => {
       } else {
         await api('/api/articles/action', { method: 'POST', body: JSON.stringify({ id, action }) });
       }
-      cardEl.remove();
-      currentIds = currentIds.filter(v => v !== id);
+      if (action === 'down' || action === 'dont' || action === 'domain' || action === 'hide') {
+        cardEl.remove();
+        currentIds = currentIds.filter(v => v !== id);
+      }
       statusEl.textContent = `${new Date().toISOString()} action applied`;
     } catch (err) {
       statusEl.textContent = `${new Date().toISOString()} action failed: ${err.message}`;

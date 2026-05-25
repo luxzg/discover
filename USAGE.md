@@ -11,8 +11,11 @@
   - `👎 Hide` -> `hidden`
   - `🚫 Hide This` -> prompts for pattern + editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
   - `🌐 Hide Domain` -> extracts domain from article URL, prompts editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
+- Positive actions (`👍 Useful`, click/read) keep the card visible in the current batch until reload/next batch
+- Negative actions remove card(s) immediately from the current view
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
 - If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
+- User session uses long-lived cookie/session refresh behavior to reduce surprise sign-outs during normal use
 
 ## Admin UI
 

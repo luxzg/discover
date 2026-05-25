@@ -343,7 +343,10 @@ func (s *Store) UpsertArticleHit(ctx context.Context, in UpsertArticleInput) err
 		ON CONFLICT(url_hash) DO UPDATE SET
 			title=excluded.title,
 			content=excluded.content,
-			thumbnail_url=CASE WHEN excluded.thumbnail_url <> '' THEN excluded.thumbnail_url ELSE articles.thumbnail_url END,
+			thumbnail_url=CASE
+				WHEN (articles.thumbnail_url = '' OR articles.thumbnail_url IS NULL) AND excluded.thumbnail_url <> '' THEN excluded.thumbnail_url
+				ELSE articles.thumbnail_url
+			END,
 			source_domain=excluded.source_domain,
 			published_at=COALESCE(excluded.published_at, articles.published_at),
 			ingested_at=excluded.ingested_at,

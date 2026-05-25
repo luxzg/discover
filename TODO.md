@@ -1,9 +1,5 @@
 # TODO
 
-## Thumbnail Backfill On URL Dedup Hits
-
-When an ingest hit resolves to an existing article (URL dedupe), if the existing DB row has no thumbnail but the new hit contains one, backfill and store the new thumbnail URL.
-
 ## Thumbnail-Focused Fallback Fetch (Optional)
 
 Investigate an optional ingest/fetch path for rows missing thumbnails, to request/search for sources that are more likely to return thumbnail metadata.
@@ -12,15 +8,9 @@ Investigate an optional ingest/fetch path for rows missing thumbnails, to reques
 
 Investigate why some rows have thumbnail URLs but browser shows only a broken-image placeholder; collect examples and identify root causes (bad URLs, blocked hosts, hotlink restrictions, format issues, etc.).
 
-## Feed Action UX Consistency
+## Admin Session Stability Follow-Up
 
-Keep positively acted cards (`upvote`, `read`) visible in the current active batch until next reload/batch refresh.  
-Negative actions (`downvote`, `hide this`, `hide domain`) should continue removing affected cards immediately.
-
-## Session Stability / Idle Timeout
-
-Investigate unexpected user/admin sign-outs during active local-WiFi usage (buttons becoming unresponsive followed by logged-out state).  
-Target very long idle timeout/session lifetime with stable session-refresh behavior.
+User session stability has been improved, but admin session behavior under long-running mixed-network use may still need dedicated verification/tuning.
 
 ## Offline / Deferred Action Queue (Optional, Later)
 

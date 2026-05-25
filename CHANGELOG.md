@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-05-25 11:03 CEST - Docs Note (no version change)
+
+- Added `FINISHED_TASKS.md` and moved recently completed TODO items there
+  (thumbnail backfill, feed action UX consistency, and user-session stability
+  task closure details).
+- Kept only active follow-up work in `TODO.md` per project workflow.
+
+## 2026-05-25 10:58 CEST - v2.13
+
+- Ingest URL-dedupe thumbnail backfill refinement:
+  - when an existing article already has a thumbnail, ingest no longer overwrites it
+  - thumbnail is now backfilled only when stored thumbnail is empty and new ingest hit provides one
+- Feed action UX update:
+  - positive actions (`👍 Useful`, click/read) no longer remove cards immediately from current batch view
+  - negative actions continue removing cards immediately (`👎 Hide`, `🚫 Hide This`, `🌐 Hide Domain`)
+- User session stability improvements:
+  - user session TTL increased to 90 days
+  - user session now uses sliding refresh on valid activity
+  - user session validation/CSRF checks no longer hard-fail on remote IP drift (helps local WiFi/IPv4-IPv6 edge cases)
+  - `/api/session` now refreshes user session cookie expiry on successful session restore
+- Docs/task updates:
+  - updated `USAGE.md` with action-visibility and session behavior notes
+  - updated `TODO.md` by removing completed items and keeping admin-session follow-up as an active task
+
 ## 2026-05-25 09:52 CEST - Docs Note (no version change)
 
 - Expanded `TODO.md` with newly requested backlog items:
