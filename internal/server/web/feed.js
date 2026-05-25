@@ -67,7 +67,7 @@ function setAuthUI() {
 }
 
 function card(item) {
-  const img = item.thumbnail_url ? `<img class="thumb" src="${esc(item.thumbnail_url)}" alt="">` : '';
+  const img = item.thumbnail_url ? `<img class="thumb" src="${esc(item.thumbnail_url)}" alt="" onerror="this.remove()">` : '';
   const pub = publishedLabel(item.published_at);
   const pubPart = pub ? ` | ${esc(pub)}` : '';
   return `<article class="card" data-id="${item.id}">

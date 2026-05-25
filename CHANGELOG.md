@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-05-25 17:18 CEST - v2.14
+
+- Thumbnail reliability improvements (no DB migration required):
+  - feed-read normalization now decodes Startpage proxy thumbnails (`/av/proxy-image`) via `piurl` when valid
+  - feed-read normalization now decodes Brave proxy thumbnails (`imgs.search.brave.com`) from base64 path payload when valid
+  - inline `data:image/...` thumbnails are preserved as-is
+- Rendering fallback for broken images:
+  - feed cards now remove failed `<img>` elements on load error instead of showing broken placeholder icons
+- Ingest thumbnail behavior adjustment:
+  - ingest now keeps original thumbnail source URL shape in DB (validated/safe forms only) rather than rewriting proxy forms
+- Docs/task updates:
+  - updated `USAGE.md` thumbnail behavior notes
+  - moved completed thumbnail fallback/diagnostics tasks from `TODO.md` to `FINISHED_TASKS.md`
+  - added new active TODO for optional thumbnail refresh of currently empty-thumbnail rows
+
 ## 2026-05-25 11:03 CEST - Docs Note (no version change)
 
 - Added `FINISHED_TASKS.md` and moved recently completed TODO items there

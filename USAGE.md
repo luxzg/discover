@@ -48,6 +48,11 @@
     - within same ingest run, highest-score item is kept, others are hidden
     - if same key already exists in non-unread history (`seen/read/useful/hidden`), newly ingested matches are hidden
   - subject/title dedupe at feed selection time
+- Thumbnail handling in feed:
+  - Startpage proxy thumbnails are normalized to direct `piurl` targets when valid
+  - Brave proxy thumbnails are normalized by decoding their base64 payload when valid
+  - inline `data:image/...` thumbnails are kept as-is
+  - if an image fails to load in browser, card falls back to no-image rendering automatically
 
 ## Query And Rule Tips
 

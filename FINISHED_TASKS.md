@@ -25,3 +25,18 @@ Archive of completed (or intentionally closed) TODO items.
     - `/api/session` refreshes cookie expiry
   - Follow-up kept active in `TODO.md`:
     - admin-session stability verification/tuning under long-running mixed-network use
+
+## 2026-05-25 17:18 CEST
+
+### Completed
+
+- **Thumbnail-Focused Fallback Fetch (Optional)**
+  - Implemented in `v2.14` via feed-display normalization without DB migration:
+    - Startpage proxy thumbnails (`/av/proxy-image`) now decode embedded `piurl` and use direct URL when valid
+    - Brave proxy thumbnails (`imgs.search.brave.com/...`) now decode base64 payload to direct URL when valid
+    - `data:image/...` inline thumbnails are preserved as-is
+  - Original stored thumbnail values remain unchanged in DB; normalization is applied when serving feed items.
+
+- **Broken Thumbnail Rendering Diagnostics**
+  - Sample analysis confirmed expiring/broken proxy URLs as a practical cause.
+  - Implemented frontend fallback (`img onerror`) to remove failed images from card rendering instead of showing broken placeholders.

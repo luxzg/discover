@@ -117,10 +117,7 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 			extra := termBoost(topic.Query, e.Title, e.Content)
 			published := parsePublished(e.PublishedDate, e.Pubdate)
-			thumb := strings.TrimSpace(firstNonEmpty(e.Thumbnail, e.ImgSrc))
-			if thumb == "null" {
-				thumb = ""
-			}
+			thumb := bestThumbnailURL(e.Thumbnail, e.ImgSrc)
 			input := store.UpsertArticleInput{
 				URL:           e.URL,
 				NormalizedURL: norm,
@@ -438,6 +435,35 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func bestThumbnailURL(values ...string) string {
+	for _, raw := range values {
+		thumb := normalizeThumbnailURL(raw)
+		if thumb != "" {
+			return thumb
+		}
+	}
+	return ""
+}
+
+func normalizeThumbnailURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.EqualFold(raw, "null") {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(raw), "data:image/") {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	return u.String()
 }
 
 func maxInt(a, b int) int {

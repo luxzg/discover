@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -412,6 +414,7 @@ func (s *Store) FetchTopUnread(ctx context.Context, limit int, minScore float64)
 		a.PublishedAt = parseDBTime(publishedRaw)
 		a.IngestedAt = parseDBTime(ingestedRaw)
 		a.Status = model.ArticleStatus(status)
+		a.ThumbnailURL = displayThumbnailURL(a.ThumbnailURL)
 		key := subjectKey(a.Title)
 		if key != "" {
 			if _, ok := seenSubject[key]; ok {
@@ -878,4 +881,93 @@ func dedupeTitleKey(title string, maxChars int) string {
 		}
 	}
 	return b.String()
+}
+
+func displayThumbnailURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.EqualFold(raw, "null") {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(raw), "data:image/") {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	host := strings.ToLower(u.Hostname())
+	pathLower := strings.ToLower(u.Path)
+
+	// Startpage proxy: decode embedded direct image URL from piurl.
+	if strings.Contains(host, "startpage.com") && strings.Contains(pathLower, "/av/proxy-image") {
+		if direct := decodeStartpagePiURL(u); direct != "" {
+			return direct
+		}
+	}
+	// Brave proxy: decode base64 payload from path segment.
+	if strings.Contains(host, "imgs.search.brave.com") {
+		if direct := decodeBraveProxyURL(u.Path); direct != "" {
+			return direct
+		}
+	}
+	return u.String()
+}
+
+func decodeStartpagePiURL(u *url.URL) string {
+	piurl := strings.TrimSpace(u.Query().Get("piurl"))
+	if piurl == "" {
+		return ""
+	}
+	candidates := []string{piurl}
+	if decoded, err := url.QueryUnescape(piurl); err == nil && decoded != "" {
+		candidates = append(candidates, decoded)
+	}
+	for _, c := range candidates {
+		du, err := url.Parse(strings.TrimSpace(c))
+		if err != nil {
+			continue
+		}
+		ds := strings.ToLower(du.Scheme)
+		if (ds == "http" || ds == "https") && du.Hostname() != "" {
+			return du.String()
+		}
+	}
+	return ""
+}
+
+func decodeBraveProxyURL(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		seg := strings.TrimSpace(parts[i])
+		if seg == "" {
+			continue
+		}
+		candidates := decodeBase64Candidates(seg)
+		for _, c := range candidates {
+			du, err := url.Parse(strings.TrimSpace(c))
+			if err != nil {
+				continue
+			}
+			ds := strings.ToLower(du.Scheme)
+			if (ds == "http" || ds == "https") && du.Hostname() != "" {
+				return du.String()
+			}
+		}
+	}
+	return ""
+}
+
+func decodeBase64Candidates(s string) []string {
+	out := make([]string, 0, 2)
+	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		out = append(out, string(b))
+	}
+	if b, err := base64.RawStdEncoding.DecodeString(s); err == nil {
+		out = append(out, string(b))
+	}
+	return out
 }

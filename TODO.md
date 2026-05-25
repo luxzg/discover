@@ -1,12 +1,11 @@
 # TODO
 
-## Thumbnail-Focused Fallback Fetch (Optional)
+## Thumbnail Refresh For Empty Rows (Optional)
 
-Investigate an optional ingest/fetch path for rows missing thumbnails, to request/search for sources that are more likely to return thumbnail metadata.
-
-## Broken Thumbnail Rendering Diagnostics
-
-Investigate why some rows have thumbnail URLs but browser shows only a broken-image placeholder; collect examples and identify root causes (bad URLs, blocked hosts, hotlink restrictions, format issues, etc.).
+Add an optional background/manual refresh pass for rows with empty thumbnails:
+- attempt to refresh missing thumbnails from new ingest hits
+- optionally run targeted lookup for known proxy patterns (Startpage/Bing/Brave-derived image URLs)
+- keep this disabled by default unless explicitly enabled/configured
 
 ## Admin Session Stability Follow-Up
 
