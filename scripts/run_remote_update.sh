@@ -20,4 +20,7 @@ fi
 REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
 
 echo "==> Running remote update script on $REMOTE"
-ssh -tt "$REMOTE" "bash '$REMOTE_SCRIPT_PATH'"
+ssh -tt "$REMOTE" "bash -lc '
+set -euo pipefail
+sudo -u discover bash \"$REMOTE_SCRIPT_PATH\"
+'"

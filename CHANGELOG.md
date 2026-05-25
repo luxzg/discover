@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-25 18:05 CEST - Workflow Note (no version change)
+
+- Hardened `scripts/run_remote_update.sh` to handle missing remote execute bit:
+  - now runs remote `chmod +x /home/discover/apps/discover/scripts/update_remote.sh` before executing it
+  - avoids `Permission denied` after pull when execute permissions are not preserved on remote checkout
+
 ## 2026-05-25 17:38 CEST - Workflow Note (no version change)
 
 - Added remote-build update scripts:
