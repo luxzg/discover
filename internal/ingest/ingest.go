@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -66,9 +67,10 @@ type searxEntry struct {
 }
 
 var (
-	reMetaTag = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
-	reLinkTag = regexp.MustCompile(`(?is)<link\b[^>]*>`)
-	reAttrKV  = regexp.MustCompile(`(?is)\b([a-zA-Z_:][a-zA-Z0-9_:\-]*)\s*=\s*("([^"]*)"|'([^']*)')`)
+	reMetaTag    = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
+	reLinkTag    = regexp.MustCompile(`(?is)<link\b[^>]*>`)
+	reAttrKV     = regexp.MustCompile(`(?is)\b([a-zA-Z_:][a-zA-Z0-9_:\-]*)\s*=\s*("([^"]*)"|'([^']*)')`)
+	errNoResults = errors.New("no results from query on instance")
 )
 
 func (s *Service) Run(ctx context.Context) error {
@@ -212,6 +214,7 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 	instances := append([]string(nil), s.cfg.SearxngInstances...)
 	s.rand.Shuffle(len(instances), func(i, j int) { instances[i], instances[j] = instances[j], instances[i] })
 	rateLimited := 0
+	noResults := 0
 
 	for _, base := range instances {
 		if wait, blocked := s.blockRemaining(base); blocked {
@@ -222,6 +225,10 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 		if err == nil && len(results) > 0 {
 			return results, nil
 		}
+		if errors.Is(err, errNoResults) || (err == nil && len(results) == 0) {
+			noResults++
+			continue
+		}
 		if retryAfter > 0 {
 			rateLimited++
 			s.setBlocked(base, retryAfter)
@@ -231,6 +238,10 @@ func (s *Service) fetchTopic(ctx context.Context, q string) ([]searxEntry, error
 		if err != nil {
 			lastErr = err
 		}
+	}
+	if len(instances) > 0 && noResults == len(instances) {
+		// Distinguish "query had no matches" from real fetch errors.
+		return nil, nil
 	}
 	if rateLimited == len(instances) && len(instances) > 0 {
 		return nil, fmt.Errorf("all configured searx instances are rate-limited; add more instances or increase per_query_delay_seconds")
@@ -278,6 +289,9 @@ func (s *Service) fetchHarvestFromInstance(ctx context.Context, base, q string) 
 	}
 	if len(out) == 0 && lastErr != nil {
 		return nil, 0, lastErr
+	}
+	if len(out) == 0 {
+		return nil, 0, errNoResults
 	}
 	return out, 0, nil
 }

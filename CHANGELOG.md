@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-25 19:42 CEST - v2.17
+
+- Ingest error semantics improved for zero-result topics:
+  - when all configured instances are reachable but return no results for a query, ingest now treats that as `results=0` (non-error) instead of logging `no searx instance available`
+  - real fetch/rate-limit failures remain logged as errors
+- Admin version visibility improvement:
+  - `build_version` is now shown in admin `Article Status Counts` panel
+  - existing build metadata remains visible in ingestion status
+
 ## 2026-05-25 19:11 CEST - v2.16
 
 - Added high-score thumbnail enrichment for empty-thumbnail unread rows:

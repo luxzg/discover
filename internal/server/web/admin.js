@@ -263,6 +263,7 @@ async function refreshStatus() {
       `last_message: ${ingest.last_message || '-'}\n` +
       `last_message_at: ${ingest.last_message_at || '-'}`;
     countsEl.textContent =
+      `build_version: ${build.version || '-'}\n` +
       `unread: ${counts.unread || 0}\n` +
       `seen: ${counts.seen || 0}\n` +
       `read: ${counts.read || 0}\n` +
