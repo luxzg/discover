@@ -12,20 +12,16 @@ BIN_PATH="${BIN_PATH:-$APP_DIR/discover}"
 cd "$APP_DIR"
 
 echo
-echo "==> [1/4] Updating repository in $APP_DIR"
 echo "==> Updating repository in $APP_DIR"
 git pull --ff-only
 
 echo
-echo "==> [2/4] Syncing Go modules (go mod tidy)"
-echo "==> Syncing Go modules"
+echo "==> Syncing Go modules (go mod tidy)"
 go mod tidy
 
 echo
-echo "==> [3/4] Building binary at $BIN_PATH"
-echo "==> Building binary: $BIN_PATH"
+echo "==> Building binary at $BIN_PATH"
 go build -o "$BIN_PATH" ./cmd/discover
 
 echo
-echo "==> [4/4] Build phase complete"
-echo "==> Build done"
+echo "==> Build phase complete"

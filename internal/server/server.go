@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"discover/internal/auth"
+	"discover/internal/buildinfo"
 	"discover/internal/config"
 	"discover/internal/model"
 	"discover/internal/scheduler"
@@ -436,6 +437,12 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 		msg, msgAt = a.progress.LastProgress()
 	}
 	respondJSON(w, http.StatusOK, map[string]any{
+		"build": map[string]any{
+			"version":    buildinfo.Version,
+			"commit":     buildinfo.Commit,
+			"built_at":   buildinfo.BuildTime,
+			"build_info": buildinfo.String(),
+		},
 		"ingest": map[string]any{
 			"state":           a.scheduler.Snapshot(),
 			"last_message":    msg,

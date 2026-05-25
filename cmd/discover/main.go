@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"discover/internal/auth"
+	"discover/internal/buildinfo"
 	"discover/internal/config"
 	"discover/internal/db"
 	"discover/internal/ingest"
@@ -78,7 +79,7 @@ func main() {
 		_ = httpServer.Shutdown(shCtx)
 	}()
 
-	log.Printf("starting discover on %s (tls=%v)", cfg.ListenAddress, cfg.EnableTLS)
+	log.Printf("starting discover %s on %s (tls=%v)", buildinfo.String(), cfg.ListenAddress, cfg.EnableTLS)
 	if cfg.EnableTLS {
 		err = httpServer.ListenAndServeTLS(cfg.TLSCertPath, cfg.TLSKeyPath)
 	} else {

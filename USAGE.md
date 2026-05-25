@@ -29,6 +29,7 @@
     - if same normalized title exists in any non-unread status, unread matches are hidden
     - otherwise highest-score unread is kept and remaining unread duplicates are hidden
 - Article Status Counts includes `dedupe_hidden_total` as cumulative all-time hidden-by-dedupe count
+- Ingestion status panel includes build metadata (`version`, `commit`, `built_at`) for quick runtime verification after updates
 
 ## Ingestion Behavior
 

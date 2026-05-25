@@ -21,25 +21,24 @@ fi
 REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
 
 echo
-echo "==> [1/5] Connecting to $REMOTE and stopping discover service"
-echo "==> This uses sudo on the remote host."
-echo "==> Running remote update script on $REMOTE"
+echo "==> Connecting to $REMOTE"
+echo "==> This flow uses sudo on the remote host for service/log commands"
 ssh -tt "$REMOTE" "bash -lc '
 set -euo pipefail
 echo
-echo \"==> [remote 1/5] Stopping discover service\"
+echo \"==> Stopping discover service\"
 sudo systemctl stop discover
 echo
-echo \"==> [remote 2/5] Running update/build script as discover user\"
+echo \"==> Running update/build script as discover user\"
 sudo -u discover bash -lc \"cd '$REMOTE_APP_DIR' && git pull --ff-only && bash '$REMOTE_SCRIPT_PATH'\"
 echo
-echo \"==> [remote 3/5] Starting discover service\"
+echo \"==> Starting discover service\"
 sudo systemctl start discover
 echo
-echo \"==> [remote 4/5] Service status (latest 25 lines)\"
+echo \"==> Service status (latest 25 lines)\"
 sudo systemctl status discover --no-pager -n 25
 echo
-echo \"==> [remote 5/5] Recent logs (latest 50 lines)\"
+echo \"==> Recent logs (latest 50 lines)\"
 sudo journalctl -u discover -n 50 --no-pager
 '"
 

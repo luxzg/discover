@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-25 18:28 CEST - v2.15
+
+- Runtime build/version visibility:
+  - startup log now includes build info (`version`, `commit`, `built_at`)
+  - admin status API now exposes build metadata under `build`
+  - admin UI ingestion panel now shows current running build line for quick deployment verification
+- Update script output cleanup:
+  - removed nested/mixed step counters from `scripts/update_remote.sh` and `scripts/run_remote_update.sh`
+  - kept clear section markers with blank-line separation while making sequence linear and easier to follow
+- Docs update:
+  - `USAGE.md` now mentions build metadata shown in admin ingestion status panel
+
 ## 2026-05-25 18:21 CEST - Workflow Note (no version change)
 
 - Improved verbosity of remote update scripts:

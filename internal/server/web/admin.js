@@ -241,6 +241,7 @@ async function refreshStatus() {
   if (!authenticated) return;
   try {
     const j = await call('/admin/api/status');
+    const build = j.build || {};
     const ingest = j.ingest || {};
     const ingestState = ingest.state || {};
     const counts = j.counts || {};
@@ -252,6 +253,7 @@ async function refreshStatus() {
     runDedupeBtn.classList.toggle('is-busy', manualDedupeInFlight);
     runDedupeBtn.textContent = manualDedupeInFlight ? 'Run Retroactive Dedupe (Running...)' : 'Run Retroactive Dedupe';
     ingestStateEl.textContent =
+      `build: ${build.version || '-'} (commit=${build.commit || '-'}, built=${build.built_at || '-'})\n` +
       `running: ${Boolean(ingestState.running)}\n` +
       `source: ${ingestState.current_source || ingestState.last_source || '-'}\n` +
       `started_at: ${ingestState.started_at || '-'}\n` +
