@@ -4,8 +4,6 @@
 
 Current refresh pass targets high-score unread rows with empty thumbnails.
 Possible next improvements:
-- add admin/manual endpoint to run thumbnail refresh on-demand
-- add per-domain cooldown/cache for repeated fetch failures
 - add configurable hard cap by total runtime budget per ingest
 
 ## Offline / Deferred Action Queue (Optional, Later)

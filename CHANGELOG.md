@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-25 20:18 CEST - Docs Note (no version change)
+
+- Documented local wrapper update-script arguments:
+  - `./scripts/run_remote_update.sh -ip <host_or_ip> -user <ssh_user>`
+  - examples added in both `README.md` and `INSTALL.md`
+- Cleaned `TODO.md` thumbnail follow-up scope:
+  - removed on-demand thumbnail-refresh endpoint item
+  - removed per-domain thumbnail cooldown/cache item
+  - kept runtime-budget cap item as optional future tuning
+
 ## 2026-05-25 20:10 CEST - v2.19
 
 - Fixed runtime version consistency:
