@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-25 18:21 CEST - Workflow Note (no version change)
+
+- Improved verbosity of remote update scripts:
+  - added clear step-by-step section `echo` messages in `scripts/update_remote.sh` and `scripts/run_remote_update.sh`
+  - added blank lines before each logical section to improve readability during interactive runs
+  - remote wrapper output now clearly labels stop/build/start/status/log phases
+
 ## 2026-05-25 18:12 CEST - Workflow Note (no version change)
 
 - Fixed remote update scripts for environments where `discover` is not in sudoers:
