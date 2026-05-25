@@ -166,7 +166,7 @@ journalctl -u discover --since today -f
 
 Preferred update method uses helper scripts.
 
-### 7.1 Remote update script (run on server)
+### 7.1 Remote update script (build-only, run on server)
 
 Run as `discover` user on the remote server:
 
@@ -176,8 +176,8 @@ cd /home/discover/apps/discover
 ```
 
 Notes:
-- script runs: `git pull --ff-only`, `go mod tidy`, `go build -o /home/discover/apps/discover/discover ./cmd/discover`, service restart and status/log checks
-- requires sudo rights for `systemctl` and `journalctl` commands
+- script runs: `git pull --ff-only`, `go mod tidy`, `go build -o /home/discover/apps/discover/discover ./cmd/discover`
+- does not restart service on its own
 
 ### 7.2 Local wrapper to run remote update over SSH
 
@@ -190,7 +190,15 @@ cd ~/dev/discover
 
 It asks for remote host/IP and SSH user, then executes:
 
-- `/home/discover/apps/discover/scripts/update_remote.sh` on remote host
+- `sudo systemctl stop discover`
+- run update/build script as `discover`
+- `sudo systemctl start discover`
+- `sudo systemctl status discover --no-pager -n 25`
+- `sudo journalctl -u discover -n 50 --no-pager`
+
+Permission model:
+- remote SSH user must have sudo rights for `systemctl` and `journalctl`
+- remote SSH user does not need direct write access to `/home/discover/apps/discover`; build step is executed as `discover`
 
 ### 7.3 Manual fallback (if scripts are unavailable)
 

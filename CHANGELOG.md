@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-25 18:12 CEST - Workflow Note (no version change)
+
+- Fixed remote update scripts for environments where `discover` is not in sudoers:
+  - `scripts/update_remote.sh` is now build-only (`git pull`, `go mod tidy`, `go build`) and does not call `sudo`
+  - `scripts/run_remote_update.sh` now handles service stop/start/status/logs with caller's sudo rights and runs build step as `discover`
+- Updated `INSTALL.md` section `7` to document the corrected permission model and script responsibilities.
+
 ## 2026-05-25 18:05 CEST - Workflow Note (no version change)
 
 - Hardened `scripts/run_remote_update.sh` to handle missing remote execute bit:
