@@ -54,6 +54,9 @@
   - Brave proxy thumbnails are normalized by decoding their base64 payload when valid
   - inline `data:image/...` thumbnails are kept as-is
   - if an image fails to load in browser, card falls back to no-image rendering automatically
+- High-score thumbnail enrichment:
+  - during ingest, unread rows with empty thumbnails can be enriched from article metadata (`og:image`, `twitter:image`, `link rel=image_src`)
+  - controlled by `thumbnail_refresh_min_score` and `thumbnail_refresh_max_per_run`
 
 ## Query And Rule Tips
 

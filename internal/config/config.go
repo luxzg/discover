@@ -14,60 +14,64 @@ const defaultAdminSecret = "CHANGEME_STRONG_SECRET"
 const defaultUserSecret = "CHANGEME_USER_SECRET"
 
 type Config struct {
-	ListenAddress          string   `json:"listen_address"`
-	EnableTLS              bool     `json:"enable_tls"`
-	TLSCertPath            string   `json:"tls_cert_path"`
-	TLSKeyPath             string   `json:"tls_key_path"`
-	UserName               string   `json:"user_name"`
-	UserSecret             string   `json:"user_secret"`
-	AdminSecret            string   `json:"admin_secret"`
-	AdminBindCIDRs         []string `json:"admin_bind_cidrs"`
-	DatabasePath           string   `json:"database_path"`
-	DailyIngestTime        string   `json:"daily_ingest_time"`
-	IngestIntervalMinutes  int      `json:"ingest_interval_minutes"`
-	SearxngInstances       []string `json:"searxng_instances"`
-	PerQueryDelaySeconds   int      `json:"per_query_delay_seconds"`
-	PerQueryJitterSeconds  int      `json:"per_query_jitter_seconds"`
-	HTTPReadTimeoutSec     int      `json:"http_read_timeout_sec"`
-	HTTPWriteTimeoutSec    int      `json:"http_write_timeout_sec"`
-	HTTPIdleTimeoutSec     int      `json:"http_idle_timeout_sec"`
-	MaxBodyBytes           int64    `json:"max_body_bytes"`
-	DefaultBatchSize       int      `json:"default_batch_size"`
-	FeedMinScore           float64  `json:"feed_min_score"`
-	AutoHideBelowScore     float64  `json:"auto_hide_below_score"`
-	DedupeTitleKeyChars    int      `json:"dedupe_title_key_chars"`
-	HideRuleDefaultPenalty float64  `json:"hide_rule_default_penalty"`
-	CullUnreadDays         int      `json:"cull_unread_days"`
-	CullMaxScore           float64  `json:"cull_max_score"`
+	ListenAddress             string   `json:"listen_address"`
+	EnableTLS                 bool     `json:"enable_tls"`
+	TLSCertPath               string   `json:"tls_cert_path"`
+	TLSKeyPath                string   `json:"tls_key_path"`
+	UserName                  string   `json:"user_name"`
+	UserSecret                string   `json:"user_secret"`
+	AdminSecret               string   `json:"admin_secret"`
+	AdminBindCIDRs            []string `json:"admin_bind_cidrs"`
+	DatabasePath              string   `json:"database_path"`
+	DailyIngestTime           string   `json:"daily_ingest_time"`
+	IngestIntervalMinutes     int      `json:"ingest_interval_minutes"`
+	SearxngInstances          []string `json:"searxng_instances"`
+	PerQueryDelaySeconds      int      `json:"per_query_delay_seconds"`
+	PerQueryJitterSeconds     int      `json:"per_query_jitter_seconds"`
+	HTTPReadTimeoutSec        int      `json:"http_read_timeout_sec"`
+	HTTPWriteTimeoutSec       int      `json:"http_write_timeout_sec"`
+	HTTPIdleTimeoutSec        int      `json:"http_idle_timeout_sec"`
+	MaxBodyBytes              int64    `json:"max_body_bytes"`
+	DefaultBatchSize          int      `json:"default_batch_size"`
+	FeedMinScore              float64  `json:"feed_min_score"`
+	AutoHideBelowScore        float64  `json:"auto_hide_below_score"`
+	DedupeTitleKeyChars       int      `json:"dedupe_title_key_chars"`
+	ThumbnailRefreshMinScore  float64  `json:"thumbnail_refresh_min_score"`
+	ThumbnailRefreshMaxPerRun int      `json:"thumbnail_refresh_max_per_run"`
+	HideRuleDefaultPenalty    float64  `json:"hide_rule_default_penalty"`
+	CullUnreadDays            int      `json:"cull_unread_days"`
+	CullMaxScore              float64  `json:"cull_max_score"`
 }
 
 func defaultConfig() Config {
 	return Config{
-		ListenAddress:          ":8443",
-		EnableTLS:              true,
-		TLSCertPath:            "/etc/letsencrypt/live/example.com/fullchain.pem",
-		TLSKeyPath:             "/etc/letsencrypt/live/example.com/privkey.pem",
-		UserName:               "discover",
-		UserSecret:             defaultUserSecret,
-		AdminSecret:            defaultAdminSecret,
-		AdminBindCIDRs:         []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
-		DatabasePath:           "discover.db",
-		DailyIngestTime:        "07:30",
-		IngestIntervalMinutes:  120,
-		SearxngInstances:       []string{"http://localhost:8888"},
-		PerQueryDelaySeconds:   5,
-		PerQueryJitterSeconds:  5,
-		HTTPReadTimeoutSec:     10,
-		HTTPWriteTimeoutSec:    20,
-		HTTPIdleTimeoutSec:     60,
-		MaxBodyBytes:           1 << 20,
-		DefaultBatchSize:       10,
-		FeedMinScore:           1,
-		AutoHideBelowScore:     1,
-		DedupeTitleKeyChars:    50,
-		HideRuleDefaultPenalty: 10,
-		CullUnreadDays:         30,
-		CullMaxScore:           0,
+		ListenAddress:             ":8443",
+		EnableTLS:                 true,
+		TLSCertPath:               "/etc/letsencrypt/live/example.com/fullchain.pem",
+		TLSKeyPath:                "/etc/letsencrypt/live/example.com/privkey.pem",
+		UserName:                  "discover",
+		UserSecret:                defaultUserSecret,
+		AdminSecret:               defaultAdminSecret,
+		AdminBindCIDRs:            []string{"127.0.0.1/32", "::1/128", "192.168.0.0/16", "10.0.0.0/8"},
+		DatabasePath:              "discover.db",
+		DailyIngestTime:           "07:30",
+		IngestIntervalMinutes:     120,
+		SearxngInstances:          []string{"http://localhost:8888"},
+		PerQueryDelaySeconds:      5,
+		PerQueryJitterSeconds:     5,
+		HTTPReadTimeoutSec:        10,
+		HTTPWriteTimeoutSec:       20,
+		HTTPIdleTimeoutSec:        60,
+		MaxBodyBytes:              1 << 20,
+		DefaultBatchSize:          10,
+		FeedMinScore:              1,
+		AutoHideBelowScore:        1,
+		DedupeTitleKeyChars:       50,
+		ThumbnailRefreshMinScore:  60,
+		ThumbnailRefreshMaxPerRun: 40,
+		HideRuleDefaultPenalty:    10,
+		CullUnreadDays:            30,
+		CullMaxScore:              0,
 	}
 }
 
@@ -151,6 +155,12 @@ func (c Config) Validate() error {
 	if c.DedupeTitleKeyChars < 10 || c.DedupeTitleKeyChars > 200 {
 		return errors.New("dedupe_title_key_chars must be 10..200")
 	}
+	if c.ThumbnailRefreshMinScore < -100 || c.ThumbnailRefreshMinScore > 1000 {
+		return errors.New("thumbnail_refresh_min_score out of range")
+	}
+	if c.ThumbnailRefreshMaxPerRun < 0 || c.ThumbnailRefreshMaxPerRun > 500 {
+		return errors.New("thumbnail_refresh_max_per_run out of range")
+	}
 	if c.MaxBodyBytes <= 0 {
 		return errors.New("max_body_bytes must be positive")
 	}
@@ -189,6 +199,8 @@ func MissingKeys(path string) ([]string, error) {
 		"feed_min_score",
 		"auto_hide_below_score",
 		"dedupe_title_key_chars",
+		"thumbnail_refresh_min_score",
+		"thumbnail_refresh_max_per_run",
 		"hide_rule_default_penalty",
 		"cull_unread_days",
 		"cull_max_score",

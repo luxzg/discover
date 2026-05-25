@@ -40,3 +40,15 @@ Archive of completed (or intentionally closed) TODO items.
 - **Broken Thumbnail Rendering Diagnostics**
   - Sample analysis confirmed expiring/broken proxy URLs as a practical cause.
   - Implemented frontend fallback (`img onerror`) to remove failed images from card rendering instead of showing broken placeholders.
+
+## 2026-05-25 19:11 CEST
+
+### Completed
+
+- **Thumbnail Refresh For Empty Rows (Optional)**
+  - Implemented in `v2.16` as ingest-time high-score thumbnail enrichment:
+    - new config gate `thumbnail_refresh_min_score` (default `60`)
+    - new cap `thumbnail_refresh_max_per_run` (default `40`)
+    - selects unread rows with empty thumbnails above threshold and attempts metadata extraction from article pages
+    - extracts `og:image`, `twitter:image`, `twitter:image:src`, and `link rel=image_src` where available
+  - Updates are applied only when thumbnail is still empty at write time (`set-if-empty` safety).

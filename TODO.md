@@ -1,11 +1,12 @@
 # TODO
 
-## Thumbnail Refresh For Empty Rows (Optional)
+## Thumbnail Enrichment Follow-Up (Optional)
 
-Add an optional background/manual refresh pass for rows with empty thumbnails:
-- attempt to refresh missing thumbnails from new ingest hits
-- optionally run targeted lookup for known proxy patterns (Startpage/Bing/Brave-derived image URLs)
-- keep this disabled by default unless explicitly enabled/configured
+Current refresh pass targets high-score unread rows with empty thumbnails.
+Possible next improvements:
+- add admin/manual endpoint to run thumbnail refresh on-demand
+- add per-domain cooldown/cache for repeated fetch failures
+- add configurable hard cap by total runtime budget per ingest
 
 ## Admin Session Stability Follow-Up
 

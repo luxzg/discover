@@ -64,6 +64,8 @@ Edit at least:
 - `feed_min_score` (recommended `1` to avoid low-score cards in feed)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
 - `dedupe_title_key_chars` (default `50`; title-key prefix length used by ingest duplicate hiding)
+- `thumbnail_refresh_min_score` (default `60`; only unread items at/above this score are considered for thumbnail enrichment)
+- `thumbnail_refresh_max_per_run` (default `40`; max high-score empty-thumbnail rows processed per ingest run)
 - `hide_rule_default_penalty` (default penalty prefill used by feed menu hide actions)
 
 Then run again.

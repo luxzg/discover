@@ -34,6 +34,12 @@ type TopicStats struct {
 	Total  int `json:"total"`
 }
 
+type ThumbnailCandidate struct {
+	ID    int64
+	URL   string
+	Score float64
+}
+
 type IngestDedupeStats struct {
 	SameRunHidden    int64 `json:"same_run_hidden"`
 	HistoricalHidden int64 `json:"historical_hidden"`
@@ -503,6 +509,55 @@ func (s *Store) HideUnreadBelowScore(ctx context.Context, threshold float64) (in
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+func (s *Store) ListUnreadThumbnailCandidates(ctx context.Context, minScore float64, limit int) ([]ThumbnailCandidate, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, url, score
+		FROM articles
+		WHERE status='unread'
+		  AND score >= ?
+		  AND (thumbnail_url='' OR thumbnail_url IS NULL)
+		ORDER BY score DESC, id DESC
+		LIMIT ?
+	`, minScore, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]ThumbnailCandidate, 0, limit)
+	for rows.Next() {
+		var c ThumbnailCandidate
+		if err := rows.Scan(&c.ID, &c.URL, &c.Score); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SetThumbnailIfEmpty(ctx context.Context, articleID int64, thumbnailURL string) (bool, error) {
+	thumbnailURL = strings.TrimSpace(thumbnailURL)
+	if articleID <= 0 || thumbnailURL == "" {
+		return false, nil
+	}
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE articles
+		SET thumbnail_url=?, updated_at=CURRENT_TIMESTAMP
+		WHERE id=?
+		  AND (thumbnail_url='' OR thumbnail_url IS NULL)
+	`, thumbnailURL, articleID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 func (s *Store) HideIngestTitleDuplicates(ctx context.Context, ingestedAt time.Time, keyChars int) (IngestDedupeStats, error) {

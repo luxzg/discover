@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-05-25 19:11 CEST - v2.16
+
+- Added high-score thumbnail enrichment for empty-thumbnail unread rows:
+  - new config key `thumbnail_refresh_min_score` (default `60`)
+  - new config key `thumbnail_refresh_max_per_run` (default `40`)
+  - during ingest, selected unread rows are scanned for article-page metadata images (`og:image`, `twitter:image`, `twitter:image:src`, `link rel=image_src`)
+  - thumbnail updates use set-if-empty semantics to avoid overwriting existing thumbnails
+- Config/docs updates:
+  - added new keys to defaults, validation, missing-key warnings, and `config.example.json`
+  - updated `README.md`, `INSTALL.md`, and `USAGE.md` with thumbnail enrichment behavior/settings
+- Task tracking updates:
+  - moved completed thumbnail refresh task from `TODO.md` to `FINISHED_TASKS.md`
+  - added follow-up TODO for optional manual/admin thumbnail enrichment controls
+
 ## 2026-05-25 18:28 CEST - v2.15
 
 - Runtime build/version visibility:

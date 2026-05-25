@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,12 @@ type searxEntry struct {
 	PublishedDate string   `json:"publishedDate"`
 	Pubdate       string   `json:"pubdate"`
 }
+
+var (
+	reMetaTag = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
+	reLinkTag = regexp.MustCompile(`(?is)<link\b[^>]*>`)
+	reAttrKV  = regexp.MustCompile(`(?is)\b([a-zA-Z_:][a-zA-Z0-9_:\-]*)\s*=\s*("([^"]*)"|'([^']*)')`)
+)
 
 func (s *Service) Run(ctx context.Context) error {
 	runStart := time.Now()
@@ -159,6 +166,12 @@ func (s *Service) Run(ctx context.Context) error {
 			dedupeStats.HistoricalHidden,
 			s.cfg.DedupeTitleKeyChars,
 		)
+	}
+	if s.cfg.ThumbnailRefreshMaxPerRun > 0 {
+		filled, scanned := s.refreshMissingThumbnails(ctx)
+		if scanned > 0 {
+			s.logf("ingest: thumbnail refresh scanned %d high-score unread article(s), filled %d", scanned, filled)
+		}
 	}
 	if err := s.store.IncrementNegativeRuleAppliedCounts(ctx, ruleApplyCounts); err != nil {
 		s.logf("ingest: negative rule counter update error: %v", err)
@@ -464,6 +477,126 @@ func normalizeThumbnailURL(raw string) string {
 		return ""
 	}
 	return u.String()
+}
+
+func (s *Service) refreshMissingThumbnails(ctx context.Context) (filled int, scanned int) {
+	candidates, err := s.store.ListUnreadThumbnailCandidates(ctx, s.cfg.ThumbnailRefreshMinScore, s.cfg.ThumbnailRefreshMaxPerRun)
+	if err != nil {
+		s.logf("ingest: thumbnail candidate query error: %v", err)
+		return 0, 0
+	}
+	for _, c := range candidates {
+		select {
+		case <-ctx.Done():
+			return filled, scanned
+		default:
+		}
+		scanned++
+		thumb, err := s.fetchThumbnailFromArticle(ctx, c.URL)
+		if err != nil || thumb == "" {
+			continue
+		}
+		ok, err := s.store.SetThumbnailIfEmpty(ctx, c.ID, thumb)
+		if err != nil {
+			continue
+		}
+		if ok {
+			filled++
+		}
+	}
+	return filled, scanned
+}
+
+func (s *Service) fetchThumbnailFromArticle(ctx context.Context, articleURL string) (string, error) {
+	articleURL = strings.TrimSpace(articleURL)
+	if articleURL == "" {
+		return "", nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, articleURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "discover/0.3")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	baseURL, _ := url.Parse(articleURL)
+
+	// 1) Open Graph / Twitter image tags from meta headers.
+	for _, tag := range reMetaTag.FindAllString(string(body), -1) {
+		attrs := parseHTMLAttrs(tag)
+		prop := strings.ToLower(strings.TrimSpace(firstNonEmpty(attrs["property"], attrs["name"])))
+		if prop != "og:image" && prop != "twitter:image" && prop != "twitter:image:src" {
+			continue
+		}
+		candidate := strings.TrimSpace(attrs["content"])
+		if out := resolveThumbnailCandidate(baseURL, candidate); out != "" {
+			return out, nil
+		}
+	}
+	// 2) link rel=image_src fallback.
+	for _, tag := range reLinkTag.FindAllString(string(body), -1) {
+		attrs := parseHTMLAttrs(tag)
+		rel := strings.ToLower(strings.TrimSpace(attrs["rel"]))
+		if rel != "image_src" && rel != "preload image" {
+			continue
+		}
+		candidate := strings.TrimSpace(firstNonEmpty(attrs["href"], attrs["content"]))
+		if out := resolveThumbnailCandidate(baseURL, candidate); out != "" {
+			return out, nil
+		}
+	}
+	return "", nil
+}
+
+func parseHTMLAttrs(tag string) map[string]string {
+	out := make(map[string]string, 8)
+	for _, m := range reAttrKV.FindAllStringSubmatch(tag, -1) {
+		if len(m) < 5 {
+			continue
+		}
+		k := strings.ToLower(strings.TrimSpace(m[1]))
+		v := ""
+		if m[3] != "" {
+			v = m[3]
+		} else if m[4] != "" {
+			v = m[4]
+		}
+		if k != "" && v != "" {
+			out[k] = strings.TrimSpace(v)
+		}
+	}
+	return out
+}
+
+func resolveThumbnailCandidate(base *url.URL, raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(raw), "data:image/") {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if base != nil {
+		u = base.ResolveReference(u)
+	}
+	return normalizeThumbnailURL(u.String())
 }
 
 func maxInt(a, b int) int {
