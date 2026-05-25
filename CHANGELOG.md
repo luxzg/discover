@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-25 17:38 CEST - Workflow Note (no version change)
+
+- Added remote-build update scripts:
+  - `scripts/update_remote.sh` (run on server as `discover` user)
+  - `scripts/run_remote_update.sh` (run locally to trigger remote script over SSH)
+- Removed previous local-binary copy deploy helper and switched docs to script-first remote update flow.
+- Updated `INSTALL.md` section `7` and `README.md` update section to use the new scripts and keep manual fallback documented.
+
 ## 2026-05-25 17:18 CEST - v2.14
 
 - Thumbnail reliability improvements (no DB migration required):

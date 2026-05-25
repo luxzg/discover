@@ -164,18 +164,46 @@ journalctl -u discover --since today -f
 
 ## 7. Update Existing Installation
 
-Use this flow when updating a running instance from GitHub (run as root):
+Preferred update method uses helper scripts.
+
+### 7.1 Remote update script (run on server)
+
+Run as `discover` user on the remote server:
 
 ```bash
-systemctl stop discover
+cd /home/discover/apps/discover
+./scripts/update_remote.sh
+```
+
+Notes:
+- script runs: `git pull --ff-only`, `go mod tidy`, `go build -o /home/discover/apps/discover/discover ./cmd/discover`, service restart and status/log checks
+- requires sudo rights for `systemctl` and `journalctl` commands
+
+### 7.2 Local wrapper to run remote update over SSH
+
+From your local PC:
+
+```bash
+cd ~/dev/discover
+./scripts/run_remote_update.sh
+```
+
+It asks for remote host/IP and SSH user, then executes:
+
+- `/home/discover/apps/discover/scripts/update_remote.sh` on remote host
+
+### 7.3 Manual fallback (if scripts are unavailable)
+
+```bash
+sudo systemctl stop discover
 sudo su - discover
 cd ~/apps/discover
-git pull
+git pull --ff-only
 go mod tidy
 go build -o discover ./cmd/discover
 exit
-systemctl start discover
-systemctl status discover
+sudo systemctl start discover
+sudo systemctl status discover
 ```
 
 If you changed config keys in a new release, review and update `config.json` before starting the service.

@@ -77,16 +77,10 @@ For topic/rule examples (`site:domain`, multi-word rule matching), see `USAGE.md
 If you run Discover via `systemd`, use this update flow:
 
 ```bash
-sudo systemctl stop discover
-sudo su - discover
-cd ~/apps/discover
-git pull
-go mod tidy
-go build -o discover ./cmd/discover
-exit
-sudo systemctl start discover
-sudo systemctl status discover
+./scripts/run_remote_update.sh
 ```
+
+For remote/server-side and manual fallback options, see `INSTALL.md` section `7`.
 
 ## Project Docs
 
