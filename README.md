@@ -82,6 +82,12 @@ If you run Discover via `systemd`, use this update flow:
 ./scripts/run_remote_update.sh
 ```
 
+Or pass host/user as arguments:
+
+```bash
+./scripts/run_remote_update.sh -ip 10.10.10.10 -user myusername
+```
+
 For remote/server-side and manual fallback options, see `INSTALL.md` section `7`.
 
 ## Project Docs

@@ -6,13 +6,63 @@ set -euo pipefail
 REMOTE_SCRIPT_PATH="/home/discover/apps/discover/scripts/update_remote.sh"
 REMOTE_APP_DIR="/home/discover/apps/discover"
 
-read -r -p "Remote host/IP: " REMOTE_HOST
+REMOTE_HOST=""
+REMOTE_USER=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/run_remote_update.sh [-ip <host_or_ip>] [-user <ssh_user>] [-h|--help]
+
+Examples:
+  ./scripts/run_remote_update.sh
+  ./scripts/run_remote_update.sh -ip 10.10.10.10 -user myusername
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -ip)
+      if [[ $# -lt 2 ]]; then
+        echo "error: -ip requires a value" >&2
+        exit 1
+      fi
+      REMOTE_HOST="$2"
+      shift 2
+      ;;
+    -user)
+      if [[ $# -lt 2 ]]; then
+        echo "error: -user requires a value" >&2
+        exit 1
+      fi
+      REMOTE_USER="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "${REMOTE_HOST}" ]]; then
+  read -r -p "Remote host/IP: " REMOTE_HOST
+fi
+
 if [[ -z "${REMOTE_HOST}" ]]; then
   echo "error: remote host is required" >&2
   exit 1
 fi
 
-read -r -p "Remote SSH user: " REMOTE_USER
+if [[ -z "${REMOTE_USER}" ]]; then
+  read -r -p "Remote SSH user: " REMOTE_USER
+fi
+
 if [[ -z "${REMOTE_USER}" ]]; then
   echo "error: remote ssh user is required" >&2
   exit 1

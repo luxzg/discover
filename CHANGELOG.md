@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-25 20:10 CEST - v2.19
+
+- Fixed runtime version consistency:
+  - updated `internal/buildinfo/buildinfo.go` version string to `v2.19` so startup/admin build output matches changelog release
+- Remote update helper usability:
+  - `scripts/run_remote_update.sh` now supports optional arguments:
+    - `-ip <host_or_ip>`
+    - `-user <ssh_user>`
+  - interactive prompts remain as fallback when args are omitted
+- Docs update:
+  - updated `README.md` and `INSTALL.md` examples for argument-based remote update usage
+
 ## 2026-05-25 20:02 CEST - v2.18
 
 - Admin session stability hardening:

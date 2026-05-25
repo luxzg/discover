@@ -190,7 +190,13 @@ cd ~/dev/discover
 ./scripts/run_remote_update.sh
 ```
 
-It asks for remote host/IP and SSH user, then executes:
+Or provide values non-interactively:
+
+```bash
+./scripts/run_remote_update.sh -ip 10.10.10.10 -user myusername
+```
+
+If arguments are not provided, script prompts for remote host/IP and SSH user, then executes:
 
 - `sudo systemctl stop discover`
 - run update/build script as `discover`
