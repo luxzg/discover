@@ -62,7 +62,7 @@ function setAuthUI() {
   userLogoutBtn.hidden = !authenticated;
   userVersionSpacer.hidden = !authenticated || !buildVersion;
   userBuildVersionEl.hidden = !authenticated || !buildVersion;
-  userBuildVersionEl.textContent = buildVersion ? `v: ${buildVersion}` : '';
+  userBuildVersionEl.textContent = buildVersion || '';
   userNameEl.disabled = authenticated;
   userSecretEl.disabled = authenticated;
   nextBtn.disabled = !authenticated;

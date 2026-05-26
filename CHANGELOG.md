@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-26 11:45 CEST - v2.22
+
+- Feed header version label formatting:
+  - removed extra `v:` prefix in user-page version text
+  - now displays cleanly as `v2.22`
+
 ## 2026-05-26 11:42 CEST - v2.21
 
 - Fixed feed-version visibility on user page:
