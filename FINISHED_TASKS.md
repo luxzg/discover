@@ -66,3 +66,12 @@ Archive of completed (or intentionally closed) TODO items.
   - Implemented in `v2.18`:
     - admin status API now exposes `last_messages` (last two ingest progress lines)
     - admin UI displays `last_messages` while keeping `last_message_at`
+
+## 2026-05-26 11:57 CEST
+
+### Intentionally Closed
+
+- **Thumbnail Enrichment Runtime-Budget Cap**
+  - Closed without implementation:
+    - current controls (`thumbnail_refresh_min_score` and `thumbnail_refresh_max_per_run`) are sufficient in field use
+    - thumbnail enrichment is working well enough without another runtime-budget setting

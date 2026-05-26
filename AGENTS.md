@@ -124,4 +124,10 @@ When workflow or behavior changes, update relevant docs in the same task:
 - `USAGE.md` for feed/admin usage.
 - `SQLITE_DEBUG.md` for DB debugging workflows.
 - `TODO.md` for active future work only.
+- `FINISHED_TASKS.md` for completed, skipped, dropped, or intentionally closed
+  TODO items.
 - `CHANGELOG.md` for timeline entries.
+
+When the user closes a TODO item without implementation, remove it from
+`TODO.md`, add a short rationale to `FINISHED_TASKS.md`, and record the docs
+change in `CHANGELOG.md`.

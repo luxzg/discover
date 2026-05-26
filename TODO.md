@@ -1,11 +1,5 @@
 # TODO
 
-## Thumbnail Enrichment Follow-Up (Optional)
-
-Current refresh pass targets high-score unread rows with empty thumbnails.
-Possible next improvements:
-- add configurable hard cap by total runtime budget per ingest
-
 ## Offline / Deferred Action Queue (Optional, Later)
 
 Explore partial offline mode for feed interactions:

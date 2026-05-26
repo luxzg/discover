@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-26 11:57 CEST - Docs Note (no version change)
+
+- Cleaned active task list:
+  - removed thumbnail enrichment runtime-budget cap from `TODO.md`
+  - archived it in `FINISHED_TASKS.md` as intentionally closed because existing score/per-run caps are sufficient in field use
+- Agent workflow docs:
+  - clarified that completed, skipped, dropped, or intentionally closed TODO items belong in `FINISHED_TASKS.md`
+
 ## 2026-05-26 11:45 CEST - v2.22
 
 - Feed header version label formatting:
