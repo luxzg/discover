@@ -2,6 +2,7 @@ let currentIds = [];
 let authenticated = false;
 let csrfToken = '';
 let defaultHidePenalty = 10;
+let buildVersion = '';
 
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
@@ -11,6 +12,8 @@ const userNameEl = document.getElementById('userName');
 const userSecretEl = document.getElementById('userSecret');
 const userLoginBtn = document.getElementById('userLoginBtn');
 const userLogoutBtn = document.getElementById('userLogoutBtn');
+const userVersionSpacer = document.getElementById('userVersionSpacer');
+const userBuildVersionEl = document.getElementById('userBuildVersion');
 
 async function api(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
@@ -57,6 +60,9 @@ function setAuthUI() {
   userSecretEl.hidden = authenticated;
   userLoginBtn.hidden = authenticated;
   userLogoutBtn.hidden = !authenticated;
+  userVersionSpacer.hidden = !authenticated || !buildVersion;
+  userBuildVersionEl.hidden = !authenticated || !buildVersion;
+  userBuildVersionEl.textContent = buildVersion ? `v: ${buildVersion}` : '';
   userNameEl.disabled = authenticated;
   userSecretEl.disabled = authenticated;
   nextBtn.disabled = !authenticated;
@@ -119,6 +125,7 @@ userLoginBtn.addEventListener('click', async () => {
     const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
     csrfToken = j.csrf_token || '';
     defaultHidePenalty = Number(j.hide_rule_default_penalty || 10);
+    buildVersion = String(j.build_version || '');
     authenticated = true;
     userSecretEl.value = '';
     setAuthUI();
@@ -137,6 +144,7 @@ userLogoutBtn.addEventListener('click', async () => {
   }
   authenticated = false;
   csrfToken = '';
+  buildVersion = '';
   setAuthUI();
   statusEl.textContent = `${new Date().toISOString()} signed out`;
 });
@@ -209,6 +217,9 @@ feed.addEventListener('click', async (e) => {
       } else {
         await api('/api/articles/action', { method: 'POST', body: JSON.stringify({ id, action }) });
       }
+      if (action === 'up') {
+        cardEl.querySelector('.menu')?.classList.remove('open');
+      }
       if (action === 'down' || action === 'dont' || action === 'domain' || action === 'hide') {
         cardEl.remove();
         currentIds = currentIds.filter(v => v !== id);
@@ -242,6 +253,7 @@ statusEl.textContent = `${new Date().toISOString()} checking session...`;
     const j = await api('/api/session');
     csrfToken = j.csrf_token || '';
     defaultHidePenalty = Number(j.hide_rule_default_penalty || 10);
+    buildVersion = String(j.build_version || '');
     authenticated = true;
     setAuthUI();
     await loadFeed();

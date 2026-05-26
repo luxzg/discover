@@ -4,6 +4,7 @@
 
 - Open `/` in browser
 - Sign in with `user_name` and `user_secret`
+- While signed in, feed header/auth row shows current app version next to `Sign Out`
 - Feed shows top unread cards sorted by score/date
 - Tap card to open article (marks it as `read`)
 - Card menu actions:
@@ -12,6 +13,7 @@
   - `🚫 Hide This` -> prompts for pattern + editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
   - `🌐 Hide Domain` -> extracts domain from article URL, prompts editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
 - Positive actions (`👍 Useful`, click/read) keep the card visible in the current batch until reload/next batch
+- `👍 Useful` closes the opened per-card menu automatically after action
 - Negative actions remove card(s) immediately from the current view
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
 - If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)

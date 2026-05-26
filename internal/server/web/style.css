@@ -35,6 +35,7 @@ h1, h2 { margin: 8px 0 16px; }
 .collapsible[open] > summary::before { transform: rotate(90deg); }
 .collapsible-body { padding-top: 10px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row-spacer { flex: 1 1 auto; min-width: 8px; }
 input, button { background: #12171c; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px; }
 button { cursor: pointer; }
 button:disabled { opacity: 0.55; cursor: not-allowed; filter: saturate(0.45); }

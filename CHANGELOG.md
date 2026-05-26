@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-26 11:26 CEST - v2.20
+
+- Feed card action UX:
+  - after `👍 Useful`, the card remains visible (unchanged behavior) and the per-card menu now closes automatically
+- Feed header session/build visibility:
+  - user API responses now include `build_version`
+  - main `/` page now shows app version next to `Sign Out` while signed in
+
 ## 2026-05-25 20:18 CEST - Docs Note (no version change)
 
 - Documented local wrapper update-script arguments:

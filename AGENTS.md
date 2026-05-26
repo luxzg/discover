@@ -83,6 +83,10 @@ Historical context docs (read-only unless explicitly requested):
 
 ## Commit Discipline
 
+- Default behavior: after any code/runtime/UI change that includes version bump
+  + changelog update, commit in the same turn automatically.
+- Exception: do not commit only when user explicitly says `no commit`,
+  `don't commit`, or equivalent.
 - When the user says `commit`, perform the commit in that same turn unless a
   hard environment blocker prevents it.
 - If commit fails, report the exact error and retry when user asks; do not
