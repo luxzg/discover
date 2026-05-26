@@ -534,6 +534,7 @@ func (a *API) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		"ok":                        true,
 		"csrf_token":                csrfToken,
 		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+		"build_version":             buildinfo.Version,
 	})
 }
 
@@ -586,6 +587,7 @@ func (a *API) handleUserSession(w http.ResponseWriter, r *http.Request) {
 		"ok":                        true,
 		"csrf_token":                csrfToken,
 		"hide_rule_default_penalty": a.cfg.HideRuleDefaultPenalty,
+		"build_version":             buildinfo.Version,
 	})
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-26 11:42 CEST - v2.21
+
+- Fixed feed-version visibility on user page:
+  - `/api/login` and `/api/session` now both return `build_version`
+  - ensures version label next to `Sign Out` renders for both fresh login and restored sessions
+
 ## 2026-05-26 11:26 CEST - v2.20
 
 - Feed card action UX:
