@@ -15,6 +15,10 @@ let manualIngestInFlight = false;
 let manualDedupeInFlight = false;
 let authenticated = false;
 let csrfToken = '';
+let editingTopicID = 0;
+let editingRuleID = 0;
+let requestedRunID = 0;
+let statusInFlight = false;
 
 function nowStamp() {
   const d = new Date();
@@ -53,6 +57,12 @@ async function call(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
+    if (r.status === 401) {
+      authenticated = false;
+      csrfToken = '';
+      manualIngestInFlight = false;
+      setAuthUI();
+    }
     const err = new Error(j.error || r.statusText);
     err.status = r.status;
     throw err;
@@ -94,8 +104,8 @@ loginBtn.onclick = async () => {
 logoutBtn.onclick = async () => {
   try {
     await call('/admin/api/logout', { method: 'POST', body: JSON.stringify({}) });
-  } catch (_) {
-    // Best-effort logout.
+  } catch (e) {
+    if (e.status !== 401) { status(`sign out failed: ${e.message}; please retry`); return; }
   }
   authenticated = false;
   csrfToken = '';
@@ -116,13 +126,13 @@ async function loadTopics() {
     const s = stats[String(t.id)] || {};
     const unread = Number(s.unread || 0);
     const total = Number(s.total || 0);
-    return `<li>${escHtml(t.query)} (w=${t.weight}, enabled=${t.enabled}, unread=${unread}, total=${total}) <button data-edit-topic="1" data-topic-query="${escAttr(t.query)}" data-topic-weight="${t.weight}" data-topic-enabled="${t.enabled}">edit</button> <button data-del-topic="${t.id}">delete</button></li>`;
+    return `<li>${escHtml(t.query)} (w=${t.weight}, enabled=${t.enabled}, unread=${unread}, total=${total}) <button data-edit-topic="${t.id}" data-topic-query="${escAttr(t.query)}" data-topic-weight="${t.weight}" data-topic-enabled="${t.enabled}">edit</button> <button data-del-topic="${t.id}">delete</button></li>`;
   }).join('');
 }
 
 async function loadRules() {
   const j = await call('/admin/api/rules');
-  document.getElementById('rules').innerHTML = (j.items || []).map(r => `<li>${escHtml(r.pattern)} (-${r.penalty}, enabled=${r.enabled}, applied=${Number(r.applied_count || 0)}) <button data-edit-rule="1" data-rule-pattern="${escAttr(r.pattern)}" data-rule-penalty="${r.penalty}" data-rule-enabled="${r.enabled}">edit</button> <button data-del-rule="${r.id}">delete</button></li>`).join('');
+  document.getElementById('rules').innerHTML = (j.items || []).map(r => `<li>${escHtml(r.pattern)} (-${r.penalty}, enabled=${r.enabled}, applied=${Number(r.applied_count || 0)}) <button data-edit-rule="${r.id}" data-rule-pattern="${escAttr(r.pattern)}" data-rule-penalty="${r.penalty}" data-rule-enabled="${r.enabled}">edit</button> <button data-del-rule="${r.id}">delete</button></li>`).join('');
 }
 
 document.getElementById('addTopic').onclick = async () => {
@@ -131,7 +141,8 @@ document.getElementById('addTopic').onclick = async () => {
     return;
   }
   try {
-    await call('/admin/api/topics', { method: 'POST', body: JSON.stringify({ query: document.getElementById('topicQ').value, weight: Number(document.getElementById('topicW').value || 1), enabled: document.getElementById('topicE').checked }) });
+    await call('/admin/api/topics', { method: 'POST', body: JSON.stringify({ id: editingTopicID, query: document.getElementById('topicQ').value, weight: Number(document.getElementById('topicW').value || 1), enabled: document.getElementById('topicE').checked }) });
+    resetTopicEditor();
     await loadTopics();
     status('topic saved');
   } catch (e) {
@@ -145,7 +156,8 @@ document.getElementById('addRule').onclick = async () => {
     return;
   }
   try {
-    await call('/admin/api/rules', { method: 'POST', body: JSON.stringify({ pattern: document.getElementById('ruleP').value, penalty: Number(document.getElementById('rulePenalty').value || 5), enabled: document.getElementById('ruleE').checked }) });
+    await call('/admin/api/rules', { method: 'POST', body: JSON.stringify({ id: editingRuleID, pattern: document.getElementById('ruleP').value, penalty: Number(document.getElementById('rulePenalty').value || 5), enabled: document.getElementById('ruleE').checked }) });
+    resetRuleEditor();
     await loadRules();
     status('rule saved');
   } catch (e) {
@@ -164,8 +176,9 @@ runIngestBtn.onclick = async () => {
     runIngestBtn.classList.add('is-busy');
     runIngestBtn.textContent = 'Run Now (Running...)';
     status('manual ingest requested (running...)');
-    await call('/admin/api/ingest', { method: 'POST', body: JSON.stringify({}) });
-    status('manual ingest completed');
+    const accepted = await call('/admin/api/ingest', { method: 'POST', body: JSON.stringify({}) });
+    requestedRunID = accepted.state.run_id;
+    status('manual ingest accepted; progress shown below');
     await refreshStatus();
   } catch (e) {
     if (String(e.message).includes('just completed')) {
@@ -204,6 +217,8 @@ runDedupeBtn.onclick = async () => {
 
 document.body.addEventListener('click', async (e) => {
   if (e.target.matches('[data-edit-topic]')) {
+    editingTopicID = Number(e.target.dataset.editTopic);
+    document.getElementById('addTopic').textContent = 'Update Topic';
     document.getElementById('topicQ').value = e.target.dataset.topicQuery || '';
     document.getElementById('topicW').value = e.target.dataset.topicWeight || '1';
     document.getElementById('topicE').checked = String(e.target.dataset.topicEnabled) === 'true';
@@ -211,6 +226,8 @@ document.body.addEventListener('click', async (e) => {
     status('topic loaded into editor');
   }
   if (e.target.matches('[data-edit-rule]')) {
+    editingRuleID = Number(e.target.dataset.editRule);
+    document.getElementById('addRule').textContent = 'Update Rule';
     document.getElementById('ruleP').value = e.target.dataset.rulePattern || '';
     document.getElementById('rulePenalty').value = e.target.dataset.rulePenalty || '5';
     document.getElementById('ruleE').checked = String(e.target.dataset.ruleEnabled) === 'true';
@@ -220,6 +237,7 @@ document.body.addEventListener('click', async (e) => {
   if (e.target.matches('[data-del-topic]')) {
     try {
       await call(`/admin/api/topics?id=${e.target.dataset.delTopic}`, { method: 'DELETE' });
+      if (editingTopicID === Number(e.target.dataset.delTopic)) resetTopicEditor();
       await loadTopics();
       status('topic deleted');
     } catch (err) {
@@ -229,6 +247,7 @@ document.body.addEventListener('click', async (e) => {
   if (e.target.matches('[data-del-rule]')) {
     try {
       await call(`/admin/api/rules?id=${e.target.dataset.delRule}`, { method: 'DELETE' });
+      if (editingRuleID === Number(e.target.dataset.delRule)) resetRuleEditor();
       await loadRules();
       status('rule deleted');
     } catch (err) {
@@ -238,19 +257,25 @@ document.body.addEventListener('click', async (e) => {
 });
 
 async function refreshStatus() {
-  if (!authenticated) return;
+  if (!authenticated || statusInFlight) return;
+  statusInFlight = true;
   try {
     const j = await call('/admin/api/status');
     const build = j.build || {};
     const ingest = j.ingest || {};
     const ingestState = ingest.state || {};
+    if (requestedRunID && !ingestState.running && ingestState.run_id >= requestedRunID) {
+      status(ingestState.last_error ? `ingest finished with warnings: ${ingestState.last_error}` : 'manual ingest completed');
+      requestedRunID = 0;
+    }
     const lastMessages = Array.isArray(ingest.last_messages) ? ingest.last_messages.filter(Boolean) : [];
     const lastMessagesText = lastMessages.length > 0 ? lastMessages.join('\n') : (ingest.last_message || '-');
     const counts = j.counts || {};
     const running = manualIngestInFlight || Boolean(ingestState.running);
-    runIngestBtn.disabled = !authenticated || running;
+    const cooling = Date.parse(ingestState.cooldown_until) > Date.now();
+    runIngestBtn.disabled = !authenticated || running || cooling;
     runIngestBtn.classList.toggle('is-busy', running);
-    runIngestBtn.textContent = running ? 'Run Now (Running...)' : 'Run Now';
+    runIngestBtn.textContent = running ? 'Run Now (Running...)' : cooling ? 'Run Now (Cooling down...)' : 'Run Now';
     runDedupeBtn.disabled = !authenticated || running || manualDedupeInFlight;
     runDedupeBtn.classList.toggle('is-busy', manualDedupeInFlight);
     runDedupeBtn.textContent = manualDedupeInFlight ? 'Run Retroactive Dedupe (Running...)' : 'Run Retroactive Dedupe';
@@ -282,8 +307,27 @@ async function refreshStatus() {
       return;
     }
     status(`status refresh failed: ${e.message}`);
+  } finally {
+    statusInFlight = false;
   }
 }
+
+function resetTopicEditor() {
+  editingTopicID = 0;
+  document.getElementById('topicQ').value = '';
+  document.getElementById('topicW').value = '1';
+  document.getElementById('topicE').checked = true;
+  document.getElementById('addTopic').textContent = 'Add/Update';
+}
+function resetRuleEditor() {
+  editingRuleID = 0;
+  document.getElementById('ruleP').value = '';
+  document.getElementById('rulePenalty').value = '5';
+  document.getElementById('ruleE').checked = true;
+  document.getElementById('addRule').textContent = 'Add/Update';
+}
+document.getElementById('newTopic').onclick = resetTopicEditor;
+document.getElementById('newRule').onclick = resetRuleEditor;
 
 async function bootstrapAfterAuth() {
   try {

@@ -1,13 +1,18 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 const defaultAdminSecret = "CHANGEME_STRONG_SECRET"
@@ -77,25 +82,46 @@ func defaultConfig() Config {
 
 func LoadOrInit(path string) (Config, bool, error) {
 	path = filepath.Clean(path)
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
 		cfg := defaultConfig()
-		if err := writeConfig(path, cfg); err != nil {
+		if err := writeConfig(path, cfg); errors.Is(err, os.ErrExist) {
+			cfg, err = Load(path)
+			return cfg, false, err
+		} else if err != nil {
 			return Config{}, false, err
 		}
 		return cfg, true, nil
 	}
-	b, err := os.ReadFile(path)
+	cfg, err := Load(path)
+	return cfg, false, err
+}
+
+// Load validates an existing config without creating files or opening a database.
+func Load(path string) (Config, error) {
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
-		return Config{}, false, fmt.Errorf("read config: %w", err)
+		return Config{}, fmt.Errorf("read config: %w", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil || raw == nil {
+		return Config{}, errors.New("config must be a JSON object")
+	}
+	for key, value := range raw {
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return Config{}, fmt.Errorf("config field %q must not be null", key)
+		}
 	}
 	cfg := defaultConfig()
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return Config{}, false, fmt.Errorf("parse config: %w", err)
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&cfg); err != nil {
+		return Config{}, fmt.Errorf("parse config: %w", err)
 	}
+	cfg.normalize()
 	if err := cfg.Validate(); err != nil {
-		return Config{}, false, err
+		return Config{}, err
 	}
-	return cfg, false, nil
+	return cfg, nil
 }
 
 func writeConfig(path string, cfg Config) error {
@@ -104,10 +130,47 @@ func writeConfig(path string, cfg Config) error {
 		return err
 	}
 	b = append(b, '\n')
-	return os.WriteFile(path, b, 0o600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func (c Config) Validate() error {
+	c.normalize()
+	if _, port, err := net.SplitHostPort(c.ListenAddress); err != nil || port == "" {
+		return errors.New("listen_address must be host:port")
+	}
+	if c.DatabasePath == "" {
+		return errors.New("database_path is required")
+	}
+	if c.AdminBindCIDRs == nil {
+		return errors.New("admin_bind_cidrs must be an array; [] explicitly allows all addresses")
+	}
+	for i, cidr := range c.AdminBindCIDRs {
+		if _, _, err := net.ParseCIDR(strings.TrimSpace(cidr)); err != nil {
+			return fmt.Errorf("admin_bind_cidrs entry %d is invalid", i+1)
+		}
+	}
+	for _, timeout := range []int{c.HTTPReadTimeoutSec, c.HTTPWriteTimeoutSec, c.HTTPIdleTimeoutSec} {
+		if timeout <= 0 || timeout > 86400 {
+			return errors.New("HTTP timeouts must be 1..86400 seconds")
+		}
+	}
+	if parsed, err := time.Parse("15:04", c.DailyIngestTime); err != nil || parsed.Format("15:04") != c.DailyIngestTime {
+		return errors.New("daily_ingest_time must be HH:MM")
+	}
+	for i, instance := range c.SearxngInstances {
+		u, err := url.Parse(strings.TrimSpace(instance))
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return fmt.Errorf("searxng_instances entry %d must be an HTTP(S) base URL without credentials, query or fragment", i+1)
+		}
+	}
 	if strings.TrimSpace(c.ListenAddress) == "" {
 		return errors.New("listen_address is required")
 	}
@@ -161,10 +224,27 @@ func (c Config) Validate() error {
 	if c.ThumbnailRefreshMaxPerRun < 0 || c.ThumbnailRefreshMaxPerRun > 500 {
 		return errors.New("thumbnail_refresh_max_per_run out of range")
 	}
-	if c.MaxBodyBytes <= 0 {
-		return errors.New("max_body_bytes must be positive")
+	if c.MaxBodyBytes <= 0 || c.MaxBodyBytes > 16<<20 {
+		return errors.New("max_body_bytes must be 1..16777216")
+	}
+	if c.CullUnreadDays < 1 || c.CullUnreadDays > 36500 {
+		return errors.New("cull_unread_days must be 1..36500")
+	}
+	for _, score := range []float64{c.FeedMinScore, c.HideRuleDefaultPenalty, c.AutoHideBelowScore, c.ThumbnailRefreshMinScore, c.CullMaxScore} {
+		if math.IsNaN(score) || math.IsInf(score, 0) {
+			return errors.New("scores must be finite")
+		}
 	}
 	return nil
+}
+
+func (c *Config) normalize() {
+	for _, value := range []*string{&c.ListenAddress, &c.TLSCertPath, &c.TLSKeyPath, &c.UserName, &c.UserSecret, &c.AdminSecret, &c.DatabasePath, &c.DailyIngestTime} {
+		*value = strings.TrimSpace(*value)
+	}
+	for i := range c.SearxngInstances {
+		c.SearxngInstances[i] = strings.TrimSpace(c.SearxngInstances[i])
+	}
 }
 
 func MissingKeys(path string) ([]string, error) {

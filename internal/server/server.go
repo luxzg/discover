@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
+	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"discover/internal/auth"
@@ -50,6 +53,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/api/feed", a.userOnly(a.withJSON(http.HandlerFunc(a.handleFeed))))
 	mux.Handle("/api/feed/seen", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleMarkSeen)))))
 	mux.Handle("/api/feed/refresh", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleFeedRefresh)))))
+	mux.Handle("/api/feed/refresh/status", a.userOnly(a.withJSON(http.HandlerFunc(a.handleFeedRefreshStatus))))
 	mux.Handle("/api/articles/action", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleAction)))))
 	mux.Handle("/api/articles/click", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleClick)))))
 	mux.Handle("/api/articles/dontshow", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleDontShow)))))
@@ -62,7 +66,14 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
 	mux.Handle("/admin/api/dedupe", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminDedupe)))))
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: http: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+		mux.ServeHTTP(w, r)
+	})
 }
 
 func (a *API) serveFeedUI(w http.ResponseWriter, r *http.Request) {
@@ -130,17 +141,26 @@ func (a *API) handleFeedRefresh(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	if err := a.scheduler.RunNow(ctx); err != nil {
+	state, err := a.scheduler.RequestRun()
+	if err != nil {
 		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) {
-			respondErr(w, http.StatusConflict, err)
+			respondJSON(w, http.StatusConflict, map[string]any{"error": err.Error(), "state": state})
 			return
 		}
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+	respondJSON(w, http.StatusAccepted, map[string]any{"ok": true, "state": state})
+}
+
+func (a *API) handleFeedRefreshStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s := a.scheduler.Snapshot()
+	// Readers need job state, not administrator-only upstream diagnostics.
+	respondJSON(w, http.StatusOK, map[string]any{"run_id": s.RunID, "running": s.Running, "cooldown_until": s.CooldownUntil, "failed": s.LastError != ""})
 }
 
 func (a *API) handleArticleAction(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +177,10 @@ func (a *API) handleArticleAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var err error
+	if req.ID <= 0 {
+		respondErr(w, http.StatusBadRequest, errors.New("positive article ID required"))
+		return
+	}
 	switch req.Action {
 	case "up":
 		err = a.store.MarkIDStatus(r.Context(), req.ID, model.StatusUseful, 1.0)
@@ -185,6 +209,10 @@ func (a *API) handleArticleClick(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, err)
 		return
 	}
+	if req.ID <= 0 {
+		respondErr(w, http.StatusBadRequest, errors.New("positive article ID required"))
+		return
+	}
 	if err := a.store.MarkRead(r.Context(), req.ID); err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
@@ -206,18 +234,19 @@ func (a *API) handleDontShow(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, err)
 		return
 	}
-	if req.Penalty <= 0 {
-		req.Penalty = 10
+	if req.Penalty == 0 {
+		req.Penalty = a.cfg.HideRuleDefaultPenalty
 	}
-	if err := a.store.UpsertNegativeRule(r.Context(), model.NegativeRule{Pattern: req.Pattern, Penalty: req.Penalty, Enabled: true}); err != nil {
+	if req.ID <= 0 || strings.TrimSpace(req.Pattern) == "" || !validScore(req.Penalty) || req.Penalty <= 0 {
+		respondErr(w, http.StatusBadRequest, errors.New("positive article ID, pattern and penalty are required"))
+		return
+	}
+	ids, err := a.store.HideWithRule(r.Context(), req.ID, model.NegativeRule{Pattern: req.Pattern, Penalty: req.Penalty, Enabled: true})
+	if err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := a.store.MarkIDStatus(r.Context(), req.ID, model.StatusHidden, -req.Penalty); err != nil {
-		respondErr(w, http.StatusInternalServerError, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "matched_ids": ids})
 }
 
 func (a *API) handleAdminTopics(w http.ResponseWriter, r *http.Request) {
@@ -240,8 +269,9 @@ func (a *API) handleAdminTopics(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusBadRequest, err)
 			return
 		}
-		if req.Weight == 0 {
-			req.Weight = 1
+		if req.ID < 0 || strings.TrimSpace(req.Query) == "" || !validScore(req.Weight) {
+			respondErr(w, http.StatusBadRequest, errors.New("invalid topic"))
+			return
 		}
 		if err := a.store.UpsertTopic(r.Context(), req); err != nil {
 			respondErr(w, http.StatusInternalServerError, err)
@@ -279,8 +309,9 @@ func (a *API) handleAdminRules(w http.ResponseWriter, r *http.Request) {
 			respondErr(w, http.StatusBadRequest, err)
 			return
 		}
-		if req.Penalty == 0 {
-			req.Penalty = 5
+		if req.ID < 0 || strings.TrimSpace(req.Pattern) == "" || !validScore(req.Penalty) || req.Penalty <= 0 {
+			respondErr(w, http.StatusBadRequest, errors.New("invalid rule"))
+			return
 		}
 		if err := a.store.UpsertNegativeRule(r.Context(), req); err != nil {
 			respondErr(w, http.StatusInternalServerError, err)
@@ -304,21 +335,7 @@ func (a *API) handleAdminRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleAdminIngest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	if err := a.scheduler.RunNow(ctx); err != nil {
-		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) {
-			respondErr(w, http.StatusConflict, err)
-			return
-		}
-		respondErr(w, http.StatusInternalServerError, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true})
+	a.handleFeedRefresh(w, r)
 }
 
 func (a *API) handleAdminDedupe(w http.ResponseWriter, r *http.Request) {
@@ -596,17 +613,39 @@ func decodeJSON(r *http.Request, maxBody int64, out any) error {
 		maxBody = 1 << 20
 	}
 	defer r.Body.Close()
-	dec := json.NewDecoder(io.LimitReader(r.Body, maxBody))
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(data)) > maxBody {
+		return errors.New("request body too large")
+	}
+	dec := json.NewDecoder(strings.NewReader(string(data)))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(out); err != nil {
 		return err
 	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return errors.New("expected one JSON value")
+	}
 	return nil
+}
+
+func validScore(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) && math.Abs(v) <= 10000 }
+
+func (a *API) renewCookie(w http.ResponseWriter, name, token string, ttl time.Duration) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: a.cfg.EnableTLS, Expires: time.Now().Add(ttl)})
 }
 
 func (a *API) withJSON(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		if strings.HasPrefix(r.URL.Path, "/admin/api/") && r.URL.Path != "/admin/api/logout" && a.guard.AllowRemote(r.RemoteAddr) {
+			if c, err := r.Cookie(auth.SessionCookieName); err == nil && a.guard.ValidateSession(c.Value, r.RemoteAddr) {
+				a.renewCookie(w, c.Name, c.Value, 24*time.Hour)
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -617,6 +656,9 @@ func (a *API) userOnly(next http.Handler) http.Handler {
 		if err != nil || !a.user.ValidSession(c.Value, r.RemoteAddr) {
 			respondErr(w, http.StatusUnauthorized, errors.New("sign in required"))
 			return
+		}
+		if r.URL.Path != "/api/logout" {
+			a.renewCookie(w, c.Name, c.Value, userSessionTTL)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -658,5 +700,9 @@ func respondJSON(w http.ResponseWriter, code int, payload any) {
 }
 
 func respondErr(w http.ResponseWriter, code int, err error) {
+	if code >= 500 {
+		log.Printf("api: %v", err)
+		err = errors.New("server operation failed; check service logs")
+	}
 	respondJSON(w, code, map[string]any{"error": err.Error()})
 }

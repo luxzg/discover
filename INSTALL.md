@@ -4,11 +4,15 @@
 
 - Debian/Ubuntu server
 - `sudo` access
+- Git, Bash, curl, CA certificates, `sqlite3`, and standard coreutils/util-linux tools
+- Go 1.26.8 or newer; use a supported security-patched Go release
 - Existing TLS cert/key files (Let’s Encrypt) if running HTTPS directly
 
 ### 1.1 Create dedicated service user
 
 ```bash
+sudo apt update
+sudo apt install git curl ca-certificates sqlite3
 sudo useradd -m -s /bin/bash discover
 sudo su - discover
 ```
@@ -22,15 +26,23 @@ For downloads and official install instructions:
 Example (amd64 Linux):
 
 ```bash
-wget https://go.dev/dl/go1.26.0.linux-amd64.tar.gz
-tar -C "$HOME" -xzf go1.26.0.linux-amd64.tar.gz
+curl -fLO https://go.dev/dl/go1.26.8.linux-amd64.tar.gz
+sha256sum go1.26.8.linux-amd64.tar.gz
+# Compare with the SHA256 published on go.dev/dl before extracting.
+mkdir -p "$HOME/toolchains/go1.26.8"
+tar -C "$HOME/toolchains/go1.26.8" --strip-components=1 -xzf go1.26.8.linux-amd64.tar.gz
 
-echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
-source ~/.bashrc
-# use ~/.bashrc or ~/.profile depending on environment
+echo 'export PATH="$HOME/toolchains/go1.26.8/bin:$HOME/go/bin:$PATH"' >> ~/.profile
+source ~/.profile
 
 go version
 ```
+
+Use the matching architecture archive on ARM64 or other systems. Keep the Go
+toolchain separate from `$HOME/go`, which is normally GOPATH/module storage.
+Do not extract over an older Go installation. Re-enter `sudo su - discover` after
+updating `.profile`. Existing Go installs can use automatic toolchain selection
+from `go.mod`; `GOTOOLCHAIN=local` requires a sufficiently recent installed Go.
 
 ### 1.3 Create project directory
 
@@ -47,8 +59,8 @@ Keep running commands as user `discover`:
 git clone https://github.com/luxzg/discover.git
 cd discover
 git status
-go mod tidy
-go build -o discover ./cmd/discover
+./scripts/build.sh
+./discover --version
 ```
 
 ## 3. Create Config
@@ -59,6 +71,16 @@ go build -o discover ./cmd/discover
 
 The binary writes a default `config.json` and exits. Edit it before next start.
 On later runs existing config is not overwritten.
+Missing keys use in-memory defaults with a startup warning. Unknown keys and
+null values fail validation; fix typos explicitly. `admin_bind_cidrs: []` explicitly
+allows admin login from any IP, but still requires the admin secret. Invalid CIDRs
+abort startup rather than accidentally widening access.
+
+Default admin networks are loopback (`127.0.0.1/32`, `::1/128`), `192.168.0.0/16`
+and `10.0.0.0/8`. Add your actual administrator access network to
+`admin_bind_cidrs` if different. Public addresses, `172.16.0.0/12` and non-loopback
+IPv6 are not allowed by default, regardless of correct credentials. Prefer a
+narrow allowlist rather than `[]` for an internet-accessible service.
 
 ```bash
 nano config.json
@@ -95,8 +117,14 @@ For local testing you can set `"enable_tls": false` and use `http://localhost:<p
 ## 5. Run Manually and Test
 
 ```bash
+./discover --check-config -config config.json
 ./discover -config config.json
 ```
+
+`--check-config` validates values and TLS key/certificate access without opening
+or modifying SQLite, generating config, or contacting external services. Run it
+as the service user. TLS certificate directory permissions must permit that user
+to read the configured files; do not make the private key world-readable.
 
 Test by opening local IP like:
 ```
@@ -125,6 +153,7 @@ WorkingDirectory=/home/discover/apps/discover
 ExecStart=/home/discover/apps/discover/discover -config /home/discover/apps/discover/config.json
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=30
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
@@ -178,8 +207,10 @@ cd /home/discover/apps/discover
 ```
 
 Notes:
-- script runs: `git pull --ff-only`, `go mod tidy`, `go build -o /home/discover/apps/discover/discover ./cmd/discover`
-- does not restart service on its own
+- refuses a dirty working tree, pulls fast-forward only, and uses pinned Go modules
+- writes `discover.next`, verifies build metadata and checks existing config/TLS
+- does not replace the live binary or stop/restart the service
+- use the local wrapper below for full deployment; do not run a service-user-writable script as root
 
 ### 7.2 Local wrapper to run remote update over SSH
 
@@ -187,6 +218,9 @@ From your local PC:
 
 ```bash
 cd ~/dev/discover
+git status --short
+git pull --ff-only
+# Review scripts/deploy.sh before granting it remote sudo privileges.
 ./scripts/run_remote_update.sh
 ```
 
@@ -196,33 +230,81 @@ Or provide values non-interactively:
 ./scripts/run_remote_update.sh -ip 10.10.10.10 -user myusername
 ```
 
-If arguments are not provided, script prompts for remote host/IP and SSH user, then executes:
+If arguments are not provided, the script prompts for remote host/IP and SSH
+user. SSH asks for its authentication and sudo prompts through the allocated TTY.
+Update the local checkout first: the remote pull cannot update the local copy
+of privileged orchestration. Resolve any local changes before pulling; do not
+discard them automatically.
+It sends the local, reviewed privileged orchestration over SSH (rather than
+executing service-user-writable scripts as root), pulls the remote checkout as
+`discover`, then:
 
-- `sudo systemctl stop discover`
-- run update/build script as `discover`
-- `sudo systemctl start discover`
-- `sudo systemctl status discover --no-pager -n 25`
-- `sudo journalctl -u discover -n 50 --no-pager`
+1. Builds a candidate as `discover` while the current service remains running.
+2. Validates config and TLS access as `discover`.
+3. Retains the previous binary and config in an access-restricted backup directory.
+4. Stops the service and creates a SQLite `.backup` snapshot, including committed WAL data, then checks snapshot integrity.
+5. Atomically replaces the binary and starts the service.
+6. Checks active service status and prints version/recent logs.
+
+Build/config failures leave the running binary alone. Failures after stopping
+attempt to restart the prior service; failures after swapping attempt to restore
+the previous binary first. **No database is ever restored automatically.** Backups
+and failed snapshots are retained under `/var/backups/discover/`; copy important backups off-host.
+An active process check is not a full application health test: verify login/feed
+and the new version after deployment.
 
 Permission model:
-- remote SSH user must have sudo rights for `systemctl` and `journalctl`
+- remote SSH user needs sudo permission to run the deployment orchestration, including `runuser`, service control and backup operations
 - remote SSH user does not need direct write access to `/home/discover/apps/discover`; build step is executed as `discover`
+- privileged orchestration comes from your local administrator-controlled checkout; review it before running. Server-side build scripts, candidate inspection and SQLite backup commands run as `discover`, never root
 
-### 7.3 Manual fallback (if scripts are unavailable)
+### 7.3 Server-Only Alternative
+
+Use a separate checkout owned by the administrator, not by the service account.
+For example, in the administrator's home (choose a directory not used already):
 
 ```bash
-sudo systemctl stop discover
-sudo su - discover
-cd ~/apps/discover
-git pull --ff-only
-go mod tidy
-go build -o discover ./cmd/discover
-exit
-sudo systemctl start discover
-sudo systemctl status discover
+git clone https://github.com/luxzg/discover.git ~/discover-deployer
+cd ~/discover-deployer
+git log -1
+# Review scripts/deploy.sh before granting it root privileges.
+sudo bash ./scripts/deploy.sh
 ```
 
 If you changed config keys in a new release, review and update `config.json` before starting the service.
+
+### 7.4 Upgrade Checks And Recovery
+
+- The first upgraded start migrates derived URL/title keys, score baselines and timestamp representations. Large databases can take longer to start. Do not interrupt startup just because the feed is not immediately reachable.
+- Existing scores remain the baseline; repeated identical results stop increasing them. Review your score thresholds only after observing new results.
+- Old hidden decisions remain hidden; known automatic duplicate hides are tracked separately going forward.
+- Restart invalidates in-memory sessions: log in again to feed/admin.
+- Verify displayed version, publication dates where known, Other sources, rule edits and one manual ingestion.
+
+```bash
+journalctl -u discover --since today -n 100 --no-pager
+```
+
+Before any manual database restore, stop the service and retain a new snapshot
+of its current state. A restore discards newer actions/articles and requires an
+explicit operator decision; do not copy a database over a running service or
+mix a restored DB with stale WAL/SHM sidecars. Keep the matching previous binary
+and config alongside its backup. Diagnose failures before choosing a rollback.
+
+For an independent live SQLite backup, use the administrator-owned checkout
+from section 7.3, not scripts writable by the service account:
+
+```bash
+cd ~/discover-deployer
+sudo bash ./scripts/backup-database.sh --database /home/discover/apps/discover/discover.db --backup-dir /var/backups/discover --owner root
+```
+
+Use the actual `database_path` if customized. Do not back up only the `.db` file
+with ordinary `cp` while the service is running; committed data may be in WAL.
+The standalone helper keeps snapshots owned by the executing user; it does not
+transfer ownership. Root backups require a root-owned destination and ancestors
+without group/other write access. Copying a backup to another account is a
+separate deliberate administrator action.
 
 ## 8. Uninstall
 
@@ -243,4 +325,7 @@ sudo rm -rf /home/discover/apps/discover
 sudo userdel -r discover
 ```
 
-If you want to keep article/history data, back up `discover.db` before deleting the app directory.
+If you want to keep article/history data, use the backup command above and copy
+the snapshot/config outside the app directory before cleanup. Deployment snapshots
+under `/var/backups/discover` are retained separately. TLS material and SearXNG are separate;
+see `SEARXNG.md` before removing that service.

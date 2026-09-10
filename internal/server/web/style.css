@@ -43,6 +43,11 @@ button.is-busy { border-color: #4f6f8a; background: #1a2732; }
 .primary { width: 100%; margin-top: 10px; background: #1f2f2f; border-color: #2f5d5d; }
 .card { display: flex; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 10px; position: relative; }
 .card-main { flex: 1; min-width: 0; padding-right: 28px; }
+.card-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.story-sources { margin-top: 8px; padding-right: 36px; font-size: 0.85rem; color: var(--muted); }
+.story-sources summary { cursor: pointer; }
+.story-sources a { color: var(--accent); }
+.menu.open { z-index: 2; }
 .card-title { font-size: 1.3rem; line-height: 1.35; margin: 0 0 8px; }
 .card-source { font-size: 0.82rem; color: var(--muted); }
 .thumb { width: 108px; height: 88px; border-radius: 10px; object-fit: cover; background: #0a0d10; }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -25,8 +26,33 @@ import (
 
 func main() {
 	var configPath string
+	var showVersion, checkConfig, databasePathOnly bool
 	flag.StringVar(&configPath, "config", "config.json", "path to config file")
+	flag.BoolVar(&showVersion, "version", false, "print build information and exit")
+	flag.BoolVar(&checkConfig, "check-config", false, "validate existing configuration without modifying files")
+	flag.BoolVar(&databasePathOnly, "database-path", false, "print configured database path without opening it")
 	flag.Parse()
+	if showVersion {
+		fmt.Println(buildinfo.String())
+		return
+	}
+	if checkConfig || databasePathOnly {
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if databasePathOnly {
+			fmt.Println(cfg.DatabasePath)
+			return
+		}
+		if cfg.EnableTLS {
+			if _, err := tls.LoadX509KeyPair(cfg.TLSCertPath, cfg.TLSKeyPath); err != nil {
+				log.Fatalf("TLS certificate/key: %v", err)
+			}
+		}
+		fmt.Println("Configuration is valid; database and network were not accessed.")
+		return
+	}
 
 	cfg, created, err := config.LoadOrInit(configPath)
 	if err != nil {
@@ -47,6 +73,9 @@ func main() {
 	}
 	defer database.Close()
 	st := store.New(database)
+	if err := st.Prepare(context.Background(), cfg.DedupeTitleKeyChars); err != nil {
+		log.Fatalf("prepare article data: %v", err)
+	}
 
 	guard, err := auth.New(cfg.AdminSecret, cfg.AdminBindCIDRs)
 	if err != nil {
@@ -71,8 +100,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	sched.Start(ctx)
+	defer sched.Shutdown()
 
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		shCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -86,6 +118,13 @@ func main() {
 		err = httpServer.ListenAndServe()
 	}
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal(err)
+		log.Printf("HTTP server stopped: %v", err)
+	}
+	stop()
+	<-shutdownDone
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		sched.Shutdown()
+		_ = database.Close()
+		os.Exit(1)
 	}
 }

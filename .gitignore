@@ -19,6 +19,11 @@ cookies.txt
 
 # Build artifacts / binaries
 /discover
+/discover.next
+/discover.recovery
+/.discover-build.*
+/backups/
+/.gocache/
 /bin/
 /dist/
 /build/

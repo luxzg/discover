@@ -2,13 +2,19 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
+	"net/url"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
 
 func Open(path string) (*sql.DB, error) {
-	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", path)
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	u := &url.URL{Scheme: "file", Path: path}
+	dsn := u.String() + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -86,6 +92,41 @@ func migrate(db *sql.DB) error {
 	}
 	if err := ensureColumn(db, "negative_rules", "applied_count", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		return err
+	}
+
+	columns := []struct{ name, ddl string }{
+		{"hidden_reason", "TEXT NOT NULL DEFAULT ''"},
+		{"story_key", "TEXT NOT NULL DEFAULT ''"},
+		{"duplicate_of", "INTEGER REFERENCES articles(id) ON DELETE SET NULL"},
+		{"dedupe_counted", "INTEGER NOT NULL DEFAULT 0"},
+		{"score_base", "REAL"},
+		{"vote", "INTEGER NOT NULL DEFAULT 0"},
+		{"read_at", "DATETIME"},
+	}
+	for _, col := range columns {
+		if err := ensureColumn(db, "articles", col.name, col.ddl); err != nil {
+			return err
+		}
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_articles_story ON articles(story_key)`,
+		`CREATE TABLE IF NOT EXISTS article_evidence (
+   article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+   topic_id INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+   relevance REAL NOT NULL, PRIMARY KEY(article_id, topic_id))`,
+		`CREATE TABLE IF NOT EXISTS article_rule_effects (
+   article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+   rule_id INTEGER NOT NULL REFERENCES negative_rules(id) ON DELETE CASCADE,
+   penalty REAL NOT NULL DEFAULT 0, counted INTEGER NOT NULL DEFAULT 0,
+   PRIMARY KEY(article_id, rule_id))`,
+		`UPDATE articles SET hidden_reason='legacy' WHERE status='hidden' AND hidden_reason=''`,
+		`UPDATE articles SET vote=1 WHERE status='useful' AND vote=0`,
+		`DELETE FROM article_topics WHERE NOT EXISTS (SELECT 1 FROM articles WHERE id=article_id)
+    OR NOT EXISTS (SELECT 1 FROM topics WHERE id=topic_id)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
 	}
 	return nil
 }

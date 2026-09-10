@@ -3,9 +3,6 @@ set -euo pipefail
 
 # Run this script LOCALLY to execute remote update script over SSH.
 
-REMOTE_SCRIPT_PATH="/home/discover/apps/discover/scripts/update_remote.sh"
-REMOTE_APP_DIR="/home/discover/apps/discover"
-
 REMOTE_HOST=""
 REMOTE_USER=""
 
@@ -69,28 +66,20 @@ if [[ -z "${REMOTE_USER}" ]]; then
 fi
 
 REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
+if [[ ! "$REMOTE_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ || ! "$REMOTE_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.:-]*$ ]]; then
+  echo 'Invalid SSH user or host; use a hostname, IPv4 address or unbracketed IPv6 address.' >&2
+  exit 2
+fi
 
 echo
 echo "==> Connecting to $REMOTE"
 echo "==> This flow uses sudo on the remote host for service/log commands"
-ssh -tt "$REMOTE" "bash -lc '
-set -euo pipefail
-echo
-echo \"==> Stopping discover service\"
-sudo systemctl stop discover
-echo
-echo \"==> Running update/build script as discover user\"
-sudo -u discover bash -lc \"cd '$REMOTE_APP_DIR' && git pull --ff-only && bash '$REMOTE_SCRIPT_PATH'\"
-echo
-echo \"==> Starting discover service\"
-sudo systemctl start discover
-echo
-echo \"==> Service status (latest 25 lines)\"
-sudo systemctl status discover --no-pager -n 25
-echo
-echo \"==> Recent logs (latest 50 lines)\"
-sudo journalctl -u discover -n 50 --no-pager
-'"
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+quote_shell() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+# Send reviewed administrator-side orchestration as one quoted argument. Keep
+# stdin attached to the TTY for SSH/sudo authentication, not a script pipe.
+remote_command="sudo bash -c $(quote_shell "$(cat "$SCRIPT_DIR/deploy.sh")")"
+ssh -tt "$REMOTE" "$remote_command"
 
 echo
 echo "==> Update sequence finished"

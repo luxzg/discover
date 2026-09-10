@@ -13,4 +13,12 @@ Build an admin-side helper that analyzes articles marked as `read` or `useful`, 
 
 ## Advanced Subject Similarity Dedupe
 
-Add an optional high-similarity filter for feed output that suppresses near-duplicate headlines when subject overlap is above a configurable threshold (for example 90% token overlap), to reduce repeated rewrites of the same story across syndication-heavy sources.
+Extend the conservative normalized-title story groups with optional fuzzy matching
+(for example 90% token overlap). Evaluate false merges on real headlines before
+enabling it; preserve separate sources and handled history rather than deleting URLs.
+
+## RSS / Atom Sources
+
+Explore direct RSS/Atom ingestion for regularly followed sites, alongside SearXNG.
+Reuse URL/story identity, scoring and rule handling. Compare date and thumbnail
+quality, and use bounded conditional polling rather than repeatedly downloading feeds.

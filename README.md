@@ -24,12 +24,12 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Manual ingest trigger in admin UI
 - Manual retroactive unread dedupe trigger in admin UI
 - URL normalization + hash dedup
-- Ingest-time title dedupe:
-  - keeps highest-score unread per normalized title key within each ingest run
-  - hides newly ingested items when same normalized title already exists as `seen`/`read`/`useful`/`hidden`
+- Conservative story groups with one highest-score unread card and expandable other sources
+- Ingest-time title dedupe preserves handled history without letting automatic duplicate hides suppress the retained story
 - Persistent dedupe counter:
   - stores cumulative hidden-duplicate total in DB and shows it in admin status
-- Score model with positive and negative weights
+- Stable per-topic evidence scoring with reversible negative-rule effects; repeated identical results no longer inflate scores
+- Publication dates shown when supplied, including previously stored dates in legacy SQLite formats
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next
 - Optional auto-hide for low-score unread items via `auto_hide_below_score`
@@ -37,11 +37,16 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 
 ## Build
 
+Requires Go 1.26.8 or newer (a supported security-patched toolchain), Git, Bash
+and standard Linux utilities. The Go command can download the required toolchain
+when `GOTOOLCHAIN=auto`; otherwise install it yourself. See `DEVELOPMENT.md` for
+tests and dependencies.
+
 ```bash
 git clone https://github.com/luxzg/discover.git
 cd discover
-go mod tidy
-go build -o discover ./cmd/discover
+./scripts/build.sh
+./discover --version
 ```
 
 ## First Run
@@ -52,6 +57,8 @@ go build -o discover ./cmd/discover
 
 If `config.json` does not exist, the app creates it and exits.
 If `config.json` exists, it is never overwritten; startup warns if expected keys are missing.
+Missing keys use in-memory defaults. Unknown keys, null values, invalid CIDRs,
+and insecure default credentials fail validation instead of being silently ignored.
 
 Edit at least:
 - `admin_secret`
@@ -70,6 +77,8 @@ Edit at least:
 
 Then run again.
 
+Check configuration first with `./discover --check-config -config config.json`.
+
 Feed users sign in on `/` with `user_name` and `user_secret`.  
 Admin sign-in is separate on `/admin` using `admin_secret`.
 For topic/rule examples (`site:domain`, multi-word rule matching), see `USAGE.md`.
@@ -79,6 +88,9 @@ For topic/rule examples (`site:domain`, multi-word rule matching), see `USAGE.md
 If you run Discover via `systemd`, use this update flow:
 
 ```bash
+git status --short
+git pull --ff-only
+# Review local scripts/deploy.sh before it is sent to the server with sudo.
 ./scripts/run_remote_update.sh
 ```
 
@@ -90,16 +102,34 @@ Or pass host/user as arguments:
 
 For remote/server-side and manual fallback options, see `INSTALL.md` section `7`.
 
+The wrapper builds before stopping the service, backs up SQLite/config/binary,
+then replaces the binary and restarts. It never automatically restores a database.
+The first upgraded start migrates derived story identities and date storage;
+existing scores and deliberate/legacy hide decisions are preserved. See `USAGE.md`
+for scoring and history limitations before changing thresholds.
+
 ## Project Docs
 
 - `AGENTS.md` for project-specific AI agent workflow/rules
 - `README.md` (this file)
 - `INSTALL.md` for deployment and systemd setup
+- `DEVELOPMENT.md` for validation scripts, architecture, and review checks
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
 - `TODO.md` for active open work
 - `FINISHED_TASKS.md` for completed/deferred task archive
 - `SEARXNG.md` for SearXNG install and uninstall
+
+## Privacy Boundary
+
+Feed and admin data require separate authentication; admin CIDRs are enforced
+independently. Static HTML/JS/CSS contain no credentials. Thumbnail enrichment
+fetches only public HTTP(S) destinations using a dedicated DNS/redirect-checked
+client; the configured local SearXNG instance uses a separate client.
+Displayed thumbnails still load directly in the browser, so image hosts receive
+the reader's IP/browser request metadata and may receive their own cookies
+according to browser policy. They do not receive Discover's authentication cookies.
+Use HTTPS when the service is accessible beyond a trusted test environment.
 
 For log checks and diagnostics commands, see `INSTALL.md` section `6.1 Diagnostics (journalctl)`.
 For service uninstall/removal steps, see `INSTALL.md` section `8. Uninstall`.

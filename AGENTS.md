@@ -53,8 +53,10 @@ Historical context docs (read-only unless explicitly requested):
 
 ## Build / Validation Defaults
 
-- Build command: `go build ./...`
-- Formatting: `gofmt -w <changed_go_files>`
+- Full validation: `./scripts/check.sh --race` (vet, tests, scripts, build artifact).
+- Vulnerability scan: `bash scripts/security-check.sh`.
+- Build deployable artifact: `./scripts/build.sh`, then `./discover --version`.
+- Formatting: `./scripts/format.sh`.
 - If sandbox blocks default Go cache writes, use local cache:
   `GOCACHE=$(pwd)/.gocache go build ./...`
 - Remove temporary `.gocache` after validation if created.
@@ -80,6 +82,38 @@ Historical context docs (read-only unless explicitly requested):
   service).
 - Prefer one command per tool call unless there is a clear, safe reason to
   combine independent read-only checks.
+
+## Editing Tools And Permissions
+
+- Use native `apply_patch` for ordinary file edits and creation. Through
+  `functions.exec`, call `tools.apply_patch` with a patch string; call
+  `tools.exec_command` with an argument object for reads and commands. Do not
+  assume a shell executable named `apply_patch` exists.
+- Use `rg`, `cat`, or `sed` for reading/searching. Do not use ad hoc `python3`
+  commands, shell redirection, or escalated shell scripts for routine edits
+  that native patches can handle. Group related edits into coherent patches.
+- Check the effective session sandbox and writable roots, not just Linux file
+  ownership or the UI permission label. In this project's September 2026
+  troubleshooting, one session was read-only while another was workspace-write;
+  the same native editing tool was subject to different approval requirements.
+- A writable repository does not imply writable Git metadata or unrestricted
+  network access. Use ordinary workspace permissions first and request scoped
+  escalation only when the operation actually requires it under tool policy.
+- If ordinary edits unexpectedly require repeated approvals, pause editing and
+  agent writes, identify the exact tool result and effective permission profile,
+  and report the blocker. Distinguish sandbox restrictions from filesystem
+  permissions, invalid patch syntax, and unmatched patch context. Do not suggest
+  `chmod`, `chown`, or Full Access without evidence that it is necessary.
+- Do not bypass denied edits by switching to Python, shell writes, or another
+  agent. Do not promise approval-free execution when the session policy still
+  requires approval, or alter Codex permission settings without user direction.
+- Keep one writer by default: the coordinating agent applies edits; subagents
+  inspect, review, and propose changes read-only unless the user explicitly
+  approves multiple writers. Pass these constraints to every subagent.
+- Use reviewed helper scripts in `scripts/` for repeated tests/builds/checks.
+  Where approval is necessary, prefer a narrowly scoped reusable command rule;
+  never request blanket approval for an interpreter or arbitrary shell code.
+- Verify edits with `git diff` and `git diff --check` before reporting success.
 
 ## Commit Discipline
 
@@ -114,6 +148,14 @@ Historical context docs (read-only unless explicitly requested):
 - Keep install/update/uninstall/diagnostics commands in `INSTALL.md` aligned
   with actual workflow.
 - Keep SQL/debug tips aligned in `SQLITE_DEBUG.md` when schema/behavior changes.
+- Automatic duplicate hides are derived state, not evidence that a story was
+  handled. Rule/headline/key changes must reconsider the representative without
+  resetting the all-time dedupe counter or undoing deliberate hides.
+- Preserve legacy scores as a baseline; repeated identical results must not
+  inflate scores. Never substitute ingestion time for an unknown publication date.
+- Privileged deployment orchestration must come from an administrator-controlled
+  copy. Never run service-owned scripts or candidate binaries as root. Run build,
+  candidate inspection and service-checkout file operations as the service user.
 
 ## Documentation Alignment Rule
 

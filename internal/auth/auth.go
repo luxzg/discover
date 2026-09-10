@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -42,15 +43,21 @@ var (
 )
 
 func New(secret string, allowedCIDRs []string) (*Guard, error) {
+	if strings.TrimSpace(secret) == "" {
+		return nil, errors.New("admin_secret is required")
+	}
+	if allowedCIDRs == nil {
+		return nil, errors.New("admin CIDRs must be an explicit array; [] allows all addresses")
+	}
 	g := &Guard{
 		secret:   []byte(strings.TrimSpace(secret)),
 		sessions: make(map[string]session),
 		attempts: make(map[string]attempt),
 	}
-	for _, s := range allowedCIDRs {
+	for i, s := range allowedCIDRs {
 		_, n, err := net.ParseCIDR(strings.TrimSpace(s))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("invalid admin CIDR at index %d", i)
 		}
 		g.cidrs = append(g.cidrs, n)
 	}
@@ -61,7 +68,7 @@ func (g *Guard) AdminOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		ip := remoteIP(r.RemoteAddr)
-		if len(g.cidrs) > 0 && !g.allowIP(ip) {
+		if !g.AllowRemote(r.RemoteAddr) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

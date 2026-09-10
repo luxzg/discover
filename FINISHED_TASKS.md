@@ -3,6 +3,18 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-09-10 19:10 CEST
+
+### Completed
+
+- **Conservative Story Groups And Stable Scoring**: baseline-preserving evidence
+  scoring and normalized-title Other sources groups implemented in v2.23.
+  Fuzzy/semantic matching remains a separate future idea, not enabled implicitly.
+- **Review Follow-Up And Publication Dates**: addressed ingestion, authorization,
+  metadata-fetch, deployment, date, editor and story-history correctness issues
+  with automated regression tests and documented upgrade/recovery procedures.
+  Browser layout and live upstream quality still require operator field testing.
+
 ## 2026-05-25 11:06 CEST
 
 ### Completed

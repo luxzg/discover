@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-09-10 19:10 CEST - v2.23
+
+- Completed the review follow-up with transactional, baseline-preserving scoring:
+  repeated identical search hits no longer inflate scores; current topic weights
+  and negative-rule effects are reversible on unread candidates. Rule counts are
+  distinct matches going forward, and hide actions no longer double-apply penalties.
+- Added conservative normalized-title story groups with expandable Other sources.
+  Automatic duplicate hides no longer suppress their own winner; representatives
+  are reconsidered after rule/headline/key changes, handled history is preserved,
+  and the permanent counter counts each article only once.
+- Fixed publication-date parsing/display, including legacy SQLite Go timestamps,
+  timezone-bearing upstream dates and unknown-date handling. Empty newer results
+  do not erase known dates. Unknown publication dates are never invented.
+- Preserved identity-bearing URL query parameters while removing known tracking
+  parameters; upgraded derived identities without deleting legacy rows.
+- Hardened article metadata requests against SSRF with DNS-pinned public-only
+  connections and redirect checks. All SearXNG redirects are rejected;
+  local SearXNG remains supported. Replaced fragile metadata parsing with an HTML
+  tokenizer and corrected split Brave thumbnail URL decoding.
+- Made manual ingestion asynchronous and service-owned, with authenticated,
+  CSRF-protected feed refresh/status polling, cooldown handling and orderly shutdown.
+  Empty results differ from failed requests; partial results survive later failures
+  and bounded diagnostics expose request/engine/storage/maintenance failures.
+- Enforced valid CIDRs/config values, exclusive config creation, strict bounded
+  request JSON, foreign keys, stable editor IDs, idempotent positive actions,
+  rolling session cookies, safer logout/error UI and restrictive browser headers.
+- Added version/config-check CLI modes and nonzero exit on listener failure.
+  Deployment now builds/checks before stopping, retains SQLite/config/binary
+  snapshots, swaps atomically and attempts binary recovery without restoring data.
+  Privileged orchestration is administrator-controlled; service code runs unprivileged.
+  The standalone backup helper refuses ownership transfers and unsafe root destinations.
+- Added reusable format/test/check/build/security/backup/smoke scripts and regression
+  coverage for legacy upgrades, scoring, story reconciliation, dates, SSRF,
+  authentication, scheduling, browser actions and deployment failure recovery.
+- Updated Go minimum to 1.26.8 and added `golang.org/x/net/html` v0.59.0.
+  Aligned install/update/recovery, usage, SQL diagnostics and SearXNG documentation;
+  documented the eight-request day/week news/general matrix without unsupported
+  page-size claims. Added RSS/Atom to future ideas; fuzzy matching stays deferred.
+
+## 2026-09-10 18:18 CEST - Docs Note (no version change)
+
+- Documented native patch editing, effective session permission checks, and
+  scoped approvals in `AGENTS.md` after diagnosing read-only versus
+  workspace-write session differences.
+- Established a single-writer default for agent collaboration and reusable
+  validation commands to avoid unnecessary per-file and interpreter prompts.
+
 ## 2026-05-26 11:57 CEST - Docs Note (no version change)
 
 - Cleaned active task list:

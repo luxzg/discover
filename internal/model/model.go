@@ -27,7 +27,18 @@ type NegativeRule struct {
 	AppliedCount int64   `json:"applied_count"`
 }
 
+type StorySource struct {
+	ID           int64     `json:"id"`
+	URL          string    `json:"url"`
+	Title        string    `json:"title"`
+	SourceDomain string    `json:"source_domain"`
+	PublishedAt  time.Time `json:"published_at"`
+	ThumbnailURL string    `json:"thumbnail_url,omitempty"`
+}
+
 type Article struct {
+	StoryKey      string        `json:"story_key"`
+	Sources       []StorySource `json:"sources,omitempty"`
 	ID            int64         `json:"id"`
 	URL           string        `json:"url"`
 	NormalizedURL string        `json:"normalized_url"`
