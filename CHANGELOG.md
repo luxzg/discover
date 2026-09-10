@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-09-10 20:31 CEST - v2.24
+
+- Fixed slow Hide This/Hide Domain actions that canceled during retroactive
+  scoring on larger databases. Rule edits now evaluate only the changed rule,
+  update changed effects, and reconsider affected duplicate groups. Topic edits
+  reuse the existing rule ledger instead of rematching every rule.
+- Hide requests return an immediate authenticated, CSRF-protected acceptance;
+  a bounded service-owned job completes the transaction independently of the
+  browser connection. Status polling remains available while SQLite is busy.
+  Repeated request IDs reuse the same job, with a bounded in-memory result cache.
+- Added card-local progress, immediate menu closing, explicit acceptance and
+  uncertain-network-result messages. Cards are removed after confirmed completion;
+  readers can continue reading or close the page while the backend works.
+- Added cancellation, authentication, retry, shutdown, completion-cache and UI
+  regression tests, plus a reusable 40,000-article/80-rule scale test. On the
+  development machine, a full hide affecting 400 matches took about 235 ms without
+  race instrumentation; this is a synthetic measurement, not a server guarantee.
+- Recompute affected fractional scores from their evidence ledger, avoiding
+  cumulative rounding drift when large penalties are removed at feed thresholds.
+- Preserve retry IDs after interrupted/malformed hide responses and ignore old
+  session responses so delayed polling cannot clear a newer login.
+- Documented background-hide behavior and diagnostics. Field testing of v2.23
+  confirmed publication dates display when present and thumbnail enrichment works;
+  missing upstream dates remain omitted rather than invented.
+
 ## 2026-09-10 19:10 CEST - v2.23
 
 - Completed the review follow-up with transactional, baseline-preserving scoring:

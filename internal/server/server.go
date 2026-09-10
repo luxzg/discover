@@ -30,6 +30,7 @@ type API struct {
 	guard     *auth.Guard
 	user      *auth.UserGuard
 	assets    http.Handler
+	hideJobs  *hideJobs
 }
 
 type progressSource interface {
@@ -38,7 +39,7 @@ type progressSource interface {
 }
 
 func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, user *auth.UserGuard, assets http.Handler) *API {
-	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets}
+	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets, hideJobs: newHideJobs()}
 }
 
 func (a *API) Routes() http.Handler {
@@ -57,6 +58,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/api/articles/action", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleAction)))))
 	mux.Handle("/api/articles/click", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleArticleClick)))))
 	mux.Handle("/api/articles/dontshow", a.userOnly(a.userCSRF(a.withJSON(http.HandlerFunc(a.handleDontShow)))))
+	mux.Handle("/api/articles/dontshow/status", a.userOnly(a.withJSON(http.HandlerFunc(a.handleHideStatus))))
 
 	mux.Handle("/admin/api/login", a.withJSON(http.HandlerFunc(a.handleAdminLogin)))
 	mux.Handle("/admin/api/logout", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminLogout)))))
@@ -226,9 +228,11 @@ func (a *API) handleDontShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID      int64   `json:"id"`
-		Pattern string  `json:"pattern"`
-		Penalty float64 `json:"penalty"`
+		ID         int64   `json:"id"`
+		Pattern    string  `json:"pattern"`
+		Penalty    float64 `json:"penalty"`
+		RequestID  string  `json:"request_id"`
+		VisibleIDs []int64 `json:"visible_ids"`
 	}
 	if err := decodeJSON(r, a.cfg.MaxBodyBytes, &req); err != nil {
 		respondErr(w, http.StatusBadRequest, err)
@@ -241,12 +245,63 @@ func (a *API) handleDontShow(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, errors.New("positive article ID, pattern and penalty are required"))
 		return
 	}
-	ids, err := a.store.HideWithRule(r.Context(), req.ID, model.NegativeRule{Pattern: req.Pattern, Penalty: req.Penalty, Enabled: true})
+	if len(req.RequestID) > 64 || len(req.Pattern) > 2048 || len(req.VisibleIDs) > 100 {
+		respondErr(w, http.StatusBadRequest, errors.New("hide request exceeds limits"))
+		return
+	}
+	// Status responses only retain IDs relevant to this visible batch, not the
+	// potentially enormous list of all matching database rows.
+	visible := map[int64]bool{req.ID: true}
+	for _, id := range req.VisibleIDs {
+		if id <= 0 {
+			respondErr(w, http.StatusBadRequest, errors.New("invalid visible ID"))
+			return
+		}
+		visible[id] = true
+	}
+	identity := req
+	identity.RequestID = ""
+	signature, _ := json.Marshal(identity)
+	state, err := a.hideJobs.start(req.RequestID, string(signature), func(ctx context.Context) ([]int64, error) {
+		ids, err := a.store.HideWithRule(ctx, req.ID, model.NegativeRule{Pattern: req.Pattern, Penalty: req.Penalty, Enabled: true})
+		if err != nil {
+			return nil, err
+		}
+		out := []int64{}
+		for _, id := range ids {
+			if visible[id] {
+				out = append(out, id)
+			}
+		}
+		return out, nil
+	})
 	if err != nil {
+		if errors.Is(err, errHideBusy) || errors.Is(err, errHideConflict) {
+			respondErr(w, http.StatusConflict, err)
+			return
+		}
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, map[string]any{"ok": true, "matched_ids": ids})
+	respondJSON(w, http.StatusAccepted, state)
+}
+
+func (a *API) handleHideStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	state, ok := a.hideJobs.status(id)
+	if !ok {
+		if id == "" {
+			respondJSON(w, http.StatusOK, map[string]any{"status": "idle"})
+			return
+		}
+		respondErr(w, http.StatusNotFound, errors.New("hide status unavailable; reload to verify the result"))
+		return
+	}
+	respondJSON(w, http.StatusOK, state)
 }
 
 func (a *API) handleAdminTopics(w http.ResponseWriter, r *http.Request) {

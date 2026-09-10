@@ -89,6 +89,7 @@ func main() {
 	sched := scheduler.New(cfg.DailyIngestTime, cfg.IngestIntervalMinutes, ingester)
 
 	api := server.New(cfg, st, sched, ingester, guard, userGuard, server.AssetsHandler())
+	defer api.Shutdown()
 	httpServer := &http.Server{
 		Addr:         cfg.ListenAddress,
 		Handler:      api.Routes(),
@@ -124,6 +125,7 @@ func main() {
 	<-shutdownDone
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		sched.Shutdown()
+		api.Shutdown()
 		_ = database.Close()
 		os.Exit(1)
 	}

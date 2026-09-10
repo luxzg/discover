@@ -16,11 +16,30 @@
   - `🌐 Hide Domain` -> extracts domain from article URL, prompts editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
 - Positive actions (`👍 Useful`, click/read) keep the card visible in the current batch until reload/next batch
 - `👍 Useful` closes the opened per-card menu automatically after action
-- Negative actions remove card(s) immediately from the current view
+- Negative actions remove card(s) from the current view after the server confirms completion
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
 - If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
 - User session uses long-lived cookie/session refresh behavior to reduce surprise sign-outs during normal use
 - `Load Next` is disabled while its request/refresh is active. Refresh ingestion returns immediately and is polled; network errors never masquerade as empty results or trigger refresh. Cooldown messages remain visible.
+
+### Background Hide Actions
+
+After confirming Hide This/Hide Domain, the menu closes and the card shows
+submission progress, followed by an acknowledgement that the backend is applying
+the hide. You can keep reading other cards or close the page: an accepted hide
+does not depend on keeping the browser connection alive. The card and matching
+visible cards disappear once completion is confirmed. `Load Next` waits while
+the page is tracking this update so the current batch is not marked seen midway
+through it. Only one rule-based hide runs at a time.
+
+If the connection fails, the UI does not falsely claim the hide failed or
+completed. Retrying the same action on that card reuses its request ID and checks
+the accepted job. On reload/sign-in, the page checks for an active hide before
+loading the feed. Recent completion results are cached for the last 32 jobs in
+memory, not permanently; restarting the service cancels unfinished work and
+rolls back its transaction. After a restart or an unavailable result, reload and
+verify the rule/card state before retrying. This is not an offline action queue:
+the backend must first receive and accept the request.
 
 ## Admin UI
 
@@ -94,6 +113,7 @@ rather than falsely claiming the server session was removed.
 - Domain block rule example: `theinformation.com`
 - Negative rules apply immediately and retroactively to current `unread` entries
 - Updating an existing rule penalty re-applies by delta to unread entries (for example changing `1` -> `100` applies an extra `99`)
+- Rule edits evaluate only the changed rule against eligible entries; unrelated rules are not rematched. Topic edits reuse recorded rule effects.
 - Disabling, renaming or deleting a rule recomputes its current effect on unread entries and known duplicate alternatives transactionally. Read/seen/useful and manual/legacy/score-hidden history is not rescored or unhidden. A duplicate alternative can become the representative when it has the highest current score.
 - `applied_count` records distinct article matches per rule going forward, not each re-ingestion. Legacy counts are retained as a historical baseline.
 

@@ -67,3 +67,4 @@ pre {
 @media (max-width: 540px) {
   .thumb { width: 92px; height: 76px; }
 }
+.card-action-status { font-size: 0.9rem; overflow-wrap: anywhere; margin: 0.5rem 0 0; }

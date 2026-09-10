@@ -193,6 +193,17 @@ journalctl -u discover -n 200 --no-pager
 journalctl -u discover --since today -f
 ```
 
+Rule-based hide jobs log `hide: completed in ...` or `hide: failed after ...`.
+To isolate these from ingestion logs:
+
+```bash
+journalctl -u discover --since today --no-pager | grep 'hide:'
+```
+
+The browser acknowledges accepted jobs immediately; completion no longer depends
+on an open browser request. A service restart cancels unfinished jobs, so verify
+the rule/card state after deployment before retrying an interrupted action.
+
 ## 7. Update Existing Installation
 
 Preferred update method uses helper scripts.

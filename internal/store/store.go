@@ -117,7 +117,7 @@ func (s *Store) UpsertTopic(ctx context.Context, t model.Topic) error {
 			return err
 		}
 	}
-	if err := rescoreUnread(ctx, tx); err != nil {
+	if err := rescoreTopicEvidence(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -135,7 +135,7 @@ func (s *Store) DeleteTopic(ctx context.Context, id int64) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM topics WHERE id=?`, id); err != nil {
 		return err
 	}
-	if err := rescoreUnread(ctx, tx); err != nil {
+	if err := rescoreTopicEvidence(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -209,15 +209,13 @@ func upsertRule(ctx context.Context, tx *sql.Tx, rule model.NegativeRule) error 
 			return sql.ErrNoRows
 		}
 	} else {
-		_, err := tx.ExecContext(ctx, `INSERT INTO negative_rules(pattern,penalty,enabled) VALUES(?,?,?) ON CONFLICT(pattern) DO UPDATE SET penalty=excluded.penalty,enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP`, pattern, rule.Penalty, boolInt(rule.Enabled))
+		err := tx.QueryRowContext(ctx, `INSERT INTO negative_rules(pattern,penalty,enabled) VALUES(?,?,?) ON CONFLICT(pattern) DO UPDATE SET penalty=excluded.penalty,enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP RETURNING id`, pattern, rule.Penalty, boolInt(rule.Enabled)).Scan(&rule.ID)
 		if err != nil {
 			return err
 		}
 	}
-	if err := rescoreUnread(ctx, tx); err != nil {
-		return err
-	}
-	return nil
+	rule.Pattern = pattern
+	return rescoreChangedRule(ctx, tx, rule)
 }
 
 func (s *Store) DeleteNegativeRule(ctx context.Context, id int64) error {
@@ -229,10 +227,11 @@ func (s *Store) DeleteNegativeRule(ctx context.Context, id int64) error {
 	if err := initializeUnreadScores(ctx, tx); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM negative_rules WHERE id=?`, id); err != nil {
+	// Remove this rule's effect before cascading its ledger rows away.
+	if err := rescoreChangedRule(ctx, tx, model.NegativeRule{ID: id, Enabled: false}); err != nil {
 		return err
 	}
-	if err := rescoreUnread(ctx, tx); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM negative_rules WHERE id=?`, id); err != nil {
 		return err
 	}
 	return tx.Commit()

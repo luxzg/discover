@@ -29,6 +29,7 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Persistent dedupe counter:
   - stores cumulative hidden-duplicate total in DB and shows it in admin status
 - Stable per-topic evidence scoring with reversible negative-rule effects; repeated identical results no longer inflate scores
+- Background Hide This/Hide Domain actions with immediate acceptance and visible completion progress
 - Publication dates shown when supplied, including previously stored dates in legacy SQLite formats
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next

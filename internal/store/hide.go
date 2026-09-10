@@ -22,7 +22,7 @@ func (s *Store) HideWithRule(ctx context.Context, id int64, rule model.NegativeR
 	if err := tx.QueryRowContext(ctx, `SELECT story_key FROM articles WHERE id=?`, id).Scan(&key); err != nil {
 		return nil, err
 	}
-	articles, err := unreadScoreRows(ctx, tx)
+	articles, err := unreadScoreRows(ctx, tx, false)
 	if err != nil {
 		return nil, err
 	}

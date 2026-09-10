@@ -39,6 +39,18 @@ For narrower iterations:
 ./discover --version
 ```
 
+For repeatable hide/scoring latency measurements without race instrumentation:
+
+```bash
+bash scripts/test-hide-scale.sh
+```
+
+This builds a disposable 40,000-article/80-rule fixture and times rule creation,
+penalty edits, deletion and full Hide Domain (400 matching articles). The regular
+suite also runs this regression test. Race timings are intentionally not treated
+as production performance measurements; content sizes, match rates, disk and CPU
+affect real service latency.
+
 The build uses a temporary artifact and atomic rename, embeds commit/build time,
 and never starts the server as a test. A dirty-tree build is a development artifact;
 rebuild after the final commit before deployment to embed the committed revision.
@@ -60,6 +72,16 @@ service/SSH commands and never contact a real server.
   effects; baseline-preserving upgrades; derived story identity and hide reasons.
 - `server`: authenticated/CSRF-protected mutation routes, rolling cookies,
   no-store responses, restrictive script policy, escaped DOM rendering.
+  Rule-based hides use a single service-owned job with immediate HTTP 202
+  acceptance, authenticated in-memory status polling, a 32-result retry cache
+  and shutdown cancellation/waiting. Browser disconnects do not cancel accepted
+  work; process restarts do, with transactional rollback. Each job has a ten-minute
+  safety deadline, not a target latency. Only visible-batch IDs are cached.
+
+Rule edits scan candidates for that rule only, write changed effects using prepared
+statements, recompute only changed scores from their ledger and reconcile affected
+derived story groups. Topic edits reuse the current rule ledger. Avoid restoring the former per-article,
+per-rule database loop in interactive mutation paths.
 
 Do not treat an automatically hidden duplicate as proof the story was handled.
 Do not infer a publication date from ingestion time. Do not strip arbitrary URL

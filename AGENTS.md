@@ -153,6 +153,14 @@ Historical context docs (read-only unless explicitly requested):
   resetting the all-time dedupe counter or undoing deliberate hides.
 - Preserve legacy scores as a baseline; repeated identical results must not
   inflate scores. Never substitute ingestion time for an unknown publication date.
+- Field-tested databases have tens of thousands of unread articles. Validate
+  interactive scoring changes with `bash scripts/test-hide-scale.sh`; do not
+  rematch every rule when only one rule changed or hide slow logic behind a
+  larger HTTP timeout. Long-running accepted mutations must be service-owned,
+  bounded, observable and independent of browser request cancellation, with
+  clear acceptance versus completion messages and transactional rollback.
+  The user accepts cancellation on rare service restarts; do not add a durable
+  hide-job queue without a new requirement.
 - Privileged deployment orchestration must come from an administrator-controlled
   copy. Never run service-owned scripts or candidate binaries as root. Run build,
   candidate inspection and service-checkout file operations as the service user.

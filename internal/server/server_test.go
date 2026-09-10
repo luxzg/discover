@@ -36,7 +36,7 @@ func testAPI(t *testing.T) (*API, http.Handler, *http.Cookie, string, *http.Cook
 	u, _ := auth.NewUserGuard("reader", "test-reader")
 	sched := scheduler.New("07:30", 120, testRunner{})
 	a := New(config.Config{DefaultBatchSize: 10, FeedMinScore: 1, MaxBodyBytes: 4096, DedupeTitleKeyChars: 50, HideRuleDefaultPenalty: 100}, st, sched, nil, g, u, AssetsHandler())
-	t.Cleanup(func() { sched.Shutdown(); d.Close() })
+	t.Cleanup(func() { sched.Shutdown(); a.Shutdown(); d.Close() })
 	user, _, _ := u.NewSession("127.0.0.1:123", time.Hour)
 	csrf, _ := u.SessionCSRF(user, "127.0.0.1:123")
 	admin, _, _ := g.NewSession("127.0.0.1:123", time.Hour)

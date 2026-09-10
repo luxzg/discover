@@ -21,8 +21,12 @@ type scoredRow struct {
 	base                        sql.NullFloat64
 }
 
-func unreadScoreRows(ctx context.Context, tx *sql.Tx) ([]scoredRow, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id,title,content,source_domain,url,score,score_base FROM articles WHERE status='unread' OR (status='hidden' AND hidden_reason='duplicate')`)
+func unreadScoreRows(ctx context.Context, tx *sql.Tx, uninitialized bool) ([]scoredRow, error) {
+	query := `SELECT id,title,content,source_domain,url,score,score_base FROM articles WHERE (status='unread' OR (status='hidden' AND hidden_reason='duplicate'))`
+	if uninitialized {
+		query += ` AND score_base IS NULL`
+	}
+	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +130,7 @@ func initializeScore(ctx context.Context, tx *sql.Tx, a scoredRow, rules []model
 }
 
 func initializeUnreadScores(ctx context.Context, tx *sql.Tx) error {
-	articles, err := unreadScoreRows(ctx, tx)
+	articles, err := unreadScoreRows(ctx, tx, true)
 	if err != nil {
 		return err
 	}
@@ -175,7 +179,7 @@ func rescoreRow(ctx context.Context, tx *sql.Tx, a scoredRow, rules []model.Nega
 }
 
 func rescoreUnread(ctx context.Context, tx *sql.Tx) error {
-	articles, err := unreadScoreRows(ctx, tx)
+	articles, err := unreadScoreRows(ctx, tx, false)
 	if err != nil {
 		return err
 	}
