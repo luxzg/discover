@@ -1,5 +1,17 @@
 # SQLite Debug Guide
 
+## Engine Versus CLI Version
+
+Discover v2.26 embeds SQLite 3.53.4 through `modernc.org/sqlite` v1.58.0.
+It does not use the system `sqlite3` executable for normal database access.
+`sqlite3 --version` (or `SELECT sqlite_version()` inside that CLI) reports the
+CLI's engine version, not Discover's. To see which driver the binary was built
+with, run `go version -m ./discover` in its application directory.
+
+This dependency upgrade reuses the existing database file and schema; there is
+no manual conversion or re-ingestion step. Use the normal deployment workflow
+in `INSTALL.md`, including its existing backup step.
+
 ## Install sqlite3
 
 ```bash

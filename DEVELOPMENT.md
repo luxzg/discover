@@ -20,6 +20,10 @@ See `MAINTENANCE.md` for monthly tool/dependency reviews, dated scan results,
 download prerequisites and the policy for upgrading compilers without needlessly
 raising the module minimum. Helpers preserve the compiler selected by PATH.
 
+SQLite is compiled into the binary: `modernc.org/sqlite` v1.58.0 bundles engine
+3.53.4 and requires `modernc.org/libc` v1.75.6. Keep that exact pair together.
+The installed `sqlite3` CLI is a separate backup/debug tool, not the app engine.
+
 ## Repeatable Commands
 
 Run each command separately from the repository root:
@@ -63,6 +67,20 @@ penalty edits, deletion and full Hide Domain (400 matching articles). The regula
 suite also runs this regression test. Race timings are intentionally not treated
 as production performance measurements; content sizes, match rates, disk and CPU
 affect real service latency.
+
+For SQLite dependency changes, also run:
+
+```bash
+bash scripts/test-sqlite-upgrade.sh
+```
+
+It builds the current DB package against the v2.25 module locks and current locks
+in temporary directories, then creates/reads/writes a synthetic file with both
+engines. It checks WAL/foreign keys, persisted scores/dates/hide state/counters,
+rollback and integrity. It requires the v2.25 commit in local Git history and may
+download locked modules; it is separate from ordinary offline unit tests. It
+never copies, restores or opens production data. The normal suite separately
+checks legacy schema migration and full store/scoring behavior.
 
 The build uses a temporary artifact and atomic rename, embeds commit/build time,
 and never starts the server as a test. A dirty-tree build is a development artifact;

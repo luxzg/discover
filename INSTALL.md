@@ -304,7 +304,11 @@ If you changed config keys in a new release, review and update `config.json` bef
 
 ### 7.4 Upgrade Checks And Recovery
 
-- The first upgraded start migrates derived URL/title keys, score baselines and timestamp representations. Large databases can take longer to start. Do not interrupt startup just because the feed is not immediately reachable.
+- v2.26 upgrades the SQLite engine bundled in Discover from 3.50.4 to 3.53.4.
+  Use the same update script and existing `discover.db`; no export/import,
+  database conversion, re-ingestion, config change or system SQLite upgrade is
+  required. Existing deployment backups remain part of the normal update.
+- When upgrading from before v2.23, the first start migrates derived URL/title keys, score baselines and timestamp representations. Large databases can take longer to start. Do not interrupt startup just because the feed is not immediately reachable.
 - Existing scores remain the baseline; repeated identical results stop increasing them. Review your score thresholds only after observing new results.
 - Old hidden decisions remain hidden; known automatic duplicate hides are tracked separately going forward.
 - Restart invalidates in-memory sessions: log in again to feed/admin.

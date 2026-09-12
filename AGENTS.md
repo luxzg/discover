@@ -85,6 +85,13 @@ Historical context docs (read-only unless explicitly requested):
 - Rebuild committed artifacts after compiler/dependency changes. Remote scripts
   build remotely; ask the operator to deploy and verify version/login/feed rather
   than claiming a laptop compiler update patched the live service.
+- CI and recurring restore drills are intentionally out of scope for this small
+  project. TLS renewal/monitoring stays with the operator's existing server scripts.
+  Do not repeatedly propose these unless the user changes the requirement.
+- Upgrade `modernc.org/sqlite` with the exact `modernc.org/libc` version required
+  by its module, not an independently selected latest libc. Run the synthetic
+  `bash scripts/test-sqlite-upgrade.sh` cross-driver test for SQLite upgrades,
+  alongside application tests and the hide-scale check; never use private DBs.
 
 ## Git Workflow Defaults
 

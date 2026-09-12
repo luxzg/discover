@@ -155,14 +155,43 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 - No production server, config, database or backup was accessed. Deployment
   remains an operator action using `INSTALL.md` section 7.
 
+### 2026-09-12 - v2.26 SQLite Upgrade
+
+- Upgraded `modernc.org/sqlite` v1.39.1 to v1.58.0 (SQLite 3.50.4 to 3.53.4),
+  with its required exact `modernc.org/libc` v1.75.6 and related module updates.
+  The Go minimum remains 1.26.8. Do not update libc independently to its latest
+  version; the driver's matching version requirement takes precedence.
+- Reviewed [upstream release notes](https://gitlab.com/cznic/sqlite/-/blob/v1.58.0/CHANGELOG.md)
+  and connection-parameter changes. Existing `_pragma` options remain supported;
+  no optional OFD locking, custom page cache, virtual tables or time-conversion
+  modes were enabled. No application schema/config changes are required.
+- Added `bash scripts/test-sqlite-upgrade.sh`: an isolated file written by the old
+  engine is verified/updated by the new engine, then reopened by both. Scores,
+  dates, deliberate hides, rule evidence and counters persist; WAL, foreign keys,
+  transaction rollback and integrity checks pass. This is synthetic engine
+  compatibility validation, not an operational restore drill or production copy.
+- Shellcheck 0.11.0 is now installed. Its first run flagged a conditional in the
+  backup helper; changed it to explicit `if` logic without relaxing permissions.
+- Validation passed with Go 1.26.8: full vet/race/unit/script/binary-smoke checks,
+  Shellcheck 0.11.0, cross-driver file checks and all four production/development
+  desktop/mobile browser runs. The 40,000-article/80-rule full-hide measurement
+  was about 221 ms before and 204 ms after this upgrade on the development machine;
+  single synthetic measurements are not a guaranteed production speedup.
+- Source and binary govulncheck 1.8.0 reported no vulnerabilities at 16:20 CEST;
+  the reported database timestamp remained 2026-09-10 14:48:42 UTC. npm audit,
+  including dev dependencies, reported zero vulnerabilities. These dated results
+  do not guarantee absence of undisclosed or application-specific issues.
+- The operator confirmed v2.25 remote deployment succeeded. v2.26 remote
+  deployment/health checks remain an operator action after local validation.
+
+## Maintenance Scope
+
+CI and recurring restore drills were declined as unnecessary for this small
+project. TLS renewal/monitoring remains the operator's responsibility through
+existing server scripts. These suggestions are closed, not pending work; normal
+deployment snapshots and deliberate recovery procedures remain unchanged.
+
 ## Follow-up Improvements
 
-- Review the SQLite update in a focused dependency change rather than coupling
-  a large database-engine upgrade to browser tooling.
-- Consider CI using these pinned checks and reviewed dependency-update PRs;
-  do not automatically merge or deploy runtime dependency changes.
-- Rehearse restore on a disposable database copy with explicit approval before
-  copying sensitive production data. Include TLS expiry and off-host backup
-  retention in operator checks.
 - Add Firefox/WebKit or physical-device checks if browser-specific usage problems
   justify the additional downloads and testing cost.

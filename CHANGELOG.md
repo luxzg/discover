@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-09-12 16:16 CEST - v2.26
+
+- Upgraded modernc.org/sqlite v1.39.1 to v1.58.0, embedding SQLite 3.53.4 instead
+  of 3.50.4, with the exact required libc v1.75.6 and related module updates.
+  The Go minimum remains 1.26.8; existing config and database schema are unchanged.
+- Added a repeatable synthetic old/new engine file-compatibility test covering
+  persisted scoring/rule/date/hide data, counters, WAL, foreign keys, transaction
+  rollback and integrity. Existing databases need no manual conversion or import.
+- Rewrote the backup path permission conditional explicitly after Shellcheck
+  0.11.0 flagged its chained form; security checks and behavior are unchanged.
+- Documented bundled-engine versus system CLI versions and the unchanged remote
+  deployment procedure. Archived the declined CI/restore-drill suggestions and
+  recorded operator-managed TLS and successful v2.25 remote deployment.
+- Validation passed: vet/race/unit tests, Shellcheck, script/binary smoke tests,
+  cross-driver compatibility and production/development desktop/mobile browsers.
+  Synthetic full-hide latency was about 204 ms versus 221 ms before the upgrade;
+  source/binary govulncheck and npm audit reported no vulnerabilities on this date.
+
 ## 2026-09-12 15:53 CEST - v2.25
 
 - Added locked, developer-only Playwright/Chromium validation for actual production

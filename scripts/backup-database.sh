@@ -31,9 +31,9 @@ if [[ $(id -u) == 0 ]]; then
   parent=$backup_dir
   while :; do
     mode=$(stat -c %a -- "$parent")
-    [[ $(stat -c %u -- "$parent") == 0 ]] && (( (8#$mode & 0022) == 0 )) || {
+    if [[ $(stat -c %u -- "$parent") != 0 ]] || (( (8#$mode & 0022) != 0 )); then
       echo 'Root backups require a root-owned path without group/other-writable ancestors.' >&2; exit 1;
-    }
+    fi
     [[ "$parent" != / ]] || break
     parent=$(dirname -- "$parent")
   done

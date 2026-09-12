@@ -3,6 +3,23 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-09-12 16:16 CEST
+
+### Completed
+
+- **SQLite Dependency Review And Upgrade**: v2.26 updates the embedded engine
+  and matching libc; added an isolated old/new driver compatibility test. Existing
+  remote data is reused without conversion. Field deployment remains operator-run.
+- **Optional Shell Linting**: the operator installed Shellcheck 0.11.0; validation
+  now includes it rather than skipping the lint pass.
+
+### Intentionally Closed
+
+- **CI And Recurring Restore Drills**: declined as excessive for this project's
+  size. Keep existing local tests and deployment backup/recovery safeguards.
+- **Additional TLS Monitoring Work**: handled by the operator's existing server
+  scripts; no additional project tooling requested.
+
 ## 2026-09-10 19:10 CEST
 
 ### Completed
