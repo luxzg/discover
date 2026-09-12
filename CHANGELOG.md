@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-09-12 15:53 CEST - v2.25
+
+- Added locked, developer-only Playwright/Chromium validation for actual production
+  and development binaries on desktop/mobile, using isolated synthetic data and
+  fake SearXNG. Covers auth, assets, console/layout, dates, story groups, upvotes,
+  background domain hides, pagination and screenshots; no production state is used.
+- Added repeatable browser setup/testing and offline/online tool inventory helpers.
+  Build/check scripts now respect the operator's PATH before older Go fallbacks.
+  Kept the existing Go 1.26.8 minimum and runtime dependency versions unchanged.
+- Extended security checks with versions/timestamps, verbose source advisory
+  details, optional built-binary scanning and npm audit including dev dependencies.
+  Added regression tests for compiler selection and failed scan/update reporting.
+- Documented monthly maintenance, official release checks, lockfile reproduction,
+  browser download/OS prerequisites, scan limitations and remote rebuild/health
+  verification. Recorded SQLite upgrade candidates for separate compatibility review.
+- Validation: Go vet/tests/race, script and binary smoke checks; production and
+  development desktop/mobile browser tests; source/binary govulncheck and npm audit.
+  Dated scans reported no vulnerabilities, not a guarantee of permanent safety.
+
 ## 2026-09-10 20:31 CEST - v2.24
 
 - Fixed slow Hide This/Hide Domain actions that canceled during retroactive

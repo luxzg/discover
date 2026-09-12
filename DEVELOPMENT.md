@@ -3,7 +3,8 @@
 ## Environment
 
 - Go 1.26.8 or newer, Git and Bash.
-- Node.js 22+ for dependency-free JavaScript and deployment-script tests.
+- Node.js 22+ and npm for JavaScript/deployment-script tests and developer-only
+  Playwright browser tests. Unit/script tests themselves use Node built-ins.
 - SQLite CLI for operational backups; shellcheck is optional locally.
 - `govulncheck` for the separate dependency/security check: install with
   `go install golang.org/x/vuln/cmd/govulncheck@latest`.
@@ -15,6 +16,10 @@ maintenance uses `go mod tidy`/`go get`. Go may download the toolchain selected 
 `go.mod` under its normal automatic toolchain policy. No production Go compilation
 is run as root.
 
+See `MAINTENANCE.md` for monthly tool/dependency reviews, dated scan results,
+download prerequisites and the policy for upgrading compilers without needlessly
+raising the module minimum. Helpers preserve the compiler selected by PATH.
+
 ## Repeatable Commands
 
 Run each command separately from the repository root:
@@ -22,7 +27,9 @@ Run each command separately from the repository root:
 ```bash
 ./scripts/format.sh
 ./scripts/check.sh --race
-./scripts/security-check.sh
+bash scripts/setup-browser.sh
+bash scripts/test-browser.sh --all
+bash scripts/security-check.sh --binary
 ```
 
 `check.sh` checks diffs/formatting, runs `go vet`, Go tests, shell syntax and
@@ -30,6 +37,12 @@ deployment-command doubles, JavaScript syntax/behavior tests, then builds and
 verifies `discover` using `--version`, then runs isolated CLI/config/listener
 smoke tests against that binary. Race testing requires a native C compiler
 and CGO enabled for Go's race detector; the application itself does not require CGO.
+
+Browser setup is needed initially and after lockfile/browser upgrades, not on every
+test run. It downloads locked npm dependencies and matching Chromium without
+installing OS packages. Browser tests and network vulnerability scans are separate
+from the default deterministic checks. Test artifacts are ignored; see
+`MAINTENANCE.md` for scope and cleanup guarantees.
 
 For narrower iterations:
 
@@ -93,7 +106,11 @@ clicked article. Keep URL/article identity distinct from conservative story keys
 Automated tests cover SSRF addressing/redirects, auth separation, CIDRs/CSRF,
 request validation, asynchronous jobs, date storage/display, stable scoring,
 transaction rollback, dedupe counters, legacy migration, JS actions and deployment
-ordering/recovery. JS tests use an isolated DOM model, not a real rendered browser.
+ordering/recovery. Unit JS tests use an isolated DOM model. The separate
+Playwright suite renders actual embedded production and plain development builds
+in desktop/mobile Chromium, checks assets/console/layout and writes screenshots.
+It uses only synthetic fixtures and a fake local SearXNG. Root-path deployment is
+tested; subpath deployments, WebGL and workers are not applicable to this app.
 
 After remote deployment, the operator should confirm login restoration after a
 fresh sign-in, card/menu/mobile layout, known publication dates, Other sources,

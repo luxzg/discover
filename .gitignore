@@ -33,6 +33,12 @@ out/
 *.so
 *.dylib
 
+# Development-only dependencies and synthetic browser artifacts
+node_modules/
+/.browser-artifacts/
+/playwright-report/
+/test-results/
+
 # Go coverage / profiling
 *.out
 *.test

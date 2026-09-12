@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-export PATH="$HOME/toolchains/go1.26.8/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
+source "$ROOT/scripts/tool-env.sh"
 output="$ROOT/discover"
 case "${1:-}" in
   --output) [[ $# == 2 ]] || exit 2; output=$2 ;;

@@ -25,6 +25,7 @@ Read these before substantial work:
 6. `TODO.md` (active ideas only)
 7. `SQLITE_DEBUG.md` when debugging DB/data behavior
 8. `SEARXNG.md` when touching SearXNG setup assumptions
+9. `DEVELOPMENT.md` and `MAINTENANCE.md` for tooling, dependency or validation work
 
 Historical context docs (read-only unless explicitly requested):
 
@@ -55,12 +56,35 @@ Historical context docs (read-only unless explicitly requested):
 
 - Full validation: `./scripts/check.sh --race` (vet, tests, scripts, build artifact).
 - Vulnerability scan: `bash scripts/security-check.sh`.
+- Browser validation: `bash scripts/test-browser.sh --all` after the one-time
+  `bash scripts/setup-browser.sh`; repeat setup after lockfile/browser updates.
+- Release security check: `bash scripts/security-check.sh --binary` after build.
 - Build deployable artifact: `./scripts/build.sh`, then `./discover --version`.
 - Formatting: `./scripts/format.sh`.
 - If sandbox blocks default Go cache writes, use local cache:
   `GOCACHE=$(pwd)/.gocache go build ./...`
 - Remove temporary `.gocache` after validation if created.
 - For docs-only changes, skip build unless user requests build/test.
+
+## Periodic Tooling Maintenance
+
+- Follow `MAINTENANCE.md`; when its last dated review is about a month old during
+  normal work, remind the user and propose checking tools/dependencies. This does
+  not authorize unattended upgrades, OS installation or production deployment.
+- Verify supported Go patches with official sources. Respect operator PATH and
+  do not raise the module minimum only because the installed compiler changed.
+- Include development dependencies in npm audits, keep lockfiles synchronized,
+  use `npm ci` for reproduction and matching project-local Playwright browsers.
+- Ask the user to install missing system tools/browser OS libraries. Do not assume
+  sudo or run browser installation with automatic OS dependency installation.
+- Separate reachable Go findings from uncalled advisories; record dated scan
+  results and failures. Offline/failed scans are not clean results.
+- Browser checks must use synthetic disposable data and test-owned servers, never
+  private login state. Keep artifacts ignored, stop owned servers, review screenshots
+  and distinguish local deterministic coverage from external-service checks.
+- Rebuild committed artifacts after compiler/dependency changes. Remote scripts
+  build remotely; ask the operator to deploy and verify version/login/feed rather
+  than claiming a laptop compiler update patched the live service.
 
 ## Git Workflow Defaults
 
@@ -171,6 +195,7 @@ When workflow or behavior changes, update relevant docs in the same task:
 
 - `README.md` for high-level behavior/features.
 - `INSTALL.md` for deployment/ops/diagnostics.
+- `DEVELOPMENT.md` and `MAINTENANCE.md` for validation, periodic checks and results.
 - `USAGE.md` for feed/admin usage.
 - `SQLITE_DEBUG.md` for DB debugging workflows.
 - `TODO.md` for active future work only.

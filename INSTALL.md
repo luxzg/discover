@@ -44,6 +44,12 @@ Do not extract over an older Go installation. Re-enter `sudo su - discover` afte
 updating `.profile`. Existing Go installs can use automatic toolchain selection
 from `go.mod`; `GOTOOLCHAIN=local` requires a sufficiently recent installed Go.
 
+Build helpers respect the Go executable selected by PATH before using fallback
+installation locations. Confirm `go version` as `discover` on the server:
+updating the laptop compiler does not update the server compiler. Review supported
+patches periodically using `MAINTENANCE.md`; its Node/npm/Chromium tooling is for
+development only and is not required on this server.
+
 ### 1.3 Create project directory
 
 ```bash
@@ -263,6 +269,18 @@ the previous binary first. **No database is ever restored automatically.** Backu
 and failed snapshots are retained under `/var/backups/discover/`; copy important backups off-host.
 An active process check is not a full application health test: verify login/feed
 and the new version after deployment.
+
+Compiler/dependency updates require this rebuild and restart too. To inspect the
+installed binary's toolchain and module metadata on the server (from its checkout):
+
+```bash
+go version -m ./discover
+./discover --version
+```
+
+The local wrapper builds on the remote server, not on the laptop. If its compiler
+needs a security update, install that as an operator action before deployment;
+do not assume a recently rebuilt laptop binary is the one running remotely.
 
 Permission model:
 - remote SSH user needs sudo permission to run the deployment orchestration, including `runuser`, service control and backup operations

@@ -115,6 +115,7 @@ for scoring and history limitations before changing thresholds.
 - `README.md` (this file)
 - `INSTALL.md` for deployment and systemd setup
 - `DEVELOPMENT.md` for validation scripts, architecture, and review checks
+- `MAINTENANCE.md` for monthly tool/dependency checks, browser setup and dated scans
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
 - `TODO.md` for active open work

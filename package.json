@@ -1,0 +1,15 @@
+{
+  "name": "discover-browser-tests",
+  "private": true,
+  "description": "Development-only browser validation for the Go Discover server",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:browser": "bash scripts/test-browser.sh",
+    "audit:dependencies": "npm audit --include=dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
