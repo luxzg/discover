@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05 12:35 CEST - Documentation / Google News Follow-up
+
+- Recorded the requested future Google-News-specific harvest as an opt-in idea
+  with bounded traffic and explicit publication/unknown-date policy. Operator
+  inventory confirms the enabled engine lacks time filtering and is skipped by
+  current day/week requests; a news category alone does not guarantee freshness.
+- Reviewed operator-supplied non-secret engine/settings summaries for the planned
+  defaults-based SearXNG config and Yahoo trial. No server configuration changes,
+  unfiltered searches, app code changes or version bump in this pass.
+
 ## 2026-10-05 12:13 CEST - Documentation / Selective Engine Backoff Idea
 
 - Extended the existing adaptive-backoff TODO with per-engine exclusions based

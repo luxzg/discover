@@ -101,6 +101,19 @@ is separate from engine/package upgrades; the helper intentionally retains the
 existing `python -m searx.webapp` unit. Do not expand its supported launch contract
 or remove preflight checks merely to get an update to run.
 
+## Opt-In Google News Harvest With Verified Freshness
+
+Explore a separate, capped Google-News-only ingestion path. The operator's October
+5 inventory confirms Google News is already enabled but does not support time
+filters, so current mandatory day/week searches skip it. Enabling the engine is
+not enough; do not silently remove filters from the existing harvest or pretend
+the news category guarantees recency. Assess actual publication-date coverage,
+enrich within existing secure metadata caps, and define an explicit policy for
+undated results before integration. First discovery is not proof of publication.
+Preserve story/URL dedupe, pacing and engine cooldowns; test separately with an
+operator-enabled option and retain the current time-limited path as the default.
+This is a future idea only; no unfiltered searches are enabled in v2.31.
+
 ## RSS / Atom Sources
 
 Explore direct RSS/Atom ingestion for regularly followed sites, alongside SearXNG.
