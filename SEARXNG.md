@@ -287,6 +287,195 @@ completion and ongoing pacing effects have not yet been reported. No additional
 active checks were run by the agent, and private config/log contents are not
 included here.
 
+## Settings Comparison And Recommended Overrides (2026-10-05)
+
+Reviewed the operator's complete redacted settings against
+[the installed revision's upstream defaults](https://github.com/searxng/searxng/blob/d48c4b5/searx/settings.yml),
+`2026.10.4+d48c4b5`, rather than a moving `master`. No additional real credential,
+email, personal hostname or non-loopback service address was found. Empty API-key
+fields, the inactive GitHub-code engine's dummy token and commented example
+credentials are upstream placeholders, not leaked credentials. The real server
+secret stays local; neither the attachment nor a copy of the live file is committed.
+
+The relevant differences are:
+
+| Setting / engine | Installed upstream default | Reviewed configuration / recommendation |
+| --- | --- | --- |
+| Default inheritance | Upstream ships a full default file; local overrides can inherit it | No `use_default_settings`; convert to compact overrides, not another full copy |
+| JSON output | HTML only | HTML + JSON; retain JSON for Discover |
+| Server secret | Insecure template value | Redacted local secret; retain the existing real value |
+| Autocomplete | DuckDuckGo | Disabled; retain to avoid extra browser autocomplete traffic |
+| Browser search method | GET | POST; retain to keep manual browser queries out of URL history, independent of Discover's API requests |
+| Access-denial suspension | 180 seconds | 86400 seconds (24 hours); avoid repeatedly querying a provider that denied access |
+| CAPTCHA suspension | 3600 seconds | 86400 seconds (24 hours); leave a challenged provider alone rather than hammering it |
+| Rate-limit suspension | 180 seconds | 3600 seconds (1 hour); recommend 10800 seconds (3 hours) to give throttled providers a longer rest |
+| Bing News / DuckDuckGo | Enabled | Operator added explicit enables to retain known working sources; equivalent to these defaults |
+| Yahoo general | Disabled | Operator added an explicit enable to trial another time-filtered source |
+| Yahoo News | Inactive | Operator added an explicit enable to trial news searches manually; not used by current Discover harvest |
+| Google general | Disabled | Enabled by the legacy file; recommend inheriting the current disabled default |
+| Startpage web/news/images | Inactive | Legacy definitions still active; recommend inheriting current inactive defaults |
+| Qwant News | Disabled | Enabled by the legacy file; inherit current default unless deliberately needed |
+| Outgoing timeout | 3 seconds | Same; do not increase merely to work around CAPTCHA/rate limits |
+| Loopback / public mode / Valkey | `127.0.0.1:8888`, private, Valkey off | Same; retain |
+
+Cloudflare/reCAPTCHA suspension values match the installed defaults and can be
+inherited. The longer generic cooldowns above are deliberate conservative
+overrides, not upstream defaults or a promise of recovery. These are **proposed**
+settings; no server edit/restart or additional search was performed in this review.
+
+Other differences mainly reflect the old full template: obsolete checker/test
+anchors, `brand.new_issue_url`, `outgoing.pool_maxsize`, old engine definitions,
+missing newly added engines and changed engine URLs/categories. Do not copy these
+forward just because they are in the historical file. Current defaults omit those
+checker/brand/pool entries; compact overrides inherit maintained engine definitions.
+UI/plugin settings reviewed here otherwise largely match current defaults.
+
+### Incremental Edits To The Reviewed Full File
+
+For an operator who wants only small edits after the reviewed `cat`, rather than
+a whole-file replacement, use this intermediate option:
+
+1. Add `use_default_settings: true` before `general:`. This brings in missing
+   current defaults while preserving explicit local values; it is not full
+   template cleanup. Existing engine definitions still override fields they set.
+2. Change only `search.suspended_times.SearxEngineTooManyRequests` from `3600`
+   to `10800`; leave the two `86400` generic cooldowns and Cloudflare/reCAPTCHA
+   entries as they are.
+3. In the existing `yahoo news` block add `inactive: false` alongside its
+   intentional `disabled: false`, otherwise inheritance will make it inactive
+   again. Leave all four operator-added `disabled: false` lines alone:
+   `duckduckgo`, `yahoo`, `yahoo news` and `bing news`.
+
+In the reviewed file Google general, Qwant News and Startpage do not explicitly
+override their new default `disabled`/`inactive` fields, so inheritance supplies
+the safer defaults shown above. Verify the resulting metadata after the single
+restart; do not assume the old pre-edit inventory still describes loaded engines.
+Full conversion to compact overrides remains a later cleanup, not accomplished
+just by adding the top-level flag. Removing legacy `brand.new_issue_url`,
+`outgoing.pool_maxsize` and checker/test boilerplate can wait for that cleanup;
+there is no reason to edit hundreds of unrelated engine definitions now.
+
+### Compact Configuration For This Private Instance
+
+The [settings merge rules](https://docs.searxng.org/admin/settings/settings.html#use-default-settings)
+merge engine overrides by name. Adding inheritance to the existing full file
+alone leaves its old engine/settings overrides in force. Instead, when the
+operator chooses to migrate, edit `/usr/local/searxng/searx-settings.yml` into
+compact overrides such as these, inserting the **existing real secret locally**
+in place of the placeholder. Do not use the redacted value or publish the result.
+No extra config backup is needed for this read-only review; the source updater's
+existing restricted snapshots are separate from this proposed manual edit.
+
+```yaml
+use_default_settings: true
+
+general:
+  debug: false
+
+search:
+  autocomplete: ""
+  formats:
+    - html
+    - json
+  suspended_times:
+    SearxEngineAccessDenied: 86400
+    SearxEngineCaptcha: 86400
+    SearxEngineTooManyRequests: 10800
+
+server:
+  secret_key: "REPLACE_LOCALLY_WITH_YOUR_EXISTING_SECRET"
+  bind_address: "127.0.0.1"
+  port: 8888
+  public_instance: false
+  limiter: false
+  method: "POST"
+
+outgoing:
+  request_timeout: 3.0
+
+engines:
+  - name: bing news
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: yahoo
+    disabled: false
+  # Optional manual-search choice, retained from the operator's latest edit.
+  # Discover's mandatory time-filtered harvest skips this engine.
+  - name: yahoo news
+    inactive: false
+    disabled: false
+```
+
+The redundant loopback/port/private/debug/timeout settings in this example are
+explicitly pinned to preserve the reviewed private-service contract. Limiter-off
+is appropriate only for this loopback-only instance, not a public deployment.
+The JSON format, local secret, autocomplete-off and POST overrides preserve
+Discover compatibility and the operator's existing privacy choices. The engine
+enables preserve working sources and intentional Yahoo trials; the cooldown
+overrides reduce repeated pressure on blocked providers. No other default
+setting needs an intentional override for the reviewed Discover setup.
+
+This is inheritance, not a three-engine allowlist: other upstream-default engines
+remain configured. In this revision Brave general and Reuters remain enabled,
+Google general is disabled, and Startpage is inactive. Upstream documents
+[Startpage's costly proof-of-work requirement](https://docs.searxng.org/dev/engines/online/startpage.html)
+as the reason for making it inactive. Do not override that solely because browser
+search works. To pause Reuters while its HTTP errors are investigated, optionally
+append `- name: reuters` with `disabled: true` under the same `engines` list;
+this is an operator choice, not proof of a permanent outage.
+
+`inactive` means not loaded; `disabled` controls default search selection for a
+loaded engine. Under inheritance, Yahoo News needs **both** `inactive: false`
+and `disabled: false` to preserve the operator's manual-search choice. Google
+News remains enabled by default. Both lack time filtering in the reviewed
+inventory, so neither adds results to Discover's current day/week harvest.
+Bing News already participates; Bing general is a different engine and currently
+lacks time filtering. See TODO.md for the separate, opt-in news-harvest idea.
+Yahoo general supports time filtering, but enabling it does not establish that
+it successfully answered a search.
+
+Admin's engine check uses these same eligible engines automatically: it sends
+category/day searches without a hardcoded provider list. A newly enabled,
+time-filter-capable engine can appear on the next explicit check if it contributes
+results or a warning. Engines that produce neither remain unobserved, not proven
+unavailable. Yahoo News/Google News are skipped while they lack time-filter
+support; this diagnostic does not continuously monitor recovery or test untimed
+engines merely because they are enabled.
+
+### Validate And Apply An Operator Settings Edit
+
+After saving the file, run the existing no-search preflight from the
+administrator-controlled checkout:
+
+```bash
+cd ~/discover-deployer
+sudo bash scripts/searxng-update.sh --check
+```
+
+Only if preflight completes, restart SearXNG once and inspect local health:
+
+```bash
+sudo systemctl restart searxng
+systemctl status searxng --no-pager
+journalctl -u searxng --since "5 minutes ago" -n 40 --no-pager
+curl --fail --silent --show-error http://127.0.0.1:8888/config | jq -r '
+  "version: \(.version)",
+  "name\tenabled\ttime_filter",
+  (.engines[] | select(.name == "bing news" or .name == "duckduckgo" or
+    .name == "yahoo" or .name == "yahoo news" or .name == "google" or
+    .name == "google news" or .name == "startpage" or .name == "startpage news") |
+    [.name, .enabled, .time_range_support] | @tsv)
+'
+```
+
+`/config` reports metadata without issuing provider searches; inactive engines
+are absent. Local logs may contain operational details, so redact before sharing.
+No Discover rebuild/restart or `systemctl daemon-reload` is needed for this YAML
+edit. Keep normal scheduled ingestion instead of repeated manual checks; a
+SearXNG restart may clear suspension history, so do not restart to bypass blocks.
+The proposed compact configuration has not yet been validated on the server.
+
 ## Historical Private-Instance Installation Recipe
 
 I had some issues installing on Debian Trixie due to Python version mismatch (Python 3.13 being the new default),

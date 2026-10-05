@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-05 12:57 CEST - Documentation / SearXNG Settings Comparison
+
+- Reviewed the full redacted operator settings against pinned upstream revision
+  d48c4b5, including privacy checks, intentional Yahoo general/News enables,
+  stale full-template overrides and changed engine defaults. Recorded relevant
+  differences and proposed compact inheritance without publishing the attachment.
+- Preserved the accepted 24-hour CAPTCHA/access-denial policy and proposed a
+  three-hour rate-limit cooldown, with secret-preserving edit instructions,
+  no-search preflight and metadata-only verification. Server application remains
+  operator follow-up; no live settings edits, restarts or provider probes occurred.
+- Expanded the opt-in news-harvest TODO to Google/Yahoo News and Bing News
+  coverage evaluation, retaining mandatory time filters in existing ingestion.
+  Docs-only change; app remains v2.31, with no build or version bump.
+
 ## 2026-10-05 12:35 CEST - Documentation / Google News Follow-up
 
 - Recorded the requested future Google-News-specific harvest as an opt-in idea

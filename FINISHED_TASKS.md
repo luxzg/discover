@@ -3,6 +3,15 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 12:57 CEST
+
+- **Redacted SearXNG Settings Review**: compared the complete supplied config
+  with installed revision d48c4b5, checked credentials/placeholders and documented
+  intentional engine enables, privacy/compatibility overrides and longer
+  provider cooldowns with rationale. Added incremental edits and an optional
+  compact inheritance template. No live config edits or searches; applying and
+  field-validating the recommendations remains operator follow-up in TODO.
+
 ## 2026-10-05 12:07 CEST
 
 - **v2.31 Deployment And Admin Diagnostics Field Confirmation**: operator

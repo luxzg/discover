@@ -90,7 +90,11 @@ and [engine suspension settings](https://docs.searxng.org/admin/settings/setting
 The installation-specific updater is implemented in v2.29; see SEARXNG.md for
 operator preflight, update and rollback. Review converting the historical
 full settings copy to minimal current overrides without losing secrets, JSON or
-loopback settings. The operator completed the retained-path source/venv upgrade
+loopback settings. The redacted-file comparison and proposed overrides are now
+documented in SEARXNG.md (October 5), preserving longer cooldowns and the operator's
+intentional Yahoo general/News enables. Applying inheritance, verifying loaded
+engine metadata and observing scheduled results remain operator follow-up.
+The operator completed the retained-path source/venv upgrade
 and local health check on October 5; full upstream recovery remains unverified.
 A subsequent v2.31 Admin sample returned usable news/general results from two
 engines, while other engines still reported CAPTCHA, access denial, rate limiting
@@ -101,11 +105,12 @@ is separate from engine/package upgrades; the helper intentionally retains the
 existing `python -m searx.webapp` unit. Do not expand its supported launch contract
 or remove preflight checks merely to get an update to run.
 
-## Opt-In Google News Harvest With Verified Freshness
+## Opt-In News-Engine Harvest With Verified Freshness
 
-Explore a separate, capped Google-News-only ingestion path. The operator's October
-5 inventory confirms Google News is already enabled but does not support time
-filters, so current mandatory day/week searches skip it. Enabling the engine is
+Explore separate, capped Google News and Yahoo News ingestion paths. The operator's
+October 5 inventory confirms Google News lacks time filtering; Yahoo News was
+also deliberately enabled in the supplied settings but lacks time filtering.
+Current mandatory day/week searches skip them. Enabling the engines is
 not enough; do not silently remove filters from the existing harvest or pretend
 the news category guarantees recency. Assess actual publication-date coverage,
 enrich within existing secure metadata caps, and define an explicit policy for
@@ -113,6 +118,14 @@ undated results before integration. First discovery is not proof of publication.
 Preserve story/URL dedupe, pacing and engine cooldowns; test separately with an
 operator-enabled option and retain the current time-limited path as the default.
 This is a future idea only; no unfiltered searches are enabled in v2.31.
+
+Include Bing News in the comparison, but it already supplies the existing
+time-filtered news harvest and does not need an unfiltered workaround. Review
+its adapter's day-to-last-hour mapping and repeated-last-page behavior before
+tuning coverage; do not treat engine labels as proof of date accuracy. Any
+engine-specific requests must respect explicit-selection/category semantics and
+avoid duplicating existing traffic. References: [Bing News adapter](https://docs.searxng.org/dev/engines/online/bing.html#bing-news)
+and [installed settings defaults](https://github.com/searxng/searxng/blob/d48c4b5/searx/settings.yml).
 
 ## RSS / Atom Sources
 
