@@ -54,6 +54,37 @@ categories continue. Avoid treating a legitimate empty topic as an outage or
 clearing SearXNG suspensions to force retries. Adaptive pauses/harvest reduction
 remain future work; request pacing alone is not guaranteed to prevent blocking.
 
+### Per-Engine Cooldowns And Selective Recovery Probes
+
+Use classified ingestion warnings and recent Admin diagnostics to temporarily
+omit blocked engines from subsequent requests, scoped to instance/engine/category.
+SearXNG already suspends engines internally; review those settings first rather
+than duplicating or bypassing that protection. Prefer learning from normal
+searches and reusing fresh observations over a mandatory extra check at every
+ingest startup. If needed, make a bounded startup sample only when state is stale
+and cooldowns permit it.
+
+Evaluate category-aware explicit `engines` selection using the instance's actual
+enabled-engine inventory. The current upstream parser accepts a comma-separated
+allowlist, but combining it with `categories` adds category engines back; an
+empty/invalid list can fall back to default engines. Verify the deployed parser
+and locked preferences before relying on selection. Skip an exhausted category
+instead of issuing an empty list that might retry all providers. Keep day/week
+and paging constraints, unknown engines eligible, and partial results usable.
+
+Persist bounded cooldown/recovery state so Discover restarts do not cause retry
+bursts. Treat CAPTCHA/access denial/rate limits more conservatively than transient
+timeouts; a single empty result is not a failed engine. After cooldown, permit
+only sparse paced probes before gradual reintroduction, with longer backoff on
+repeated failures. Recovery cannot be known without occasional probes, and some
+CAPTCHAs require operator intervention. Never clear upstream suspensions or change
+SearXNG settings automatically. Show skipped engines, reason and next probe time
+in Admin; add synthetic selection, restart, all-blocked and recovery regressions
+before opt-in field testing. This remains an idea, not active v2.31 behavior.
+
+References checked 2026-10-05: [upstream request selection](https://github.com/searxng/searxng/blob/master/searx/webadapter.py)
+and [engine suspension settings](https://docs.searxng.org/admin/settings/settings_search.html).
+
 ## SearXNG Production Server And Settings Review
 
 The installation-specific updater is implemented in v2.29; see SEARXNG.md for

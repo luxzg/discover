@@ -45,6 +45,13 @@ adds roughly 25 minutes of search pauses; it reduces bursts, not total request
 count. It does not guarantee upstream rate limits/CAPTCHAs disappear. Engine
 backoff/clearer outcome reporting remains future work.
 
+SearXNG has its own [engine suspension settings](https://docs.searxng.org/admin/settings/settings_search.html)
+and skips engines while those suspensions are active. Repeated suspension warnings
+therefore do not necessarily mean repeated requests reached that provider. Discover
+v2.31 reports observations but does not yet select engines or maintain per-engine
+cooldowns; selective requests and sparse recovery probes are planned in TODO.md.
+Do not reset suspensions or repeatedly restart SearXNG to force retries.
+
 Test one exact Discover-style request on the server:
 
 ```bash

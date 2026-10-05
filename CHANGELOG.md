@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-05 12:13 CEST - Documentation / Selective Engine Backoff Idea
+
+- Extended the existing adaptive-backoff TODO with per-engine exclusions based
+  on warnings, bounded persistent cooldowns, sparse recovery probes and Admin
+  visibility. Prefer actual ingest evidence/recent checks over extra probes at
+  every startup; unknown/empty engines are not automatically treated as failed.
+- Checked upstream engine selection and suspension behavior: SearXNG already
+  skips suspended engines, and explicit engine lists require care to avoid
+  category/empty-list fallback re-enabling blocked providers. Recorded parser
+  verification and synthetic tests before future implementation. No runtime
+  changes, live probes, configuration edits or app version bump.
+
 ## 2026-10-05 12:07 CEST - Documentation / Field Closeout
 
 - Recorded operator-confirmed v2.31 service/Admin/feed deployment, next scheduled
