@@ -60,8 +60,9 @@ the backend must first receive and accept the request.
 - Ingestion shows the next scheduled run in your browser's local timezone and
   the interval/daily mode. Interval timing begins at service startup; after a
   scheduled run, the next interval starts from completion. Manual ingestion
-  does not shift that timer. During an automatic run the next time is set when
-  it finishes; a run due during a search check waits for that check.
+  does not shift that timer. Restarting resets the interval; repeated deployments
+  can postpone the first automatic run. During an automatic run the next time is
+  set when it finishes; a run due during a search check waits for that check.
 - Admin session now uses sliding refresh behavior and tolerates client IP drift (similar to feed session) to reduce surprise sign-outs
 
 ### Search Engine Check

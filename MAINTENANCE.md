@@ -290,6 +290,18 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
   health. These do not establish upstream engine availability. The new Admin
   action is explicit active sampling, not continuous engine monitoring.
 
+### 2026-10-05 12:07 CEST - Operator Closeout
+
+- Operator confirmed v2.31 deployment in service and both UIs, next-run display
+  for the configured three-hour interval, and readable engine diagnostics with
+  cooldown. Samples returned usable news/general results alongside engine
+  warnings: partial availability only. Scheduled ingestion remains unverified.
+- Operator explicitly added missing config defaults and restarted; documented
+  safe edits, saved age-limit precedence and interval reset on service startup.
+  No app/dependency/toolchain changes, new scans, builds or live agent probes
+  were performed in this documentation-only pass. The full monthly inventory
+  reminder remains October 12; earlier scans retain their dated scope.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

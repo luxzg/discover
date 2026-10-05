@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-05 12:07 CEST - Documentation / Field Closeout
+
+- Recorded operator-confirmed v2.31 service/Admin/feed deployment, next scheduled
+  interval and the completed Admin engine diagnostic/cooldown. Two engines
+  returned usable category results while others remained blocked or failing;
+  partial observed availability is not full recovery. First scheduled ingestion
+  after deployment and sustained upstream behavior remain unverified.
+- Added safe missing-key insertion instructions with current defaults, saved
+  Admin age-limit precedence and restart/check steps. Clarified interval reset
+  after service restarts and the risk of postponing automatic runs with updates.
+- Updated TODO, task archive and operational evidence without publishing private
+  settings/logs. No runtime/dependency changes or version bump; no additional
+  live probes, scans or deployment actions in this closeout.
+
 ## 2026-10-05 11:45 CEST - v2.31
 
 - Added an admin-only Search Engines check with immediate acceptance, background

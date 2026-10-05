@@ -3,6 +3,21 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 12:07 CEST
+
+- **v2.31 Deployment And Admin Diagnostics Field Confirmation**: operator
+  confirmed v2.31 in service/Admin/feed, displayed three-hour interval schedule
+  and a completed engine check with readable counts/warnings and cooldown.
+  One configured instance returned usable news/general results; some engines
+  remained blocked or failing. Diagnostic UI and partial upstream availability
+  are confirmed, not all-engine recovery or scheduled ingestion completion.
+- **Explicit Config Defaults And Session Closeout**: operator added the six
+  previously missing config keys and restarted. The displayed schedule reflects
+  the configured interval; no further manual ingestion/probes were requested.
+  Documented safe insertion, saved age-limit precedence and restart timing.
+  Adaptive outcomes/backoff, settings modernization and other advanced ideas
+  remain active in TODO; no runtime change or new app version in this closeout.
+
 ## 2026-10-05 11:45 CEST
 
 - **SearXNG Updater Field Validation**: operator completed preflight and candidate

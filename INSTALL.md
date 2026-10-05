@@ -130,6 +130,34 @@ older config to enable pacing; existing between-topic settings stay unchanged.
 Optional tuning is documented in `USAGE.md`. Expect longer background ingestions,
 not bursts of eight searches. Existing config is still never overwritten.
 
+### 4.1 Add Missing Keys To An Existing Config
+
+Missing-key warnings do not prevent startup: defaults are already used in memory.
+To make the newer settings explicit, add only keys reported as missing. These are
+the defaults introduced in v2.27/v2.29:
+
+```json
+  "date_refresh_max_per_run": 40,
+  "feed_freshness_decay_days": 7,
+  "feed_max_age_days": 30,
+  "score_evidence_window_hours": 36,
+  "search_request_delay_seconds": 5,
+  "search_request_jitter_seconds": 2,
+```
+
+Insert the applicable lines immediately after the opening `{`, before existing
+settings; the trailing comma separates them from the next setting. Do not add
+duplicate keys or replace existing credentials, TLS paths or custom settings.
+JSON key order does not matter. A saved Admin age limit overrides
+`feed_max_age_days`; adding the JSON default does not reset that saved limit.
+
+Validate the edited file as `discover` with the command in section 5, then restart
+the service from an administrator account with `sudo systemctl restart discover`.
+Verify the version, absence of missing-key warnings and next scheduled time.
+In interval mode, restarting starts a new interval from startup; frequent updates
+can therefore postpone the first automatic ingestion. No manual ingest or engine
+check is required just because the configuration was edited.
+
 ## 5. Run Manually and Test
 
 ```bash

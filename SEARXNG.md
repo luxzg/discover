@@ -270,6 +270,16 @@ readable version of the earlier bounded JSON diagnostic. See USAGE.md for its
 active-search effects, spacing, cooldown and interpretation; do not repeatedly
 check blocked engines. Admin also shows the next automatic ingestion time.
 
+After deploying v2.31, the operator confirmed the diagnostic report and cooldown:
+the single configured instance returned ten results in each sampled category.
+Bing News and DuckDuckGo contributed results; other engines reported CAPTCHA,
+rate limiting, access denial or HTTP errors. This establishes partial observed
+availability, not complete recovery or reliable results for every topic. The
+operator left the next three-hour scheduled ingestion to run normally; its
+completion and ongoing pacing effects have not yet been reported. No additional
+active checks were run by the agent, and private config/log contents are not
+included here.
+
 ## Historical Private-Instance Installation Recipe
 
 I had some issues installing on Debian Trixie due to Python version mismatch (Python 3.13 being the new default),

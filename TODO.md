@@ -60,7 +60,11 @@ The installation-specific updater is implemented in v2.29; see SEARXNG.md for
 operator preflight, update and rollback. Review converting the historical
 full settings copy to minimal current overrides without losing secrets, JSON or
 loopback settings. The operator completed the retained-path source/venv upgrade
-and local health check on October 5; upstream recovery is still unverified.
+and local health check on October 5; full upstream recovery remains unverified.
+A subsequent v2.31 Admin sample returned usable news/general results from two
+engines, while other engines still reported CAPTCHA, access denial, rate limiting
+or HTTP errors. This is partial observed availability, not full recovery; the first
+scheduled paced ingestion after deployment remains unverified.
 A production application-server migration (for example Granian)
 is separate from engine/package upgrades; the helper intentionally retains the
 existing `python -m searx.webapp` unit. Do not expand its supported launch contract
