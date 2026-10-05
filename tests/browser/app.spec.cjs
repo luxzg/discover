@@ -48,6 +48,11 @@ test('real embedded feed/admin assets, auth, stories and actions', async ({ page
   await expect(page.locator('.card')).toHaveCount(5);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('feed.png'), fullPage: true });
+  const readIDs = await page.locator('.card').evaluateAll(cards => [Number(cards[0].dataset.id), Number(cards[2].dataset.id)]);
+  // Exercise authenticated click bookkeeping without navigating to real publishers.
+  await page.evaluate(async ids => {
+    for (const id of ids) await api('/api/articles/click', {method:'POST',body:JSON.stringify({id})});
+  }, readIDs);
   const hideCard = page.locator('.card').nth(1);
   const hiddenID = await hideCard.getAttribute('data-id');
   page.on('dialog', dialog => dialog.accept(dialog.type() === 'prompt' ? dialog.defaultValue() : undefined));
@@ -70,11 +75,16 @@ test('real embedded feed/admin assets, auth, stories and actions', async ({ page
   await page.locator('#archiveDays').fill('90');
   await page.locator('#previewArchive').click();
   await expect(page.locator('#archiveResult')).toContainText('Would newly archive');
+  await expect(page.locator('#archiveResult')).toContainText('restore 0 age-archived rows');
   await page.locator('#applyArchive').click();
   await expect(page.locator('#archiveResult')).toContainText('Feed age limit: 90 days');
   await page.locator('#domainsPanel summary').click();
   await page.locator('#loadDomains').click();
-  await expect(page.locator('#domainRows')).toContainText('source0.example.test');
+  await expect(page.locator('#domainRows tr')).toHaveCount(1);
+  await expect(page.locator('#domainRows')).toContainText('example.test');
+  await expect(page.locator('#domainRows tr td').nth(2)).toHaveText('2');
+  await expect(page.locator('#domainsPanel th').nth(4)).toHaveText('Hidden');
+  await expect(page.locator('#domainsPanel th').nth(5)).toHaveText('Shown');
   await page.locator('#topicsPanel summary').click();
   await expect(page.locator('#topics')).toContainText('fixture news');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

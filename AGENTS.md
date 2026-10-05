@@ -193,6 +193,11 @@ Historical context docs (read-only unless explicitly requested):
   reading. Current deliberate hides override positives. Automatic duplicate,
   score and age filtering must not train domain dislikes. Implement fuzzy/event
   layers separately and conservatively; see TODO rather than enabling them here.
+- Archive restoration clears age marks only; it must not bypass handled/score/
+  duplicate gates or reset dates/scores to force first-page visibility. Preview
+  and apply share predicates. Main-domain report grouping is display-only, uses
+  bundled public-suffix rules and merges before the read threshold/result cap;
+  never broaden Hide Domain rules or rewrite stored sources for that report.
 - Field-tested databases have tens of thousands of unread articles. Validate
   interactive scoring changes with `bash scripts/test-hide-scale.sh`; do not
   rematch every rule when only one rule changed or hide slow logic behind a

@@ -172,6 +172,24 @@ FROM articles WHERE archived_at IS NOT NULL ORDER BY first_seen_at LIMIT 50;
 
 ## Story And Scoring Diagnostics
 
+If an age restore succeeded but an article is missing from the first feed page,
+inspect its retained state (replace the title fragment):
+
+```sql
+SELECT id, status, hidden_reason, archived_at, round(score, 2) AS raw_score,
+       first_seen_at, published_at, story_key, duplicate_of, title
+FROM articles
+WHERE lower(title) LIKE lower('%title fragment%')
+ORDER BY score DESC, id;
+```
+
+`archived_at IS NULL` confirms no age archive remains; it does not prove feed
+eligibility. Read/seen/useful and deliberate hides, minimum score and duplicate
+history still matter. Feed order uses derived freshness rank, not raw score:
+with default 7-day decay a 60-day-old score of 150 ranks around 15.7. Group age
+uses the earliest discovery/publication evidence across all its copies. Restoring
+does not reset scores or dates, so eligible old stories can remain on later pages.
+
 Inspect all copies of a headline and why they were hidden:
 
 ```sql

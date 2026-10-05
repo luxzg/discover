@@ -33,7 +33,7 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Publication dates recovered from search results or bounded publisher metadata fetches; unknown dates are clearly labeled First seen
 - Immutable first-seen clocks and a 36-hour search-evidence scoring window
 - Configurable feed age limit (30 days by default), reversible admin archiving and freshness-adjusted ordering
-- On-demand admin reading/domain report; deliberate hides override positive hints
+- On-demand admin reading report grouped by main domain (2+ positive reads, up to 200); deliberate hides override positive hints
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next
 - Optional auto-hide for low-score unread items via `auto_hide_below_score`

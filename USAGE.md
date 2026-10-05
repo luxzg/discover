@@ -71,8 +71,9 @@ takes precedence over `feed_max_age_days` in JSON and persists across restarts.
 
 Every feed query enforces the active limit, even before running archive or ingest.
 Ingest maintains archive marks after enrichment. Admin counts show archived rows
-separately from unread/hidden counts. Preview counts newly archived article rows,
-including automatic duplicate/score-hidden alternatives, not distinct stories.
+separately from unread/hidden counts. Preview counts both rows that would newly
+archive and rows whose age archive would be restored at the proposed limit.
+Counts include automatic duplicate/score-hidden alternatives, not distinct stories.
 Read/seen/useful and deliberate/legacy hides are not archived by this action.
 
 Age uses the earliest immutable first-seen timestamp across the conservative
@@ -82,17 +83,32 @@ copy nor an updated publisher date resets the age clock. Existing rows recover
 the timestamp still available in `ingested_at`. Already deleted history cannot
 be reconstructed. Increasing the age limit does not guarantee previously
 handled stories will reappear: existing handled-history rules still apply.
+Restoring removes only the age archive. Minimum-score, duplicate and handled
+filters still apply, and freshness-adjusted ordering can put a restored article
+on a later page even when its displayed raw score is higher than the first card.
+For example, with 7-day decay, a 60-day-old article scored 150 ranks around 15.7,
+below a fresh article scored 85. Reload the feed to fetch the new eligible batch;
+restoring does not change its scores, dates or deliberately recorded actions.
 
 ### Reading By Domain
 
 Expand **Reading By Domain** and click **Generate / Refresh Report**. It queries
-retained database history on demand, with up to 500 domains ordered by positive
-article count. Read means opened; Useful and Read can overlap, but Positive
+retained database history on demand, with up to 200 main domains ordered by
+positive article count. Subdomain counts merge before filtering: for example
+`www.pcmag.com` and `au.pcmag.com` become `pcmag.com`. Only merged domains with
+at least two positive reads appear. Grouping uses the bundled
+[public suffix list](https://pkg.go.dev/golang.org/x/net/publicsuffix), preserving
+multi-label suffixes such as `co.uk` and separate hosted sites such as distinct
+`blogspot.com` tenants. Stored sources and Hide Domain rules are not changed.
+Read means opened; Useful and Read can overlap, but Positive
 counts an article once. A current explicit hide wins over an earlier read/useful
 hint. Automatic score/duplicate/age filtering is not a dislike. Unknown-origin
 legacy hides are not counted as proven explicit downvotes.
 
-Seen/handled is recorded exposure, not every rendered impression. Total includes
+Hidden counts deliberate hides, not automatic filters. Shown is recorded
+exposure through read/useful or batch advancement with Load Next, not literal
+scroll tracking or every rendered impression. The API's `seen` key is unchanged.
+Total includes
 all retained rows, including duplicates and archived entries. These are article
 counts, not click-event counts or guaranteed complete yearly history. Legacy
 read timestamps have limited provenance; no ranking/search preferences are

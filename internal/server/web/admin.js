@@ -358,7 +358,7 @@ function archiveDays() {
 document.getElementById('previewArchive').onclick = async () => {
   try {
     const j = await call(`/admin/api/archive?days=${archiveDays()}`);
-    document.getElementById('archiveResult').textContent = `Would newly archive ${j.stats.candidates} article rows. Active feed limit: ${j.active_days} days.`;
+    document.getElementById('archiveResult').textContent = `Would newly archive ${j.stats.candidates} article rows; restore ${j.stats.restorable} age-archived rows. Active feed limit: ${j.active_days} days.`;
   } catch (e) { status(`archive preview failed: ${e.message}`); }
 };
 
@@ -386,6 +386,7 @@ document.getElementById('loadDomains').onclick = async () => {
     if (!authenticated) return;
     document.getElementById('domainRows').innerHTML = (j.items || []).map(d =>
       `<tr><td>${escHtml(d.domain || '(unknown)')}</td>${['positive','read','useful','hidden','seen','total'].map(k => `<td>${Number(d[k] || 0)}</td>`).join('')}</tr>`).join('');
+    if (!j.items?.length) document.getElementById('domainRows').innerHTML = '<tr><td colspan="7">No domains with at least 2 positive reads yet.</td></tr>';
     status('domain report generated from retained database history');
   } catch (e) { status(`domain report failed: ${e.message}`); }
   finally { button.disabled = false; }

@@ -66,10 +66,17 @@ Use loopback/IP for a local instance; use HTTPS for a remote instance.
 
 ## Existing Installation Inventory Before Updating
 
-The operator confirmed the private installation is under `/usr/local/searxng`
-and likely has not been updated since February 2026. The remaining source/venv
-paths below are from the historical recipe and still need server confirmation.
-Source revisions/dates are a better identifier than assuming a numeric release.
+On 2026-10-05 the operator ran the read-only inventory and confirmed:
+
+- service `searxng`, dedicated user `searxng`, working directory
+  `/usr/local/searxng/searxng` and unit `/etc/systemd/system/searxng.service`
+- source revision `da9c0815a`, dated 2026-02-15 11:30:35 +0100
+- the expected virtual environment runs Python 3.12.12; `pip check` reported no
+  broken requirements, and `searx-settings.yml` exists
+
+This confirms the historical source/venv layout, not current upstream currency
+or full settings/application-server compatibility. Source revisions/dates are a
+better identifier than assuming a numeric release. No upgrade was performed.
 
 From an administrator-owned Discover checkout on the server (see INSTALL.md
 section 7.3), run the read-only inventory:
@@ -79,6 +86,12 @@ cd ~/discover-deployer
 git pull --ff-only
 sudo bash scripts/searxng-inspect.sh
 ```
+
+No `chmod` is needed when invoking it with Bash. Changing its executable bit
+inside a service checkout can make Git report a local mode change and block
+the Discover updater's clean-tree preflight. If that is the only change you
+made, inspect `git diff --summary` there as `discover`, then restore just that
+bit with `chmod -x scripts/searxng-inspect.sh`; do not discard unrelated edits.
 
 Alternatively run `bash scripts/searxng-inspect.sh` as the `searxng` service user
 if the helper is readable from that user's chosen location. The root invocation
@@ -91,7 +104,8 @@ are diagnostic failures, not permission to reinstall automatically.
 
 Share only non-sensitive revision/Python/dependency results if troubleshooting;
 do not paste the complete settings or environment. An installation-specific
-update helper is pending this inventory. It must preserve the existing secret,
+update helper can now use the confirmed layout; reviewing service launch details,
+current upstream compatibility and rollback is still pending. It must preserve the existing secret,
 JSON format and loopback listener, retain the prior source/environment, preflight
 compatibility and verify bounded JSON queries before claiming success. Do not
 run the generic upstream update script blindly against the custom pyenv layout.

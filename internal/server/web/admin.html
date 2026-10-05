@@ -58,6 +58,7 @@
     <section id="archivePanel" class="panel" hidden>
       <h2>Article Age</h2>
       <p class="hint">Archive unread stories older than this age and use the same limit for the feed. No articles are deleted. Increasing the limit restores eligible age-archived articles. 0 disables the age limit.</p>
+      <p class="hint">Restored rows still obey score, duplicate and handled-history filters. Feed order favors freshness, not raw score, so restored articles may appear on later pages. Reload the feed to fetch the current eligible batch.</p>
       <div class="row"><label>Days <input id="archiveDays" type="number" min="0" max="36500" step="1" value="30"></label><button id="previewArchive">Preview</button><button id="applyArchive">Apply Limit And Archive</button></div>
       <pre id="archiveResult"></pre>
     </section>
@@ -65,9 +66,9 @@
     <section id="domainsPanel" class="panel" hidden>
       <details class="collapsible">
         <summary>Reading By Domain</summary>
-        <p class="hint">Retained history only, up to 500 domains. Read means opened, not necessarily finished. Explicit hides override positive hints; automatic filters are not dislikes. Positive counts each article once even if both read and useful. Seen is recorded exposure, not a complete view count. No automatic ranking changes yet.</p>
+        <p class="hint">Retained history, grouped by main domain; at least 2 positive reads, up to 200 domains. Read means opened, not necessarily finished. Hidden overrides positive hints; automatic filters are not dislikes. Positive counts each article once even if read and useful. Shown is recorded read/useful or Load Next exposure, not scroll tracking. No automatic ranking changes yet.</p>
         <button id="loadDomains">Generate / Refresh Report</button>
-        <div class="table-scroll"><table><thead><tr><th>Domain</th><th>Positive</th><th>Read</th><th>Useful</th><th>Explicit hides</th><th>Seen/handled</th><th>Total</th></tr></thead><tbody id="domainRows"></tbody></table></div>
+        <div class="table-scroll"><table><thead><tr><th>Domain</th><th>Positive</th><th>Read</th><th>Useful</th><th>Hidden</th><th>Shown</th><th>Total</th></tr></thead><tbody id="domainRows"></tbody></table></div>
       </details>
     </section>
 

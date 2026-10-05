@@ -210,6 +210,27 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
   limit, inspect retained domain history and run ingestion to evaluate publisher
   date coverage. SearXNG updating is pending read-only server inventory.
 
+### 2026-10-05 09:46 CEST - v2.28 Follow-up Validation
+
+- Operator confirmed v2.27 remote deployment and version in both UIs, First seen
+  dates, fresher ordering and the domain report. No full deployment log was
+  needed to record that scope; exact private-row restoration remains uninspected.
+- v2.28 restoration tests verify preview/apply agreement, no preview mutations,
+  disabling/increasing age limits, duplicate/manual-hide preservation and a
+  restored high raw-score story remaining eligible below a fresher card.
+- Domain tests verify merge-before-filter/cap, complete subdomain sums, 200-row
+  stable ordering, multi-label suffixes, separate private hosted sites and no
+  source rewriting. The existing x/net module supplies the bundled PSL; no
+  dependency or toolchain upgrade was made.
+- Full vet/race/Go/script/JS/binary-smoke checks passed. Production/development
+  desktop/mobile browser tests passed; inspected updated Admin screenshots.
+  Go source/binary govulncheck 1.8.0 with Go 1.26.8 reported no vulnerabilities;
+  npm audit including dev dependencies reported zero. The database timestamp
+  remained 2026-10-01 20:24:15 UTC. These are dated, limited observations.
+- Recorded read-only SearXNG server inventory in SEARXNG.md. No production DB,
+  service, settings or SearXNG packages were changed by the agent. v2.28 deployment
+  and revised UI behavior remain operator checks using the existing update script.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

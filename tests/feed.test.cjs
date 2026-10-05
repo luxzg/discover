@@ -50,11 +50,14 @@ test('archive panel validates days and confirms mutations; domain report escapes
   const calls = [];
   b.c.fetch = async (url,opts) => {
     calls.push({url,body:opts.body});
-    return {ok:true,json:async()=>({stats:{archived:3,restored:1},items:[{domain:'<script>',positive:2,read:2}]})};
+    return {ok:true,json:async()=>({active_days:30,stats:{candidates:3,restorable:1,archived:3,restored:1},items:[{domain:'<script>',positive:2,read:2}]})};
   };
   b.elements.get('archiveDays').value='90';
+  await b.elements.get('previewArchive').onclick();
+  assert.equal(calls[0].url,'/admin/api/archive?days=90');
+  assert.match(b.elements.get('archiveResult').textContent,/Would newly archive 3 article rows; restore 1 age-archived rows/);
   await b.elements.get('applyArchive').onclick();
-  assert.deepEqual(JSON.parse(calls[0].body),{days:90});
+  assert.deepEqual(JSON.parse(calls[1].body),{days:90});
   assert.match(b.elements.get('archiveResult').textContent,/Archived 3; restored 1/);
   b.elements.get('archiveDays').value='1.5';
   const count=calls.length;
@@ -64,6 +67,14 @@ test('archive panel validates days and confirms mutations; domain report escapes
   assert.match(b.elements.get('domainRows').innerHTML,/&lt;script&gt;/);
   b.eval('authenticated=false; setAuthUI()');
   assert.equal(b.elements.get('domainRows').innerHTML,'');
+});
+
+test('domain report explains an empty filtered result', async () => {
+  const b = browser('admin.js');
+  b.eval('authenticated=true');
+  b.c.fetch = async () => ({ok:true,json:async()=>({items:[]})});
+  await b.elements.get('loadDomains').onclick();
+  assert.match(b.elements.get('domainRows').innerHTML,/No domains with at least 2 positive reads yet/);
 });
 
 test('failed feed request does not trigger ingest', async () => {

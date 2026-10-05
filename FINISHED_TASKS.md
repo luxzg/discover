@@ -3,6 +3,19 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 09:40 CEST
+
+### Field Confirmation And Follow-up
+
+- Operator deployed v2.27 through the remote helper and confirmed version in both
+  UIs, First seen labels, fresher first-page ordering, archive preview and domain
+  report. Restoration counts were observed; exact production-row visibility is
+  not proven by those counts. v2.28 adds matching previews and synthetic checks
+  for restoration beneath fresh higher-ranked cards.
+- SearXNG inventory completed without modification: February 15 source revision,
+  Python 3.12.12, expected dedicated service/source/venv and settings presence.
+  Updater compatibility, launch preflight and implementation remain in TODO.
+
 ## 2026-10-05 08:26 CEST
 
 ### Completed Locally In v2.27

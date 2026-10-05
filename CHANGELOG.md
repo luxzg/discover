@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-05 09:40 CEST - v2.28
+
+- Archive Preview now shows both newly archived and restorable row counts using
+  the same eligibility predicates as Apply. Added restoration regressions that
+  preserve duplicate/manual-hide states and prove restored high raw scores can
+  rank below fresher cards without being lost. Clarified this in Admin and docs.
+- Reading By Domain now merges subdomains with the existing bundled public
+  suffix list before filtering to two or more positive reads and limiting to
+  200 groups. Stored sources and domain rules remain unchanged. Simplified
+  column labels to Hidden and Shown, documented exposure versus scroll tracking,
+  and added empty-state, aggregation/cap, escaping and browser checks.
+- Recorded operator-confirmed v2.27 deployment, First seen display, fresher
+  ordering and domain report, plus the completed read-only SearXNG inventory.
+  SearXNG itself was not updated; its installation-specific updater remains TODO.
+- Validation passed: vet/race/Go/script/JS and binary smoke, production/development
+  desktop/mobile browser checks with screenshot inspection, and dated source/
+  binary govulncheck plus npm audit (no reported vulnerabilities). No dependency
+  versions or private production data were changed.
+
 ## 2026-10-05 08:58 CEST - v2.27
 
 - Added immutable first-seen timestamps, recovered from existing row creation on

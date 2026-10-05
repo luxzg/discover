@@ -320,6 +320,11 @@ If you changed config keys in a new release, review and update `config.json` bef
   inspect `publication date refresh` and `age archive` messages in the journal.
 - Expand Reading By Domain and generate its report on demand. Confirm that a
   deliberately hidden article is not also counted as a positive hint.
+- v2.28 Preview includes both archive and restore counts. Restoring removes age
+  marks, not other filters or freshness ranking: a high raw-score restored item
+  can appear on a later feed page. Reports merge main domains and show at most
+  200 with two or more positive reads; Hidden and Shown use the documented
+  deliberate-hide and recorded-exposure definitions, not automatic dislikes.
 - v2.27 rollback to an older binary ignores the new age/archive fields and may
   show the old backlog again. It does not require restoring a database, but an
   old binary can resume its former scoring behavior. Older strict config parsers

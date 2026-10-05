@@ -44,9 +44,10 @@ search expansion is a later opt-in stage, not inferred from raw click totals.
 ## Repeatable SearXNG Upgrade
 
 The operator confirmed the existing private installation is under
-`/usr/local/searxng` and probably dates from February 2026. First run the read-only
-`scripts/searxng-inspect.sh` on that server and confirm revision, service user,
-venv/Python and settings location. Build a reviewed server-side update helper
+`/usr/local/searxng`. Inventory is complete: see SEARXNG.md for the February 15
+source revision, Python 3.12.12, dedicated service and confirmed source/venv paths.
+Review the exact launch contract and current upstream compatibility, then build
+a reviewed server-side update helper
 for this actual layout, with config preservation, preflight/dry-run, retained
 old source/environment, bounded JSON search checks and documented rollback.
 Do not apply generic upstream install-script upgrades blindly to the custom

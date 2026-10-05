@@ -99,6 +99,10 @@ func TestAgeArchiveReversibleAndStoryClock(t *testing.T) {
 	if err != nil || topicCounts[topic].Unread != 1 {
 		t.Fatal("archived rows counted as active unread", topicCounts, err)
 	}
+	preview, err = s.PreviewArchive(ctx, 90)
+	if err != nil || preview.Candidates != 0 || preview.Restorable != 2 {
+		t.Fatal("restore preview differs from eligible archives", preview, err)
+	}
 	stats, err = s.ArchiveOldUnread(ctx, 90, true)
 	if err != nil || stats.Restored != 2 {
 		t.Fatal(stats, err)
@@ -143,7 +147,8 @@ func TestDomainReportHideOverridesClick(t *testing.T) {
 	a := hit(t, s, "https://a.example/one", "one", topic, time.Time{})
 	b := hit(t, s, "https://a.example/two", "two", topic, time.Time{})
 	c := hit(t, s, "https://a.example/three", "three", topic, time.Time{})
-	for _, id := range []int64{a, b} {
+	d := hit(t, s, "https://a.example/four", "four", topic, time.Time{})
+	for _, id := range []int64{a, b, d} {
 		if err := s.MarkRead(ctx, id); err != nil {
 			t.Fatal(err)
 		}
@@ -158,8 +163,67 @@ func TestDomainReportHideOverridesClick(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := s.DomainReport(ctx)
-	if err != nil || len(rows) != 1 || rows[0].Positive != 1 || rows[0].Read != 1 || rows[0].Useful != 1 || rows[0].Hidden != 1 {
+	if err != nil || len(rows) != 1 || rows[0].Positive != 2 || rows[0].Read != 2 || rows[0].Useful != 1 || rows[0].Hidden != 1 {
 		t.Fatal(rows, err)
+	}
+}
+
+func TestArchivePreviewRestoresRowsNotFirstPageRank(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	s.ConfigureFreshness(30, 7, 36)
+	topic := addTopic(t, s, "news")
+	now := time.Now().UTC()
+	old := hitAt(t, s, "https://a.example/older", "Restored older story", topic, time.Time{}, now.Add(-60*24*time.Hour))
+	copy := hitAt(t, s, "https://b.example/copy", "Restored older story", topic, time.Time{}, now.Add(-60*24*time.Hour))
+	fresh := hitAt(t, s, "https://a.example/latest", "Fresh current story", topic, time.Time{}, now)
+	expired := hitAt(t, s, "https://a.example/expired", "Older than ninety days", topic, time.Time{}, now.Add(-120*24*time.Hour))
+	manual := hitAt(t, s, "https://a.example/manual", "Deliberately hidden story", topic, time.Time{}, now.Add(-60*24*time.Hour))
+	if err := s.MarkIDStatus(ctx, manual, model.StatusHidden, -1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE articles SET score=CASE WHEN id=? THEN 150 WHEN id=? THEN 85 WHEN id=? THEN 200 ELSE 20 END`, old, fresh, expired); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.HideAllUnreadTitleDuplicates(ctx, 50); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ArchiveOldUnread(ctx, 30, true); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := s.PreviewArchive(ctx, 90)
+	if err != nil || preview.Restorable != 2 || preview.Candidates != 0 {
+		t.Fatal(preview, err)
+	}
+	active, err := s.FeedAgeLimit(ctx)
+	if err != nil || active != 30 {
+		t.Fatal("preview changed active age limit", active, err)
+	}
+	stats, err := s.ArchiveOldUnread(ctx, 90, true)
+	if err != nil || stats.Restored != preview.Restorable {
+		t.Fatal("restore did not match preview", stats, preview, err)
+	}
+	cards, err := s.FetchTopUnread(ctx, 1, 10)
+	if err != nil || len(cards) != 1 || cards[0].ID != fresh {
+		t.Fatal("older raw score unexpectedly topped fresh story", cards, err)
+	}
+	cards, err = s.FetchTopUnread(ctx, 10, 10)
+	if err != nil || len(cards) != 2 || cards[1].ID != old || cards[1].Score != 150 {
+		t.Fatal("restored representative missing from later feed", cards, err)
+	}
+	if state, _ := statusScore(t, s, copy); state != "hidden" {
+		t.Fatal("restore undid duplicate state")
+	}
+	preview, err = s.PreviewArchive(ctx, 0)
+	if err != nil || preview.Candidates != 0 || preview.Restorable != 1 {
+		t.Fatal("disabling limit preview", preview, err)
+	}
+	stats, err = s.ArchiveOldUnread(ctx, 0, true)
+	if err != nil || stats.Restored != preview.Restorable {
+		t.Fatal(stats, err)
+	}
+	if state, _ := statusScore(t, s, manual); state != "hidden" {
+		t.Fatal("restore undid deliberate hide")
 	}
 }
 

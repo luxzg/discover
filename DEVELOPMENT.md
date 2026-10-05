@@ -10,7 +10,8 @@
   `go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
 Direct Go dependencies are `modernc.org/sqlite` (pure-Go SQLite) and
-`golang.org/x/net/html` (HTML tokenizer for article metadata). Other module
+`golang.org/x/net` (HTML tokenizer for article metadata and bundled public-suffix
+grouping for domain reports). Other module
 requirements are transitive. Builds use `-mod=readonly`; only deliberate dependency
 maintenance uses `go mod tidy`/`go get`. Go may download the toolchain selected by
 `go.mod` under its normal automatic toolchain policy. No production Go compilation
@@ -132,9 +133,14 @@ Metadata fetches share one secure HTTP request for date and image extraction;
 date-only candidates include already illustrated cards. Per-batch candidate caps
 and a persisted one-day retry delay bound work. Publisher JSON-LD/meta parsing
 does not execute scripts and does not substitute `dateModified` for publication.
-Reading-by-domain is on-demand, capped to 500 groups and currently descriptive,
+Reading-by-domain merges registrable domains before filtering to at least two
+positive reads and limiting to 200 groups; source/rule identity is unchanged.
+The bundled PSL retains private hosted-site boundaries. Reports are descriptive,
 not an automatically trained ranking model. Tests also cover read-then-hide
 precedence, auth/CSRF, archive restoration and 40k-row feed/archive/report timing.
+Archive preview and apply share eligibility predicates; preview includes restore
+counts without mutating settings or rows. Restored rows do not bypass feed rank,
+minimum score, duplicate or handled-history gates.
 
 ## Validation Boundaries
 
