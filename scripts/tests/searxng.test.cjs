@@ -41,8 +41,13 @@ if [[ $1 == clone ]]; then
 elif [[ "$*" == *rev-parse* ]]; then echo 0123456789012345678901234567890123456789
 elif [[ "$*" == *status* ]]; then
   if [[ $FAILURE == dirty ]]; then echo ' M fixture'; fi
-elif [[ "$*" == *log* ]]; then echo 'candidate revision'
+elif [[ "$*" == *log* ]]; then
+  if [[ $FAILURE == pager ]]; then exec /usr/bin/git "$@"; fi
+  [[ \${GIT_PAGER:-} == cat && \${GIT_TERMINAL_PROMPT:-} == 0 && "$*" == *'-c log.showSignature=false'* ]] || { echo 'Interactive revision reporting refused by fixture.' >&2; exit 88; }
+  echo 'candidate revision'
 fi`);
+  executable(join(bin, 'timeout'), `if [[ $FAILURE == worker-timeout ]]; then echo Terminated >&2; exit 124; fi
+exec /usr/bin/timeout "$@"`);
   executable(join(home, 'searx-venv/bin/python'), `echo "python $*" >> "$TEST_LOG"
 if [[ "$*" == *'-m venv'* ]]; then
   mkdir -p "$3/bin"; cp "$0" "$3/bin/python"
@@ -53,9 +58,11 @@ fi`);
   executable(join(bin, 'runuser'), `echo "runuser $*" >> "$TEST_LOG"
 shift 3
 if [[ $1 == env ]]; then
-  shift 2
-  while [[ $1 == *=* ]]; do shift; done
-  exec env WORKER=1 PATH="$TEST_BIN:/usr/bin:/bin" "$@"
+  shift
+  if [[ $1 == -i ]]; then shift; fi
+  assignments=()
+  while [[ $1 == *=* ]]; do assignments+=("$1"); shift; done
+  exec env "\${assignments[@]}" WORKER=1 PATH="$TEST_BIN:/usr/bin:/bin" "$@"
 fi
 exec "$@"`);
   for (const name of ['searxng-worker.sh', 'searxng-check.py']) fs.copyFileSync(join(root, 'scripts', name), join(scripts, name));
@@ -66,8 +73,10 @@ exec "$@"`);
     .replace('/run/searxng-update.XXXXXXXX', `${dir}/helpers.XXXXXXXX`)
     .replace('/etc/systemd/system/"$service".service', '"$TEST_UNIT"');
   fs.writeFileSync(join(scripts, 'searxng-update.sh'), script);
-  return { dir, home, log, scripts, run: (...args) => spawnSync('bash', [join(scripts, 'searxng-update.sh'), '--home', home, ...args], {
-    encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SUDO_UID: '1000', TEST_BIN: bin, TEST_HOME: home, TEST_LOG: log, TEST_UNIT: unit, TEST_DIR: dir, FAILURE: failure }
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, SUDO_UID: '1000', TEST_BIN: bin, TEST_HOME: home, TEST_LOG: log, TEST_UNIT: unit, TEST_DIR: dir, FAILURE: failure,
+    GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+  return { dir, home, log, scripts, env, run: (...args) => spawnSync('bash', [join(scripts, 'searxng-update.sh'), '--home', home, ...args], {
+    encoding: 'utf8', env
   }) };
 }
 
@@ -77,6 +86,42 @@ test('SearXNG default preflight never downloads or stops service', t => {
   assert.doesNotMatch(fs.readFileSync(f.log, 'utf8'), /git clone|systemctl stop|pip install/);
   assert.ok(!fs.existsSync(join(f.dir, 'backups')));
   assert.ok(!fs.readdirSync(f.dir).some(name => name.startsWith('helpers.')));
+});
+
+test('SearXNG worker timeout identifies the phase without changing the service', t => {
+  const f = fixture(t, 'worker-timeout'); const r = f.run();
+  assert.equal(r.status, 124, r.stderr);
+  assert.match(r.stderr, /SearXNG check phase timed out after 120 seconds/);
+  assert.doesNotMatch(fs.readFileSync(f.log, 'utf8'), /git clone|systemctl stop|pip install/);
+  assert.ok(!fs.existsSync(join(f.dir, 'backups')));
+  assert.ok(!fs.readdirSync(f.dir).some(name => name.startsWith('helpers.')));
+});
+
+test('SearXNG terminal preflight bypasses an interactive Git pager', t => {
+  if (spawnSync('script', ['--version']).status !== 0) { t.skip('util-linux script is unavailable'); return; }
+  const f = fixture(t, 'pager'), source = join(f.home, 'searxng');
+  function git(...args) {
+    const r = spawnSync('/usr/bin/git', ['-C', source, ...args], { encoding: 'utf8', env: f.env });
+    assert.equal(r.status, 0, r.stderr);
+  }
+  git('init', '--quiet');
+  git('add', 'original');
+  git('-c', 'user.name=Synthetic Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'Synthetic revision');
+  const pager = join(f.dir, 'pager');
+  fs.writeFileSync(pager, '#!/bin/sh\nprintf "PAGER_INVOKED\\n"\nexit 91\n', { mode: 0o755 });
+  git('config', 'core.pager', pager);
+  git('config', 'pager.log', 'true');
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  const control = ['/usr/bin/git', '-C', source, 'log', '-1'].map(quote).join(' ');
+  const interactiveEnv = { ...f.env, GIT_PAGER: pager };
+  const before = spawnSync('script', ['-q', '-e', '-c', control, '/dev/null'], { encoding: 'utf8', env: interactiveEnv, timeout: 10000 });
+  assert.match(before.stdout + before.stderr, /PAGER_INVOKED/, 'control must demonstrate the interactive pager');
+  const command = ['bash', join(f.scripts, 'searxng-update.sh'), '--home', f.home, '--check'].map(quote).join(' ');
+  const r = spawnSync('script', ['-q', '-e', '-c', command, '/dev/null'], { encoding: 'utf8', env: interactiveEnv, timeout: 10000 });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.match(r.stdout, /Installed source:/);
+  assert.match(r.stdout, /Preflight complete/);
+  assert.doesNotMatch(r.stdout + r.stderr, /PAGER_INVOKED/);
 });
 
 for (const failure of ['launch', 'environment', 'dirty', 'download', 'candidate', 'settings-edit', 'start', 'health', 'none']) {

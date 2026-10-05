@@ -10,6 +10,7 @@ checker=$5
 export HOME="$home" PIP_CONFIG_FILE=/dev/null PIP_INDEX_URL=https://pypi.org/simple
 export PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONDONTWRITEBYTECODE=1
 export GIT_OPTIONAL_LOCKS=0
+export GIT_PAGER=cat PAGER=cat GIT_TERMINAL_PROMPT=0
 export SEARXNG_SETTINGS_PATH="$home/searx-settings.yml"
 unset PYTHONPATH PIP_EXTRA_INDEX_URL
 step() { echo; echo "==> SearXNG: $*"; }
@@ -19,7 +20,8 @@ case "$action" in
     "$home/searx-venv/bin/python" --version
     "$home/searx-venv/bin/python" -m pip check
     "$home/searx-venv/bin/python" "$checker" settings "$home/searxng"
-    git -C "$home/searxng" log -1 --format='Installed source: %h %ci'
+    step 'Reporting installed revision without a pager or signature verification'
+    git --no-pager -c log.showSignature=false -C "$home/searxng" log -1 --format='Installed source: %h %ci'
     ;;
   prepare)
     step 'Downloading candidate source; installed source/environment stay untouched'

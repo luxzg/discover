@@ -90,10 +90,20 @@ controlled "$unit"
 worker() {
   # Empty environment avoids caller proxy/Python/pip overrides; no package or
   # application code is executed as root.
-  local limit=120
+  local limit=120 result
   if [[ $1 == prepare ]]; then limit=1800; fi
-  timeout --kill-after=10s "$limit" runuser -u "$owner" -- env -i HOME="$home" USER="$owner" PATH=/usr/bin:/bin LANG=C.UTF-8 \
-    bash "$helpers/worker.sh" "$1" "$home" "${release:-}" "$revision" "$helpers/check.py"
+  if timeout --kill-after=10s "$limit" runuser -u "$owner" -- env -i HOME="$home" USER="$owner" PATH=/usr/bin:/bin LANG=C.UTF-8 \
+    bash "$helpers/worker.sh" "$1" "$home" "${release:-}" "$revision" "$helpers/check.py"; then
+    return 0
+  else
+    result=$?
+  fi
+  if [[ $result == 124 ]]; then
+    echo "SearXNG $1 phase timed out after $limit seconds; inspect the last reported step. Limits were not increased." >&2
+  else
+    echo "SearXNG $1 phase failed (exit=$result); inspect the last reported step." >&2
+  fi
+  return "$result"
 }
 if [[ $mode == check ]]; then
   worker check
@@ -166,7 +176,7 @@ worker health
 systemctl is-active --quiet "$service"
 stopped=0
 step 'Installed revision and retained recovery paths'
-runuser -u "$owner" -- git -C "$home/searxng" log -1 --format='%h %ci'
+runuser -u "$owner" -- env GIT_PAGER=cat GIT_TERMINAL_PROMPT=0 git --no-pager -c log.showSignature=false -C "$home/searxng" log -1 --format='%h %ci'
 echo "Snapshot: $snapshot"
 echo "Retained source/environment: $release"
 echo "Rollback: sudo bash scripts/searxng-update.sh --rollback $snapshot"

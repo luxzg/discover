@@ -215,6 +215,9 @@ Historical context docs (read-only unless explicitly requested):
   Git/pip/application checks and file swaps run as the dedicated service user.
   Source/venv rollback is not authorization to restore settings or Discover data.
   Preserve snapshots/releases; reject unsupported launch/environment contracts.
+  Git revision reports must be noninteractive (no pager/signature verification
+  or credential prompts). Name timed-out phases instead of raising deadlines
+  to hide an interactive wait; settings warnings alone do not complete preflight.
 - Search pacing belongs at the HTTP request boundary, including failover, not
   only between topics. Keep waits cancellable and excluded from topic active
   timing. Do not disable engine suspensions, introduce proxy/IP rotation, or

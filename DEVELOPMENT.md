@@ -98,6 +98,10 @@ symlink refusal and secret-safe settings validation. Privileged locations and
 service/package commands are doubled in disposable directories; these tests do
 not establish real systemd/pyenv/upstream package compatibility. The small Python
 checker is a reviewed operational helper, not an ad hoc file-editing command.
+When util-linux `script` is available, a disposable real-Git pseudo-terminal
+test verifies that revision reporting bypasses an interactive pager; this one
+test is explicitly skipped otherwise. Synthetic deadline tests verify phase
+diagnostics and cleanup without waiting two minutes or touching services.
 
 ## Architecture And Invariants
 

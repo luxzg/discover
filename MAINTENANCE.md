@@ -258,6 +258,19 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
   API health, usable search results and engine recovery are separate checks.
   Full monthly tool inventory remains due October 12, not performed in this pass.
 
+### 2026-10-05 11:19 CEST - v2.30 Updater Follow-up
+
+- Operator preflight passed Python/dependency/settings checks, then terminated
+  after a wait. Git interactivity is suspected; real-server diagnosis remains
+  pending. Do not treat the legacy-settings warning or those partial checks as
+  completed preflight or proceed to activation on that evidence alone.
+- Full local vet/race/Go/script/JS/binary smoke and ShellCheck passed, including
+  27 Node script regressions and three Python checks. A disposable real-Git
+  pseudo-terminal exercises a configured pager and verifies the helper bypasses
+  it; a doubled deadline verifies clear phase reporting and no service mutation.
+  No live service/config was accessed, dependencies changed or new security scan
+  performed in this follow-up; earlier scan results retain their dated scope.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

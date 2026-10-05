@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-05 11:14 CEST - v2.30
+
+- Made SearXNG updater revision reporting noninteractive: bypass Git pagers,
+  disable log signature verification and credential prompts. The operator's
+  preflight passed settings checks then terminated after a delay; an interactive
+  Git wait is a suspected cause, not yet confirmed on the server.
+- Added explicit revision-report progress and phase-specific timeout/failure
+  messages while retaining the existing safety deadlines and recovery behavior.
+  Legacy-settings warnings remain nonfatal; preflight never stops the service.
+- Added synthetic timeout and real-Git pseudo-terminal pager regressions and
+  updated operational guidance. Local script/Go validation and a fresh build
+  passed; successful real-server preflight still needs operator confirmation.
+
 ## 2026-10-05 10:47 CEST - v2.29
 
 - Added configurable per-request search pacing (5 seconds plus 0..2 seconds

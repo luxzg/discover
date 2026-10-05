@@ -159,6 +159,14 @@ debug disabled, JSON enabled and a non-default secret. Unsupported contracts are
 refused, not automatically rewritten. `--home`/`--service` support the same layout
 at another path; IPv6/port/application-server changes need separate review.
 
+The full-legacy-settings warning is nonfatal and does not rewrite those settings.
+Successful preflight ends with **Preflight complete**. If an older helper prints
+only `Terminated` after settings validation, update the administrator checkout
+and retry `--check`, not `--apply`. Since v2.30, revision reporting bypasses Git
+pagers/signature checks and credential prompts; timeout errors name the worker
+phase and its unchanged deadline. If it still fails, share the last progress
+step and phase/exit message, not settings or environment contents.
+
 If preflight succeeds, update explicitly:
 
 ```bash
