@@ -43,7 +43,8 @@ search expansion is a later opt-in stage, not inferred from raw click totals.
 
 ## Adaptive Search Backoff And Clearer Ingestion Outcomes
 
-v2.29 paces individual searches rather than just topics. Next, distinguish clean
+v2.29 paces individual searches rather than just topics; v2.31 adds an explicit
+Admin sample diagnostic. For actual ingestion runs, next distinguish clean
 empty results, partial success with engine warnings, searches without any usable
 engine response, and storage/maintenance failures in summaries/Admin. Aggregate
 safe diagnostic classes without exposing upstream bodies or private queries.
@@ -56,10 +57,11 @@ remain future work; request pacing alone is not guaranteed to prevent blocking.
 ## SearXNG Production Server And Settings Review
 
 The installation-specific updater is implemented in v2.29; see SEARXNG.md for
-operator preflight, update and rollback. Confirm the real server launch contract
-and candidate compatibility in that preflight. Review converting the historical
+operator preflight, update and rollback. Review converting the historical
 full settings copy to minimal current overrides without losing secrets, JSON or
-loopback settings. A production application-server migration (for example Granian)
+loopback settings. The operator completed the retained-path source/venv upgrade
+and local health check on October 5; upstream recovery is still unverified.
+A production application-server migration (for example Granian)
 is separate from engine/package upgrades; the helper intentionally retains the
 existing `python -m searx.webapp` unit. Do not expand its supported launch contract
 or remove preflight checks merely to get an update to run.

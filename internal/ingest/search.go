@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -145,8 +146,13 @@ func mergeEntries(out *[]searxEntry, seen map[string]int, entries []searxEntry) 
 }
 
 func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, timeRange string, page int) ([]searxEntry, time.Duration, error) {
-	fail := func(code string, err error) ([]searxEntry, time.Duration, error) {
-		return nil, 0, Failure{Stage: "fetch", Code: code, cause: err}
+	parsed, retryAfter, err := s.fetchSearchResponse(ctx, base, q, category, timeRange, page)
+	return parsed.Results, retryAfter, err
+}
+
+func (s *Service) fetchSearchResponse(ctx context.Context, base, q, category, timeRange string, page int) (searxResponse, time.Duration, error) {
+	fail := func(code string, err error) (searxResponse, time.Duration, error) {
+		return searxResponse{}, 0, Failure{Stage: "fetch", Code: code, cause: err}
 	}
 	u, err := url.Parse(strings.TrimRight(base, "/"))
 	if err != nil {
@@ -185,7 +191,7 @@ func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, time
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, retryAfterDuration(resp.Header.Get("Retry-After")), Failure{Stage: "fetch", Code: "http_429"}
+		return searxResponse{}, retryAfterDuration(resp.Header.Get("Retry-After")), Failure{Stage: "fetch", Code: "http_429"}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fail(fmt.Sprintf("http_%d", resp.StatusCode), nil)
@@ -203,17 +209,17 @@ func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, time
 		return fail("invalid_json", err)
 	}
 	if len(parsed.Error) > 0 && string(parsed.Error) != "null" && string(parsed.Error) != `""` {
-		return parsed.Results, 0, Failure{Stage: "fetch", Code: "search_error"}
+		return parsed, 0, Failure{Stage: "fetch", Code: "search_error"}
 	}
 	if len(parsed.UnresponsiveEngines) > 0 {
 		// Remote engine names/messages can contain arbitrary data. Only emit a count.
-		return parsed.Results, 0, Failure{Stage: "fetch", Code: fmt.Sprintf("engine_errors_%d", len(parsed.UnresponsiveEngines))}
+		return parsed, 0, Failure{Stage: "fetch", Code: fmt.Sprintf("engine_errors_%d", len(parsed.UnresponsiveEngines))}
 	}
 	if parsed.Results == nil {
 		// Null/missing results is not the same contract as a successful empty array.
 		return fail("missing_results", nil)
 	}
-	return parsed.Results, 0, nil
+	return parsed, 0, nil
 }
 
 // Ingestion is serialized by the scheduler. Pace the actual HTTP boundary,
@@ -227,11 +233,18 @@ func (s *Service) paceSearch(ctx context.Context, category, timeRange string, pa
 		return nil
 	}
 	delay := time.Duration(s.cfg.SearchRequestDelaySeconds) * time.Second
+	if delay < s.searchMinDelay {
+		delay = s.searchMinDelay
+	}
 	delay += time.Duration(s.rand.Intn(maxInt(s.cfg.SearchRequestJitterSeconds, 0)+1)) * time.Second
 	if delay == 0 {
 		return nil
 	}
-	s.logf("ingest: sleeping %s before search request (category=%s time_range=%s page=%d)", delay, category, timeRange, page)
+	if s.searchMinDelay > 0 {
+		log.Printf("search check: sleeping %s before next sample request", delay)
+	} else {
+		s.logf("ingest: sleeping %s before search request (category=%s time_range=%s page=%d)", delay, category, timeRange, page)
+	}
 	started := time.Now()
 	defer func() { s.searchPaused += time.Since(started) }()
 	if s.searchWait != nil {

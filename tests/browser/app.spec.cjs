@@ -67,10 +67,22 @@ test('real embedded feed/admin assets, auth, stories and actions', async ({ page
 
   await page.goto(`${app.url}/admin`);
   await expect(page.locator('#topicsPanel')).toBeHidden();
+  await expect(page.locator('#enginePanel')).toBeHidden();
   await page.locator('#secret').fill(app.admin);
   await page.locator('#loginBtn').click();
   await expect(page.locator('#countsPanel')).toBeVisible();
   await expect(page.locator('#ingestState')).toContainText(version);
+  await expect(page.locator('#nextScheduled')).toContainText('Next scheduled ingestion:');
+  await expect(page.locator('#engineCheckState')).toContainText('Not checked');
+  const countsBeforeCheck = await page.locator('#counts').textContent();
+  await page.locator('#checkEngines').click();
+  await expect(page.locator('#engineCheckState')).toContainText('running in the background');
+  await expect(page.locator('#checkEngines')).toBeDisabled();
+  await expect(page.locator('#engineRows tr')).toHaveCount(2, {timeout:15000});
+  await expect(page.locator('#engineRows')).toContainText('fixture: Returned results');
+  await expect(page.locator('#engineCheckState')).toContainText('Last check:');
+  await expect(page.locator('#checkEngines')).toContainText('Cooling down');
+  await expect(page.locator('#counts')).toHaveText(countsBeforeCheck);
   await expect(page.locator('#archiveDays')).toHaveValue('30');
   await page.locator('#archiveDays').fill('90');
   await page.locator('#previewArchive').click();
@@ -91,10 +103,17 @@ test('real embedded feed/admin assets, auth, stories and actions', async ({ page
   await page.screenshot({ path: info.outputPath('admin.png'), fullPage: true });
   await page.locator('#logoutBtn').click();
   await expect(page.locator('#topicsPanel')).toBeHidden();
+  await expect(page.locator('#enginePanel')).toBeHidden();
+  await expect(page.locator('#engineRows tr')).toHaveCount(0);
   expect(assets).toEqual(new Set(['/assets/style.css', '/assets/feed.js', '/assets/admin.js']));
   expect(errors).toEqual([]);
   expect(external).toEqual([]);
-  expect(app.requests).toHaveLength(8);
+  expect(app.requests).toHaveLength(10);
+  for (const request of app.requests.slice(8)) {
+    expect(request.searchParams.get('time_range')).toBe('day');
+    expect(request.searchParams.get('pageno')).toBe('1');
+    expect(request.searchParams.get('q')).toBe('intel cpu');
+  }
   for (const request of app.requests) {
     expect(['day', 'week']).toContain(request.searchParams.get('time_range'));
     expect(['news', 'general']).toContain(request.searchParams.get('categories'));

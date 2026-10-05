@@ -77,6 +77,45 @@ test('domain report explains an empty filtered result', async () => {
   assert.match(b.elements.get('domainRows').innerHTML,/No domains with at least 2 positive reads yet/);
 });
 
+test('admin engine check is explicit, CSRF protected and reports escaped observations', async () => {
+  const b = browser('admin.js');
+  b.eval("authenticated=true; csrfToken='fixture-csrf'; setAuthUI()");
+  const calls = [];
+  const next = new Date(Date.now() + 3600000).toISOString();
+  const check = {id:1, status:'completed', completed_at:new Date().toISOString(), report:{checked_instances:1,configured_instances:1,categories:[{instance:1,category:'news',status:'warnings',results:0,engines:[{name:'<script>',status:'captcha'}]}]}};
+  b.c.fetch = async (url,opts) => {
+    calls.push({url,opts});
+    return {ok:true,json:async()=>url.endsWith('search-check') ? {id:1,status:'running'} : {search_check:check,ingest:{state:{next_scheduled_at:next,schedule_mode:'interval',search_check_cooldown_until:next}}}};
+  };
+  await b.eval('refreshStatus()');
+  assert.deepEqual(calls.map(c=>c.url), ['/admin/api/status']);
+  assert.match(b.elements.get('nextScheduled').textContent,/Next scheduled ingestion:/);
+  assert.match(b.elements.get('engineRows').innerHTML,/&lt;script&gt;: CAPTCHA/);
+  assert.doesNotMatch(b.elements.get('engineRows').innerHTML,/<script>/);
+  b.eval('latestEngineCheckID=0');
+  b.elements.get('checkEngines').disabled=false;
+  await b.elements.get('checkEngines').onclick();
+  assert.equal(calls[1].url,'/admin/api/search-check');
+  assert.equal(calls[1].opts.method,'POST');
+  assert.equal(calls[1].opts.headers['X-CSRF-Token'],'fixture-csrf');
+  assert.equal(b.elements.get('checkEngines').disabled,true);
+  assert.match(b.elements.get('engineCheckState').textContent,/unknown status/);
+  b.eval('authenticated=false; setAuthUI()');
+  assert.equal(b.elements.get('engineRows').innerHTML,'');
+  assert.equal(b.elements.get('enginePanel').hidden,true);
+});
+
+test('admin engine check rejects stale snapshots and shows scheduled work waiting', async () => {
+  const b = browser('admin.js');
+  b.eval('authenticated=true; latestEngineCheckID=2');
+  b.eval("renderEngineCheck({id:1,status:'completed',report:{}})");
+  assert.equal(b.elements.get('engineCheckState').textContent,'');
+  b.c.fetch = async () => ({ok:true,json:async()=>({ingest:{state:{search_check_running:true,next_scheduled_at:new Date(Date.now()-1000).toISOString()}},search_check:{id:2,status:'running'}})});
+  await b.eval('refreshStatus()');
+  assert.match(b.elements.get('nextScheduled').textContent,/due, waiting for engine check/);
+  assert.equal(b.elements.get('runIngest').disabled,true);
+});
+
 test('failed feed request does not trigger ingest', async () => {
   const b = browser(); const calls = [];
   b.c.fetch = async url => { calls.push(url); return { ok: false, status: 500, statusText: 'failure', json: async () => ({}) }; };

@@ -26,6 +26,7 @@ type Scheduler struct {
 	started    bool
 	closed     bool
 	wg         sync.WaitGroup
+	checkDone  chan struct{}
 }
 
 func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
@@ -38,15 +39,19 @@ func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
 }
 
 type RunState struct {
-	RunID           uint64    `json:"run_id"`
-	CooldownUntil   time.Time `json:"cooldown_until"`
-	Running         bool      `json:"running"`
-	CurrentSource   string    `json:"current_source"`
-	StartedAt       time.Time `json:"started_at"`
-	LastCompletedAt time.Time `json:"last_completed_at"`
-	LastDurationMS  int64     `json:"last_duration_ms"`
-	LastError       string    `json:"last_error"`
-	LastSource      string    `json:"last_source"`
+	NextScheduledAt          *time.Time `json:"next_scheduled_at"`
+	ScheduleMode             string     `json:"schedule_mode"`
+	SearchCheckRunning       bool       `json:"search_check_running"`
+	SearchCheckCooldownUntil time.Time  `json:"search_check_cooldown_until"`
+	RunID                    uint64     `json:"run_id"`
+	CooldownUntil            time.Time  `json:"cooldown_until"`
+	Running                  bool       `json:"running"`
+	CurrentSource            string     `json:"current_source"`
+	StartedAt                time.Time  `json:"started_at"`
+	LastCompletedAt          time.Time  `json:"last_completed_at"`
+	LastDurationMS           int64      `json:"last_duration_ms"`
+	LastError                string     `json:"last_error"`
+	LastSource               string     `json:"last_source"`
 }
 
 func (s *Scheduler) Start(ctx context.Context) {
@@ -56,6 +61,12 @@ func (s *Scheduler) Start(ctx context.Context) {
 		return
 	}
 	s.started = true
+	if s.interval > 0 {
+		next := time.Now().Add(s.interval)
+		s.state.NextScheduledAt = &next
+	} else if next, err := nextRun(time.Now(), s.dailyHHMM); err == nil {
+		s.state.NextScheduledAt = &next
+	}
 	// Preserve cancellation for any already accepted manual job as well.
 	stop := context.AfterFunc(ctx, s.cancel)
 	s.wg.Add(1)
@@ -81,7 +92,11 @@ func (s *Scheduler) Shutdown() {
 }
 
 func (s *Scheduler) startInterval(ctx context.Context) {
-	next := time.Now().Add(s.interval)
+	initial := s.Snapshot().NextScheduledAt
+	if initial == nil {
+		return
+	}
+	next := *initial
 	for {
 		wait := time.Until(next)
 		if wait < 0 {
@@ -97,6 +112,7 @@ func (s *Scheduler) startInterval(ctx context.Context) {
 			log.Printf("scheduler: ingestion run error: %v", err)
 		}
 		next = time.Now().Add(s.interval)
+		s.setNext(next)
 	}
 }
 
@@ -108,6 +124,7 @@ func (s *Scheduler) startDaily(ctx context.Context) {
 			return
 		}
 		wait := time.Until(next)
+		s.setNext(next)
 		if wait < 0 {
 			wait = 0
 		}
@@ -121,6 +138,48 @@ func (s *Scheduler) startDaily(ctx context.Context) {
 			log.Printf("scheduler: ingestion run error: %v", err)
 		}
 	}
+}
+
+func (s *Scheduler) setNext(next time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.NextScheduledAt = &next
+}
+
+// Checks share the ingestion exclusion gate but never change ingestion history.
+// Accepted work belongs to the service, not the browser request.
+func (s *Scheduler) RequestSearchCheck(check func(context.Context)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.ctx.Err() != nil {
+		return ErrSchedulerStopped
+	}
+	if s.running {
+		return ErrIngestAlreadyRunning
+	}
+	if s.state.SearchCheckRunning {
+		return ErrSearchCheckRunning
+	}
+	if time.Now().Before(s.state.SearchCheckCooldownUntil) {
+		return ErrSearchCheckCooldown
+	}
+	s.state.SearchCheckRunning = true
+	s.state.SearchCheckCooldownUntil = time.Now().Add(5 * time.Minute)
+	s.checkDone = make(chan struct{})
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer func() {
+			s.mu.Lock()
+			s.state.SearchCheckRunning = false
+			close(s.checkDone)
+			s.mu.Unlock()
+		}()
+		ctx, cancel := context.WithTimeout(s.ctx, 3*time.Minute)
+		defer cancel()
+		check(ctx)
+	}()
+	return nil
 }
 
 func (s *Scheduler) RunNow(ctx context.Context) error {
@@ -151,6 +210,9 @@ func (s *Scheduler) reserve(source string) (RunState, error) {
 	if s.running {
 		return s.state, ErrIngestAlreadyRunning
 	}
+	if s.state.SearchCheckRunning {
+		return s.state, ErrSearchCheckRunning
+	}
 	if !s.state.LastCompletedAt.IsZero() {
 		sinceLast := time.Since(s.state.LastCompletedAt)
 		if sinceLast < minRunGap {
@@ -163,13 +225,30 @@ func (s *Scheduler) reserve(source string) (RunState, error) {
 	s.state.StartedAt = time.Now()
 	s.state.RunID++
 	s.state.LastError = ""
+	if source == "scheduled" {
+		s.state.NextScheduledAt = nil
+	}
 	s.wg.Add(1)
 	return s.state, nil
 }
 
 func (s *Scheduler) run(ctx context.Context, source string) error {
-	if _, err := s.reserve(source); err != nil {
-		return err
+	for {
+		if _, err := s.reserve(source); err != nil {
+			if source != "scheduled" || err != ErrSearchCheckRunning {
+				return err
+			}
+			s.mu.Lock()
+			done := s.checkDone
+			s.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-done:
+			}
+			continue
+		}
+		break
 	}
 	runCtx, cancel := context.WithTimeout(ctx, s.runTimeout)
 	stop := context.AfterFunc(s.ctx, cancel)
@@ -211,13 +290,23 @@ func (s *Scheduler) execute(ctx context.Context, source string) error {
 func (s *Scheduler) Snapshot() RunState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.state
+	state := s.state
+	state.ScheduleMode = "daily"
+	if s.interval > 0 {
+		state.ScheduleMode = "interval"
+	}
+	if s.closed || s.ctx.Err() != nil {
+		state.NextScheduledAt = nil
+	}
+	return state
 }
 
 var (
 	ErrIngestAlreadyRunning = &runErr{"ingestion already running"}
 	ErrIngestCooldown       = &runErr{"ingestion just completed; wait a few seconds before starting again"}
 	ErrSchedulerStopped     = &runErr{"scheduler is shutting down"}
+	ErrSearchCheckRunning   = &runErr{"search engine check is running; retry ingestion after it finishes"}
+	ErrSearchCheckCooldown  = &runErr{"search engine check cooldown; wait five minutes between checks"}
 )
 
 type runErr struct{ msg string }

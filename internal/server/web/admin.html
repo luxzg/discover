@@ -47,7 +47,16 @@
       <h2>Ingestion</h2>
       <button id="runIngest">Run Now</button>
       <button id="runDedupe">Run Retroactive Dedupe</button>
+      <p id="nextScheduled" class="hint"></p>
       <pre id="ingestState"></pre>
+    </section>
+
+    <section id="enginePanel" class="panel" hidden>
+      <h2>Search Engines</h2>
+      <p class="hint">Check now sends two spaced sample searches per instance (news/general, last day, page 1; at most three instances). It does not ingest articles. Five-minute cooldown; no overlap with ingestion. Results are a snapshot, not a guarantee that every engine is available.</p>
+      <button id="checkEngines">Check Search Engines</button>
+      <p id="engineCheckState" class="hint" role="status"></p>
+      <div class="table-scroll"><table><thead><tr><th>Instance</th><th>Category</th><th>Response</th><th>Results</th><th>Engine observations</th></tr></thead><tbody id="engineRows"></tbody></table></div>
     </section>
 
     <section id="countsPanel" class="panel" hidden>

@@ -382,6 +382,9 @@ script from the service-owned Discover checkout. Settings/unit/base Python stay
 unchanged; candidate/previous source and environments are retained for recovery.
 No upstream search probes are required by default. Updating engine adapters or
 pacing Discover cannot guarantee removal of upstream CAPTCHA/rate limits.
+After deployment, Admin shows the next scheduled ingestion. Its **Check Search
+Engines** action performs a small explicit, paced diagnostic instead of requiring
+SSH/jq; see `USAGE.md`. It does not ingest articles or run automatically on login.
 
 ## 8. Uninstall
 

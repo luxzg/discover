@@ -223,6 +223,11 @@ Historical context docs (read-only unless explicitly requested):
   timing. Do not disable engine suspensions, introduce proxy/IP rotation, or
   increase traffic to work around upstream blocking. Pacing does not imply
   recovery; distinguish API health, usable results and engine errors.
+- Admin engine checks are explicit active samples, never login/polling side
+  effects. Keep them admin/CSRF/CIDR protected, service-owned, bounded, paced and
+  excluded from ingestion. Do not declare unobserved engines healthy, expose raw
+  upstream errors or change feed scores while diagnosing. Next-run UI must expose
+  the scheduler's real timer, not independently estimate a different schedule.
 
 ## Documentation Alignment Rule
 

@@ -22,6 +22,7 @@ Discover is a single-binary Go application that builds a personal, Discover-like
   - interval mode (`ingest_interval_minutes`, default 120)
   - daily wall-clock mode (`daily_ingest_time`) when interval is disabled
 - Manual ingest trigger in admin UI
+- Admin next-run schedule and on-demand, paced search-engine diagnostic report
 - Manual retroactive unread dedupe trigger in admin UI
 - URL normalization + hash dedup
 - Conservative story groups with one highest-score unread card and expandable other sources

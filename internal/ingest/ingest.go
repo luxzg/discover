@@ -28,19 +28,20 @@ type ingestStore interface {
 }
 
 type Service struct {
-	cfg           config.Config
-	store         ingestStore
-	client        *http.Client
-	articleClient *http.Client
-	rand          *rand.Rand
-	mu            sync.Mutex
-	instanceBlock map[string]time.Time
-	lastMessage   string
-	lastMessageAt time.Time
-	lastMessages  []progressEntry
-	searchStarted bool
-	searchPaused  time.Duration
-	searchWait    func(context.Context, time.Duration) error
+	cfg            config.Config
+	store          ingestStore
+	client         *http.Client
+	articleClient  *http.Client
+	rand           *rand.Rand
+	mu             sync.Mutex
+	instanceBlock  map[string]time.Time
+	lastMessage    string
+	lastMessageAt  time.Time
+	lastMessages   []progressEntry
+	searchStarted  bool
+	searchPaused   time.Duration
+	searchWait     func(context.Context, time.Duration) error
+	searchMinDelay time.Duration
 }
 type progressEntry struct {
 	Message string

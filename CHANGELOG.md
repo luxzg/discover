@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-05 11:45 CEST - v2.31
+
+- Added an admin-only Search Engines check with immediate acceptance, background
+  completion, category result counts and bounded engine observations. It samples
+  news/general with a fixed query, day/page 1, across at most three configured
+  instances; individual requests are spaced by at least five seconds, respect
+  existing 429 cooldowns and have a three-minute job deadline. Five-minute check
+  cooldown, CIDR/session/CSRF enforcement and scheduler exclusion prevent overlap
+  or repeated-click bursts. No results are ingested, scored or stored as articles.
+- Added the actual next scheduled ingestion time and schedule mode to Admin.
+  A due scheduled run waits for a search check instead of skipping the interval;
+  manual runs do not reset the timer. Checks keep ingestion history/progress
+  separate, survive browser cancellation and stop on service shutdown.
+- Reports distinguish contributed results, clean empty responses, rate limiting,
+  CAPTCHA, access denial, timeouts and other failures without raw upstream error
+  text/URLs. They are observations, not proof that absent engines are healthy.
+  Updated usage/operations and added backend, scheduler, UI and browser regressions.
+- Recorded operator-confirmed v2.30 deployment and successful SearXNG source/venv
+  upgrade with local JSON health; actual upstream recovery remains unverified.
+- Validation passed: full vet/race/Go/script/JS/binary smoke, ShellCheck and
+  desktop/mobile production/development browser checks with reviewed synthetic
+  screenshots. Dated source/binary vulnerability scans and npm audit reported no
+  vulnerabilities; no real engine probes were performed by the agent.
+
 ## 2026-10-05 11:14 CEST - v2.30
 
 - Made SearXNG updater revision reporting noninteractive: bypass Git pagers,

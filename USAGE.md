@@ -57,7 +57,40 @@ the backend must first receive and accept the request.
 - Article Status Counts includes `dedupe_hidden_total` as cumulative all-time hidden-by-dedupe count
 - Ingestion status panel includes build metadata (`version`, `commit`, `built_at`) for quick runtime verification after updates
 - Ingestion status panel now shows the last two progress messages (`last_messages`) plus `last_message_at`
+- Ingestion shows the next scheduled run in your browser's local timezone and
+  the interval/daily mode. Interval timing begins at service startup; after a
+  scheduled run, the next interval starts from completion. Manual ingestion
+  does not shift that timer. During an automatic run the next time is set when
+  it finishes; a run due during a search check waits for that check.
 - Admin session now uses sliding refresh behavior and tolerates client IP drift (similar to feed session) to reduce surprise sign-outs
+
+### Search Engine Check
+
+Click **Check Search Engines** in **Search Engines**. This is an explicit active
+test, not passive monitoring: it submits the fixed sample `intel cpu` once to
+news and once to general, with `time_range=day`, page 1, on the first three
+configured instances at most (instance numbers match config order). It uses
+the normal search transport and rejects redirects. It never adds articles or
+changes scores/rules. No extra config keys are required.
+
+Acceptance is immediate; status polling shows the background result. Searches
+are sequential, separated by at least five seconds plus configured jitter;
+larger configured request delays are honored. The job has a three-minute bound
+and a five-minute cooldown starting at acceptance. It cannot overlap ingestion;
+manual/feed refresh returns a conflict while checking, and a due automatic run
+waits. Closing Admin does not cancel an accepted check, but service shutdown does.
+Latest results/cooldown live in memory and reset on restart; opening/polling the
+panel never automatically submits searches or retries a failed sample.
+
+The table distinguishes clean empty results, returned results, engine warnings
+and transport/JSON failures. Engine names that contributed results are marked
+**Returned results**; warnings have fixed classes such as CAPTCHA, Rate limited,
+Access denied or Timeout. Raw upstream error strings and instance URLs are not
+returned. Engine observations are capped at 50 per sample; absent engines have
+unknown status, not proven availability. An engine can return results and still
+report a warning; that warning takes precedence. Existing HTTP-429 instance
+cooldowns are respected, not bypassed. Results reflect only these sample searches
+at this time and do not establish reliable behavior for all topics/categories.
 
 ### Article Age And Archive
 

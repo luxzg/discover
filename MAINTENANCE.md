@@ -271,6 +271,25 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
   No live service/config was accessed, dependencies changed or new security scan
   performed in this follow-up; earlier scan results retain their dated scope.
 
+### 2026-10-05 11:52 CEST - v2.31 Admin Diagnostics And Scheduling
+
+- Full vet/race/Go/script/JS/binary smoke and ShellCheck passed. New regressions
+  cover diagnostic authentication/CSRF/CIDR, immediate acceptance independent of
+  request cancellation, bounded/escaped reports, pacing/cancellation/429 handling,
+  mutual exclusion, cooldown, visible interval/daily schedules and shutdown.
+- All four production/development desktop/mobile browser runs passed. Synthetic
+  checks sent exactly two extra sample searches and left article counts unchanged;
+  reviewed desktop/mobile screenshots, including stacked mobile report rows.
+  Test-owned servers/data were cleaned up; no production credentials or engines
+  were used. Live SearXNG results remain an operator check after deployment.
+- Source and binary govulncheck 1.8.0 with Go 1.26.8 reported no vulnerabilities,
+  npm audit including dev dependencies reported zero. Scanner DB timestamp:
+  2026-10-01 20:24:15 UTC. No dependency or module-minimum changes; scans cover
+  Discover/developer tooling, not the remote SearXNG Python installation.
+- Recorded operator confirmation of deployed v2.30 and the SearXNG upgrade/local
+  health. These do not establish upstream engine availability. The new Admin
+  action is explicit active sampling, not continuous engine monitoring.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

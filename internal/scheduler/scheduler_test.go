@@ -89,3 +89,118 @@ func TestDailyDST(t *testing.T) {
 		t.Fatal(next.Sub(now))
 	}
 }
+
+func TestVisibleScheduleAndCheckExclusion(t *testing.T) {
+	b := blockingRunner{make(chan struct{}), make(chan struct{})}
+	s := New("07:30", 120, b)
+	s.Start(context.Background())
+	t.Cleanup(s.Shutdown)
+	before := s.Snapshot()
+	if before.NextScheduledAt == nil || time.Until(*before.NextScheduledAt) < 119*time.Minute || before.ScheduleMode != "interval" {
+		t.Fatal(before)
+	}
+	entered, release := make(chan struct{}), make(chan struct{})
+	if err := s.RequestSearchCheck(func(ctx context.Context) {
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	if _, err := s.RequestRun(); err != ErrSearchCheckRunning {
+		t.Fatal(err)
+	}
+	if err := s.RequestSearchCheck(func(context.Context) {}); err != ErrSearchCheckRunning {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	done := s.checkDone
+	s.mu.Unlock()
+	close(release)
+	<-done
+	if err := s.RequestSearchCheck(func(context.Context) {}); err != ErrSearchCheckCooldown {
+		t.Fatal(err)
+	}
+	if s.Snapshot().RunID != 0 || !s.Snapshot().NextScheduledAt.Equal(*before.NextScheduledAt) {
+		t.Fatal("diagnostic changed ingestion history")
+	}
+	if _, err := s.RequestRun(); err != nil {
+		t.Fatal(err)
+	}
+	<-b.entered
+	if err := s.RequestSearchCheck(func(context.Context) {}); err != ErrIngestAlreadyRunning {
+		t.Fatal(err)
+	}
+	if !s.Snapshot().NextScheduledAt.Equal(*before.NextScheduledAt) {
+		t.Fatal("manual run changed schedule")
+	}
+	s.Shutdown()
+	if s.Snapshot().NextScheduledAt != nil {
+		t.Fatal("stopped scheduler advertises run")
+	}
+}
+
+func TestScheduledRunWaitsForCheckAndShutdownCancels(t *testing.T) {
+	b := blockingRunner{make(chan struct{}), make(chan struct{})}
+	s := New("07:30", 120, b)
+	t.Cleanup(s.Shutdown)
+	entered, release := make(chan struct{}), make(chan struct{})
+	if err := s.RequestSearchCheck(func(ctx context.Context) {
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	go func() { _ = s.run(s.ctx, "scheduled") }()
+	select {
+	case <-b.entered:
+		t.Fatal("scheduled ingestion overlaps check")
+	case <-time.After(10 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-b.entered:
+	case <-time.After(time.Second):
+		t.Fatal("due ingestion was skipped")
+	}
+	s.Shutdown()
+	if err := s.RequestSearchCheck(func(context.Context) {}); err != ErrSchedulerStopped {
+		t.Fatal(err)
+	}
+
+	s2 := New("07:30", 0, b)
+	canceled := make(chan struct{})
+	if err := s2.RequestSearchCheck(func(ctx context.Context) {
+		deadline, ok := ctx.Deadline()
+		if !ok || time.Until(deadline) > 3*time.Minute {
+			t.Error("unbounded search check")
+		}
+		<-ctx.Done()
+		close(canceled)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s2.Shutdown()
+	select {
+	case <-canceled:
+	default:
+		t.Fatal("check survives shutdown")
+	}
+}
+
+func TestInitialDailySchedule(t *testing.T) {
+	s := New("07:30", 0, blockingRunner{make(chan struct{}), make(chan struct{})})
+	s.Start(context.Background())
+	defer s.Shutdown()
+	state := s.Snapshot()
+	if state.NextScheduledAt == nil || state.ScheduleMode != "daily" || state.NextScheduledAt.Hour() != 7 || state.NextScheduledAt.Minute() != 30 || !state.NextScheduledAt.After(time.Now()) {
+		t.Fatal(state)
+	}
+}

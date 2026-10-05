@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"discover/internal/auth"
@@ -23,14 +24,16 @@ import (
 const userSessionTTL = 90 * 24 * time.Hour
 
 type API struct {
-	cfg       config.Config
-	store     *store.Store
-	scheduler *scheduler.Scheduler
-	progress  progressSource
-	guard     *auth.Guard
-	user      *auth.UserGuard
-	assets    http.Handler
-	hideJobs  *hideJobs
+	cfg         config.Config
+	store       *store.Store
+	scheduler   *scheduler.Scheduler
+	progress    progressSource
+	guard       *auth.Guard
+	user        *auth.UserGuard
+	assets      http.Handler
+	hideJobs    *hideJobs
+	engineMu    sync.Mutex
+	engineState engineCheckState
 }
 
 type progressSource interface {
@@ -71,6 +74,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
 	mux.Handle("/admin/api/archive", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminArchive)))))
 	mux.Handle("/admin/api/domains", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminDomains))))
+	mux.Handle("/admin/api/search-check", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleEngineCheck)))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -148,7 +152,7 @@ func (a *API) handleFeedRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := a.scheduler.RequestRun()
 	if err != nil {
-		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) {
+		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) || errors.Is(err, scheduler.ErrSearchCheckRunning) {
 			respondJSON(w, http.StatusConflict, map[string]any{"error": err.Error(), "state": state})
 			return
 		}
@@ -529,6 +533,7 @@ func (a *API) handleAdminStatus(w http.ResponseWriter, r *http.Request) {
 			"last_message_at": msgAt,
 		},
 		"counts":              counts,
+		"search_check":        a.engineSnapshot(),
 		"dedupe_hidden_total": dedupeHiddenTotal,
 	})
 }

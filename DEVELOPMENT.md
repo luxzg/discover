@@ -116,6 +116,13 @@ diagnostics and cleanup without waiting two minutes or touching services.
   Individual searches are paced with cancellable delay/jitter and no parallel
   burst; the scheduler bounds manual and scheduled jobs to two hours. Synthetic
   HTTP tests disable pacing explicitly and test waits via an injected waiter.
+  Admin engine diagnostics reuse that transport with a fixed day/page-1 sample,
+  minimum five-second pacing and bounded, classified observations; no writes.
+- `scheduler`: next-run time reflects the actual interval/daily timer. Service-owned
+  three-minute diagnostic jobs share ingestion exclusion, have a five-minute
+  cooldown and are awaited on shutdown. Due automatic ingestion waits for a check;
+  manual ingestion leaves its scheduled timer unchanged. Tests use local synthetic
+  HTTP/check callbacks, not real engines or operator sessions.
 - `db`/`store`: enforced foreign keys; transactional per-topic evidence and rule
   effects; baseline-preserving upgrades; derived story identity and hide reasons.
 - `server`: authenticated/CSRF-protected mutation routes, rolling cookies,

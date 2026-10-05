@@ -258,6 +258,18 @@ checks returned no results and reported rate limiting, CAPTCHA/access-denial,
 HTTP errors/timeouts. These do not prove all errors are rate limits or that an
 update will fix them. No production log/query/report samples are committed here.
 
+The operator subsequently completed the v2.30 preflight and source/environment
+upgrade from February's revision to `2026.10.4+d48c4b5`. Existing Python 3.12.12,
+settings and unit were preserved; dependencies and local JSON health passed,
+with previous paths and restricted snapshots retained. No upstream search probe
+was run by that update, so engine recovery remains unverified. The operator also
+confirmed Discover v2.30 in service/Admin/feed, with no ingestion active.
+
+Since Discover v2.31, use Admin **Search Engines / Check Search Engines** for a
+readable version of the earlier bounded JSON diagnostic. See USAGE.md for its
+active-search effects, spacing, cooldown and interpretation; do not repeatedly
+check blocked engines. Admin also shows the next automatic ingestion time.
+
 ## Historical Private-Instance Installation Recipe
 
 I had some issues installing on Debian Trixie due to Python version mismatch (Python 3.13 being the new default),

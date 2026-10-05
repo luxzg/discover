@@ -3,6 +3,17 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 11:45 CEST
+
+- **SearXNG Updater Field Validation**: operator completed preflight and candidate
+  install/switch/local JSON health on the inventoried server with Python 3.12.12.
+  Original settings/unit and recovery paths retained. This closes updater launch/
+  compatibility validation for that installation, not upstream engine recovery,
+  settings modernization or alternative server layouts.
+- **v2.30 Deployment Confirmation**: operator confirmed service/Admin/feed version,
+  idle ingestion at observation. New v2.31 diagnostics/schedule UI still need field
+  confirmation after deployment.
+
 ## 2026-10-05 10:47 CEST
 
 ### Completed Locally In v2.29

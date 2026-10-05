@@ -71,3 +71,10 @@ pre {
 .table-scroll { overflow-x: auto; }
 .table-scroll table { width: 100%; border-collapse: collapse; }
 .table-scroll th, .table-scroll td { text-align: left; padding: .45rem; border-bottom: 1px solid #555; }
+#enginePanel td { overflow-wrap: anywhere; }
+@media (max-width: 540px) {
+  #enginePanel thead { display: none; }
+  #enginePanel tr { display: block; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+  #enginePanel td { display: block; border: 0; padding: .2rem 0; }
+  #enginePanel td::before { content: attr(data-label) ": "; font-weight: 600; color: var(--muted); }
+}

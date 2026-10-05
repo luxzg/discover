@@ -10,6 +10,9 @@ const topicsPanel = document.getElementById('topicsPanel');
 const rulesPanel = document.getElementById('rulesPanel');
 const ingestionPanel = document.getElementById('ingestionPanel');
 const countsPanel = document.getElementById('countsPanel');
+const checkEnginesBtn = document.getElementById('checkEngines');
+let engineCheckInFlight = false;
+let latestEngineCheckID = 0;
 
 let manualIngestInFlight = false;
 let manualDedupeInFlight = false;
@@ -82,7 +85,12 @@ function setAuthUI() {
   countsPanel.hidden = !authenticated;
   document.getElementById('archivePanel').hidden = !authenticated;
   document.getElementById('domainsPanel').hidden = !authenticated;
+  document.getElementById('enginePanel').hidden = !authenticated;
+  checkEnginesBtn.disabled = !authenticated || engineCheckInFlight;
   if (!authenticated) {
+    latestEngineCheckID = 0;
+    document.getElementById('engineRows').innerHTML = '';
+    document.getElementById('engineCheckState').textContent = '';
     document.getElementById('domainRows').innerHTML = '';
     document.getElementById('archiveResult').textContent = '';
   }
@@ -267,6 +275,7 @@ async function refreshStatus() {
   statusInFlight = true;
   try {
     const j = await call('/admin/api/status');
+    if (!authenticated) return;
     const build = j.build || {};
     const ingest = j.ingest || {};
     const ingestState = ingest.state || {};
@@ -278,13 +287,19 @@ async function refreshStatus() {
     const lastMessagesText = lastMessages.length > 0 ? lastMessages.join('\n') : (ingest.last_message || '-');
     const counts = j.counts || {};
     const running = manualIngestInFlight || Boolean(ingestState.running);
+    const checking = engineCheckInFlight || Boolean(ingestState.search_check_running);
     const cooling = Date.parse(ingestState.cooldown_until) > Date.now();
-    runIngestBtn.disabled = !authenticated || running || cooling;
+    runIngestBtn.disabled = !authenticated || running || cooling || checking;
     runIngestBtn.classList.toggle('is-busy', running);
-    runIngestBtn.textContent = running ? 'Run Now (Running...)' : cooling ? 'Run Now (Cooling down...)' : 'Run Now';
+    runIngestBtn.textContent = running ? 'Run Now (Running...)' : checking ? 'Run Now (Engine check...)' : cooling ? 'Run Now (Cooling down...)' : 'Run Now';
     runDedupeBtn.disabled = !authenticated || running || manualDedupeInFlight;
     runDedupeBtn.classList.toggle('is-busy', manualDedupeInFlight);
     runDedupeBtn.textContent = manualDedupeInFlight ? 'Run Retroactive Dedupe (Running...)' : 'Run Retroactive Dedupe';
+    const next = localDate(ingestState.next_scheduled_at);
+    document.getElementById('nextScheduled').textContent = next ?
+      `Next scheduled ingestion: ${next} (${ingestState.schedule_mode || 'scheduled'}${checking && Date.parse(ingestState.next_scheduled_at) <= Date.now() ? '; due, waiting for engine check' : ''}).` :
+      (ingestState.running && ingestState.current_source === 'scheduled' ? 'Next scheduled ingestion will be set after this scheduled run finishes.' : 'No next scheduled ingestion is currently available.');
+    renderEngineCheck(j.search_check || {}, ingestState);
     ingestStateEl.textContent =
       `build: ${build.version || '-'} (commit=${build.commit || '-'}, built=${build.built_at || '-'})\n` +
       `running: ${Boolean(ingestState.running)}\n` +
@@ -318,6 +333,46 @@ async function refreshStatus() {
     statusInFlight = false;
   }
 }
+
+function localDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) || date.getFullYear() < 1970 ? '' : date.toLocaleString();
+}
+
+function renderEngineCheck(state, ingestState = {}) {
+  if (!authenticated || Number(state.id || 0) < latestEngineCheckID) return;
+  latestEngineCheckID = Number(state.id || 0);
+  const checking = engineCheckInFlight || state.status === 'running' || Boolean(ingestState.search_check_running);
+  const cooling = Date.parse(ingestState.search_check_cooldown_until) > Date.now();
+  checkEnginesBtn.disabled = checking || cooling || Boolean(ingestState.running) || manualIngestInFlight;
+  checkEnginesBtn.classList.toggle('is-busy', checking);
+  checkEnginesBtn.textContent = checking ? 'Checking Search Engines...' : cooling ? 'Check Search Engines (Cooling down...)' : ingestState.running ? 'Check Search Engines (Ingestion running...)' : 'Check Search Engines';
+  const report = state.report || {};
+  const rows = Array.isArray(report.categories) ? report.categories : [];
+  const labels = {results:'Results returned', empty:'Empty response (not proof of failure)', warnings:'Engine warnings', failed:'Request failed', returned_results:'Returned results', rate_limited:'Rate limited', captcha:'CAPTCHA', access_denied:'Access denied', timeout:'Timeout', http_error:'HTTP error', suspended:'Suspended', engine_error:'Engine error'};
+  document.getElementById('engineCheckState').textContent = checking ? 'Check accepted; running in the background (up to three minutes). You can leave this page and return.' : state.status === 'idle' || !state.id ? 'Not checked since this service started.' :
+    `Last check: ${localDate(state.completed_at) || localDate(state.started_at)}. ${report.error ? 'Stopped: ' + report.error + '. ' : ''}Checked ${report.checked_instances || 0} of ${report.configured_instances || 0} configured instances. Engines absent from this report have unknown status; empty results do not mean unavailable.${cooling ? ' Next check allowed: ' + localDate(ingestState.search_check_cooldown_until) + '.' : ''}`;
+  document.getElementById('engineRows').innerHTML = rows.map(row => {
+    const engines = (Array.isArray(row.engines) ? row.engines : []).map(engine => `${engine.name}: ${labels[engine.status] || engine.status}`).join('; ');
+    return `<tr><td data-label="Instance">${Number(row.instance || 0)}</td><td data-label="Category">${escHtml(row.category)}</td><td data-label="Response">${escHtml(labels[row.status] || row.status)}${row.code ? ' (' + escHtml(row.code) + ')' : ''}</td><td data-label="Results">${Number(row.results || 0)}</td><td data-label="Engines">${escHtml(engines || 'No engine observation available')}${row.truncated ? ' (report capped)' : ''}</td></tr>`;
+  }).join('');
+}
+
+checkEnginesBtn.onclick = async () => {
+  if (!authenticated || checkEnginesBtn.disabled || engineCheckInFlight) return;
+  engineCheckInFlight = true;
+  checkEnginesBtn.disabled = true;
+  runIngestBtn.disabled = true;
+  checkEnginesBtn.textContent = 'Checking Search Engines...';
+  status('requesting search engine check...');
+  try {
+    const accepted = await call('/admin/api/search-check', {method:'POST', body:JSON.stringify({})});
+    renderEngineCheck(accepted);
+    status('search engine check accepted; results will appear in Search Engines');
+  } catch (e) { status(`search engine check request failed: ${e.message}; refresh status before retrying`); }
+  finally { engineCheckInFlight = false; await refreshStatus(); }
+};
 
 function resetTopicEditor() {
   editingTopicID = 0;
