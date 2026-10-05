@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-05 13:23 CEST - Documentation / SearXNG Startup Closeout
+
+- Recorded operator-applied inheritance/cooldown/Yahoo News edits and subsequent
+  removal of engine registration errors by making obsolete and unused Tor engine
+  entries inactive. Documented remaining language deprecations, accepted optional
+  limiter warning and the preflight's engine-initialization coverage limit.
+- Added no-Tor overrides to the proposed compact settings so a future migration
+  does not reintroduce those startup errors. Updated TODO/archive to distinguish
+  completed startup cleanup from pending compaction, metadata and scheduled
+  upstream-result validation.
+- Clarified the accepted future Google/Yahoo News time-filter exceptions: small
+  approved trials, date/age/unknown-result policy, bounded traffic, regression
+  tests and opt-in rollout first. Bing News already uses the time-limited path.
+  Docs-only; no app version bump, build, server changes or live search by agent.
+
 ## 2026-10-05 12:57 CEST - Documentation / SearXNG Settings Comparison
 
 - Reviewed the full redacted operator settings against pinned upstream revision

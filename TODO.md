@@ -92,8 +92,11 @@ operator preflight, update and rollback. Review converting the historical
 full settings copy to minimal current overrides without losing secrets, JSON or
 loopback settings. The redacted-file comparison and proposed overrides are now
 documented in SEARXNG.md (October 5), preserving longer cooldowns and the operator's
-intentional Yahoo general/News enables. Applying inheritance, verifying loaded
-engine metadata and observing scheduled results remain operator follow-up.
+intentional Yahoo general/News enables. The operator applied incremental
+inheritance/cooldown edits and disabled obsolete/unused Tor entries; subsequent
+startup has no engine registration errors. Full compaction, two deprecated
+engine language fields, loaded-engine metadata and scheduled-result validation
+remain follow-up. The optional limiter-file warning is accepted for now.
 The operator completed the retained-path source/venv upgrade
 and local health check on October 5; full upstream recovery remains unverified.
 A subsequent v2.31 Admin sample returned usable news/general results from two
@@ -118,6 +121,16 @@ undated results before integration. First discovery is not proof of publication.
 Preserve story/URL dedupe, pacing and engine cooldowns; test separately with an
 operator-enabled option and retain the current time-limited path as the default.
 This is a future idea only; no unfiltered searches are enabled in v2.31.
+
+The operator explicitly accepts evaluating narrowly scoped exceptions to the
+time-filter rule, not enabling unrestricted ingestion blindly. Start with a
+small, separately approved and paced sample per eligible news engine when its
+cooldown permits. Inspect actual publication dates, old-result frequency,
+undated coverage and incremental value over the current harvest. Agree on
+post-fetch age rejection and unknown-date policy before integrating; add
+synthetic regressions and an opt-in field trial. Do not infer freshness from
+the News label or first discovery, add a mandatory extra diagnostic at each
+ingest, or remove time limits for all engines. No such probes ran in this pass.
 
 Include Bing News in the comparison, but it already supplies the existing
 time-filtered news harvest and does not need an unfiltered workaround. Review

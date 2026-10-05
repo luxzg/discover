@@ -287,6 +287,16 @@ completion and ongoing pacing effects have not yet been reported. No additional
 active checks were run by the agent, and private config/log contents are not
 included here.
 
+The operator then applied the incremental inheritance/cooldown/Yahoo News edits
+and confirmed an active service. The retained full template produced engine
+registration failures: seventeen names absent from the pinned defaults, plus
+the unused Tor/onion engines Ahmia and Torch. After making those entries inactive,
+the operator's 13:20 CEST stop/start log contained no registration failures.
+Two legacy language-field deprecations and the missing optional `limiter.toml`
+warning remain. This confirms cleaner startup, not provider recovery or a full
+conversion to compact settings. The next scheduled Discover ingestion is pending;
+no additional agent-run searches or remote changes were made.
+
 ## Settings Comparison And Recommended Overrides (2026-10-05)
 
 Reviewed the operator's complete redacted settings against
@@ -320,8 +330,9 @@ The relevant differences are:
 
 Cloudflare/reCAPTCHA suspension values match the installed defaults and can be
 inherited. The longer generic cooldowns above are deliberate conservative
-overrides, not upstream defaults or a promise of recovery. These are **proposed**
-settings; no server edit/restart or additional search was performed in this review.
+overrides, not upstream defaults or a promise of recovery. The operator later
+reported applying the incremental changes; the compact template remains a
+proposal. No server edit/restart or additional search was performed by the agent.
 
 Other differences mainly reflect the old full template: obsolete checker/test
 anchors, `brand.new_issue_url`, `outgoing.pool_maxsize`, old engine definitions,
@@ -354,6 +365,36 @@ Full conversion to compact overrides remains a later cleanup, not accomplished
 just by adding the top-level flag. Removing legacy `brand.new_issue_url`,
 `outgoing.pool_maxsize` and checker/test boilerplate can wait for that cleanup;
 there is no reason to edit hundreds of unrelated engine definitions now.
+
+#### Legacy Engine Cleanup After Inheritance
+
+Inheritance does not remove user-defined engines missing from current defaults.
+In the retained full file, the operator made these legacy entries inactive to
+stop loading failures:
+
+```text
+adobe stock, adobe stock video, adobe stock audio, ask,
+library of congress, podcastindex,
+presearch, presearch images, presearch videos, presearch news,
+reddit, livespace, seekr news, seekr images, seekr videos, stract, svgrepo
+```
+
+Ahmia and Torch were also made inactive because this instance does not use Tor.
+Add `inactive: true` inside an existing block, never a duplicate engine block;
+`disabled: true` still allows initialization. None of these entries is needed
+for the current Discover harvest. Compact settings do not need overrides for
+the seventeen obsolete names because they are absent from the pinned defaults.
+Do not broadly add `inactive: false` to bypass upstream retirement/requirements.
+
+The two remaining deprecations concern `woxikon.de synonyme` and `wikimini`:
+move their existing `language` field out of `about` to the engine's main fields,
+preserving its value, during later cleanup. Adding a second top-level value while
+leaving the deprecated nested field is not cleanup. Missing `limiter.toml` is a
+nonfatal fallback to built-in bot-detection configuration; leave the private
+instance's limiter disabled rather than enabling it solely to silence a warning.
+The preflight deliberately does not initialize all engines, so successful
+preflight is not proof that startup contains no engine-loading warnings. Review
+the new startup log after a planned restart, without repeated provider probes.
 
 ### Compact Configuration For This Private Instance
 
@@ -405,6 +446,11 @@ engines:
   - name: yahoo news
     inactive: false
     disabled: false
+  # This private instance has no Tor proxy; do not initialize onion engines.
+  - name: ahmia
+    inactive: true
+  - name: torch
+    inactive: true
 ```
 
 The redundant loopback/port/private/debug/timeout settings in this example are
@@ -413,8 +459,10 @@ is appropriate only for this loopback-only instance, not a public deployment.
 The JSON format, local secret, autocomplete-off and POST overrides preserve
 Discover compatibility and the operator's existing privacy choices. The engine
 enables preserve working sources and intentional Yahoo trials; the cooldown
-overrides reduce repeated pressure on blocked providers. No other default
-setting needs an intentional override for the reviewed Discover setup.
+overrides reduce repeated pressure on blocked providers. The two onion-engine
+overrides avoid loading services whose Tor requirement this instance does not
+provide. No other default setting needs an intentional override for the reviewed
+Discover setup.
 
 This is inheritance, not a three-engine allowlist: other upstream-default engines
 remain configured. In this revision Brave general and Reuters remain enabled,

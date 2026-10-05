@@ -3,6 +3,16 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 13:23 CEST
+
+- **Incremental SearXNG Settings And Engine Startup Cleanup**: operator applied
+  inheritance, conservative cooldowns and the Yahoo News override, then made
+  obsolete/unused Tor engine entries inactive. Confirmed active service and a
+  clean stop/start without engine registration failures. Remaining language
+  deprecations and the optional limiter warning do not block startup. Full
+  compact-settings migration, engine metadata and scheduled upstream outcomes
+  are not yet verified; no additional searches were requested for closeout.
+
 ## 2026-10-05 12:57 CEST
 
 - **Redacted SearXNG Settings Review**: compared the complete supplied config
