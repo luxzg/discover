@@ -43,6 +43,35 @@ func TestAsyncLifecycle(t *testing.T) {
 	}
 }
 
+func TestPacedRunDeadlinesAndCancellation(t *testing.T) {
+	for _, async := range []bool{false, true} {
+		b := blockingRunner{make(chan struct{}), make(chan struct{})}
+		s := New("07:30", 120, b)
+		if s.runTimeout != 2*time.Hour {
+			t.Fatal("paced ingestion deadline too short", s.runTimeout)
+		}
+		s.runTimeout = 10 * time.Millisecond
+		if async {
+			if _, err := s.RequestRun(); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := s.RunNow(context.Background()); !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatal(err)
+			}
+		}
+		select {
+		case <-b.exited:
+		case <-time.After(time.Second):
+			t.Fatal("run ignored safety deadline")
+		}
+		s.Shutdown()
+		if s.Snapshot().Running {
+			t.Fatal("deadline left run reserved")
+		}
+	}
+}
+
 func TestDailyDST(t *testing.T) {
 	loc, err := time.LoadLocation("Europe/Zagreb")
 	if err != nil {

@@ -6,6 +6,8 @@
 - Node.js 22+ and npm for JavaScript/deployment-script tests and developer-only
   Playwright browser tests. Unit/script tests themselves use Node built-ins.
 - SQLite CLI for operational backups; shellcheck is optional locally.
+- Python 3 for synthetic SearXNG helper tests (standard library only). Real
+  SearXNG packages/venvs are not installed or updated on the development PC.
 - `govulncheck` for the separate dependency/security check: install with
   `go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
@@ -90,6 +92,13 @@ No test opens the private `config.json` or production database. Database tests u
 temporary fixtures, including an old-schema upgrade. Deployment tests use fake
 service/SSH commands and never contact a real server.
 
+The regular script suite covers SearXNG preflight, candidate-before-stop ordering,
+failed download/settings/start/health recovery, explicit rollback, unchanged settings,
+symlink refusal and secret-safe settings validation. Privileged locations and
+service/package commands are doubled in disposable directories; these tests do
+not establish real systemd/pyenv/upstream package compatibility. The small Python
+checker is a reviewed operational helper, not an ad hoc file-editing command.
+
 ## Architecture And Invariants
 
 - `config`: exclusive default-file creation and read-only validation.
@@ -100,6 +109,9 @@ service/SSH commands and never contact a real server.
 - `ingest`: fixed bounded SearXNG harvest, partial-result preservation and bounded
   error identifiers. Article metadata uses a separate public-only DNS-pinned
   transport, including redirects; local SearXNG is intentionally allowed.
+  Individual searches are paced with cancellable delay/jitter and no parallel
+  burst; the scheduler bounds manual and scheduled jobs to two hours. Synthetic
+  HTTP tests disable pacing explicitly and test waits via an injected waiter.
 - `db`/`store`: enforced foreign keys; transactional per-topic evidence and rule
   effects; baseline-preserving upgrades; derived story identity and hide reasons.
 - `server`: authenticated/CSRF-protected mutation routes, rolling cookies,

@@ -129,6 +129,18 @@ rather than falsely claiming the server session was removed.
   - interval mode via `ingest_interval_minutes` (default every 2 hours)
   - daily mode via `daily_ingest_time` when interval mode is disabled (`ingest_interval_minutes=0`)
 - Queries are run sequentially with configurable delay+jitter
+- Topic delay/jitter remains `per_query_delay_seconds`/`per_query_jitter_seconds`.
+  Individual HTTP searches, including page/category/time-range changes and
+  failover, additionally pause `search_request_delay_seconds` (default 5) plus
+  random `0..search_request_jitter_seconds` (default 2). The first search of a run
+  starts immediately; set both request keys to 0 only for intentional unpaced use.
+  Missing keys inherit defaults without rewriting config. Publisher metadata
+  requests use the existing separate caps/retry rules, not the search pause.
+- Request pauses are logged separately; topic `took` excludes those pauses and
+  `paused` reports them. Total run time includes all waiting. Manual and scheduled
+  runs have a two-hour safety deadline, cancel promptly on shutdown, and cannot
+  overlap. A 32-topic default run can take around half an hour; this is expected
+  background pacing, not a stalled browser request.
 - Query scope uses both `time_range=day` and `time_range=week`
 - Ingest explicitly pulls both `categories=news` and `categories=general`
 - Each query pulls pages 1 and 2: eight requests per instance/topic. There is no supported SearXNG `count` override; result volume, paging and time-filter support depend on enabled engines.

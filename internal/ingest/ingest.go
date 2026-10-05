@@ -38,6 +38,9 @@ type Service struct {
 	lastMessage   string
 	lastMessageAt time.Time
 	lastMessages  []progressEntry
+	searchStarted bool
+	searchPaused  time.Duration
+	searchWait    func(context.Context, time.Duration) error
 }
 type progressEntry struct {
 	Message string
@@ -59,6 +62,7 @@ func searchRedirect(_ *http.Request, _ []*http.Request) error {
 }
 
 func (s *Service) Run(ctx context.Context) error {
+	s.searchStarted, s.searchPaused = false, 0
 	runStart := time.Now()
 	failures := &PartialRunError{}
 	finish := func() error {
@@ -103,6 +107,7 @@ func (s *Service) Run(ctx context.Context) error {
 			}
 		}
 		topicStart := time.Now()
+		pausedBefore := s.searchPaused
 		entries, err := s.fetchTopic(ctx, topic.Query)
 		if err != nil {
 			failedTopics++
@@ -134,7 +139,7 @@ func (s *Service) Run(ctx context.Context) error {
 				failures.add(f)
 			}
 		}
-		s.logf("ingest: topic done (%d/%d) topic_id=%d query=%q results=%d took=%s", i+1, len(topics), topic.ID, topic.Query, len(entries), time.Since(topicStart).Round(time.Millisecond))
+		s.logf("ingest: topic done (%d/%d) topic_id=%d query=%q results=%d took=%s paused=%s", i+1, len(topics), topic.ID, topic.Query, len(entries), (time.Since(topicStart) - (s.searchPaused - pausedBefore)).Round(time.Millisecond), (s.searchPaused - pausedBefore).Round(time.Millisecond))
 	}
 	if s.cfg.AutoHideBelowScore > -100 {
 		hidden, err := s.store.HideUnreadBelowScore(ctx, s.cfg.AutoHideBelowScore)

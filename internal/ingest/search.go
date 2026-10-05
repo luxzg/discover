@@ -176,6 +176,9 @@ func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, time
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "discover")
+	if err := s.paceSearch(ctx, category, timeRange, page); err != nil {
+		return fail(errorCode(err), err)
+	}
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return fail(errorCode(err), err)
@@ -211,6 +214,37 @@ func (s *Service) fetchFromInstance(ctx context.Context, base, q, category, time
 		return fail("missing_results", nil)
 	}
 	return parsed.Results, 0, nil
+}
+
+// Ingestion is serialized by the scheduler. Pace the actual HTTP boundary,
+// including instance failover, rather than only the gap between topics.
+func (s *Service) paceSearch(ctx context.Context, category, timeRange string, page int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !s.searchStarted {
+		s.searchStarted = true
+		return nil
+	}
+	delay := time.Duration(s.cfg.SearchRequestDelaySeconds) * time.Second
+	delay += time.Duration(s.rand.Intn(maxInt(s.cfg.SearchRequestJitterSeconds, 0)+1)) * time.Second
+	if delay == 0 {
+		return nil
+	}
+	s.logf("ingest: sleeping %s before search request (category=%s time_range=%s page=%d)", delay, category, timeRange, page)
+	started := time.Now()
+	defer func() { s.searchPaused += time.Since(started) }()
+	if s.searchWait != nil {
+		return s.searchWait(ctx, delay)
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func retryAfterDuration(v string) time.Duration {

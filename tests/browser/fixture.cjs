@@ -64,6 +64,7 @@ async function startFixture() {
       user_name: 'fixture-reader', user_secret: secret, admin_secret: admin,
       admin_bind_cidrs: ['127.0.0.1/32'], database_path: path.join(dir, 'fixture.db'),
       searxng_instances: [upstreamURL], per_query_delay_seconds: 0, per_query_jitter_seconds: 0,
+      search_request_delay_seconds: 0, search_request_jitter_seconds: 0,
       ingest_interval_minutes: 1440, thumbnail_refresh_max_per_run: 0,
       date_refresh_max_per_run: 0,
       default_batch_size: 5, feed_min_score: 1,

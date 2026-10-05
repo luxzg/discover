@@ -124,6 +124,12 @@ Example important keys:
 
 For local testing you can set `"enable_tls": false` and use `http://localhost:<port>`.
 
+Since v2.29, missing `search_request_delay_seconds` and
+`search_request_jitter_seconds` use 5 and 2 respectively. You need not edit an
+older config to enable pacing; existing between-topic settings stay unchanged.
+Optional tuning is documented in `USAGE.md`. Expect longer background ingestions,
+not bursts of eight searches. Existing config is still never overwritten.
+
 ## 5. Run Manually and Test
 
 ```bash
@@ -365,6 +371,17 @@ The standalone helper keeps snapshots owned by the executing user; it does not
 transfer ownership. Root backups require a root-owned destination and ancestors
 without group/other write access. Copying a backup to another account is a
 separate deliberate administrator action.
+
+### 7.5 Updating The Separate SearXNG Service
+
+Discover deployment does not upgrade SearXNG. Use the administrator-owned
+checkout from section 7.3, and follow `SEARXNG.md` section **Update The Existing
+Source/Pyenv Installation**. Run `sudo bash scripts/searxng-update.sh --check`
+first, then `--apply` only after reviewing its effects. Never run that sudo
+script from the service-owned Discover checkout. Settings/unit/base Python stay
+unchanged; candidate/previous source and environments are retained for recovery.
+No upstream search probes are required by default. Updating engine adapters or
+pacing Discover cannot guarantee removal of upstream CAPTCHA/rate limits.
 
 ## 8. Uninstall
 

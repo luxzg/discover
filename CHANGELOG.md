@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-05 10:47 CEST - v2.29
+
+- Added configurable per-request search pacing (5 seconds plus 0..2 seconds
+  jitter by default), including pages/categories/time ranges and failover.
+  Existing topic delays remain separate; missing keys inherit defaults without
+  rewriting config. Topic logs separate active work and pauses; run totals include
+  waiting. Both manual and scheduled runs have a cancellable two-hour safety bound.
+- Added an administrator-controlled SearXNG updater for the inventoried pyenv/
+  source layout. It checks launch/settings contracts, prepares separate candidate
+  source/environment as the service user, retains secret-restricted snapshots and
+  previous paths, then switches/restarts with local JSON health and source/venv
+  recovery. Existing settings, unit and base Python are never replaced; manual
+  rollback and optional two-query checks are documented. No production update
+  or private settings access was performed by the agent.
+- Added synthetic update/preflight/failure/rollback, secret-safe settings and
+  request-pacing/cancellation regressions. Updated usage, deployment and safety
+  instructions; archived updater implementation and recorded v2.28 field evidence.
+  Adaptive engine backoff, clearer partial-failure summaries and application-server/
+  legacy-settings modernization remain separate TODO items. Local health/pacing
+  does not imply upstream blocks recovered.
+- Validation passed: vet/race/Go/script/JS/binary smoke, ShellCheck, standard-library
+  Python checker tests and all four desktop/mobile production/development browser
+  runs. Dated Go source/binary scans and npm audit reported no vulnerabilities;
+  scope and remaining real-server checks are recorded in MAINTENANCE.md.
+
 ## 2026-10-05 09:40 CEST - v2.28
 
 - Archive Preview now shows both newly archived and restorable row counts using

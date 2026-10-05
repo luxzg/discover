@@ -20,6 +20,8 @@
   ],
   "per_query_delay_seconds": 5,
   "per_query_jitter_seconds": 5,
+  "search_request_delay_seconds": 5,
+  "search_request_jitter_seconds": 2,
   "http_read_timeout_sec": 10,
   "http_write_timeout_sec": 20,
   "http_idle_timeout_sec": 60,

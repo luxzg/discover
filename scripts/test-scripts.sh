@@ -18,3 +18,4 @@ shopt -s nullglob
 tests=(scripts/tests/*.test.cjs)
 [[ ${#tests[@]} -gt 0 ]] || { echo 'Missing script tests.' >&2; exit 1; }
 node --test "${tests[@]}"
+python3 -B -m unittest discover -s scripts/tests -p '*_test.py'

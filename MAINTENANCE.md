@@ -231,6 +231,33 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
   service, settings or SearXNG packages were changed by the agent. v2.28 deployment
   and revised UI behavior remain operator checks using the existing update script.
 
+### 2026-10-05 11:01 CEST - v2.29 Pacing And SearXNG Updater
+
+- Kept Go/npm runtime and development dependency locks and the Go minimum
+  unchanged. Full vet/race/Go/script/JS/binary smoke passed, including 25 Node
+  script regressions, three standard-library Python checker tests and ShellCheck.
+  Checker tests used local Python 3.14.7; they do not install SearXNG or prove
+  package compatibility on the operator's Python 3.12.12 server.
+- All four production/development desktop/mobile browser runs passed with
+  synthetic services/data and explicit zero pacing in fixtures. Search tests
+  separately verify default inheritance, request pauses across topic/failover
+  boundaries, cancellation and run deadlines. No user config was rewritten.
+- Source/binary govulncheck 1.8.0 with Go 1.26.8 at 10:58 CEST reported no
+  vulnerabilities; npm audit including dev dependencies reported zero. Scanner
+  DB timestamp remained 2026-10-01 20:24:15 UTC. These scans cover Discover,
+  not SearXNG/Python packages, and do not imply permanent safety.
+- Checked current upstream installation/package/settings/webapp sources before
+  implementing the updater. Current package metadata permits Python 3.10+;
+  actual candidate install/settings/startup health remains a server check.
+  Webapp imports initialize caches/engine networking, so offline preflight
+  deliberately checks settings/module syntax without starting that code.
+- Operator-confirmed v2.28 deployment/archive/report and search diagnostics
+  motivate pacing and upstream maintenance. No live SearXNG, service, DB,
+  private settings or OS packages were accessed/changed by the agent. Use the
+  administrator-owned updater in SEARXNG.md; validate preflight then apply.
+  API health, usable search results and engine recovery are separate checks.
+  Full monthly tool inventory remains due October 12, not performed in this pass.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

@@ -44,6 +44,54 @@ func TestHarvestMatrixAndEmptySuccess(t *testing.T) {
 	}
 }
 
+func TestSearchPacingAcrossTopicsAndFailover(t *testing.T) {
+	requests, pauses := 0, 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 1 {
+			w.WriteHeader(503)
+			return
+		}
+		fmt.Fprint(w, `{"results":[]}`)
+	}))
+	defer ts.Close()
+	s := New(config.Config{SearxngInstances: []string{ts.URL, ts.URL}, SearchRequestDelaySeconds: 5, SearchRequestJitterSeconds: 2}, nil)
+	s.searchWait = func(ctx context.Context, d time.Duration) error {
+		pauses++
+		if d < 5*time.Second || d > 7*time.Second {
+			t.Fatal("invalid delay", d)
+		}
+		return nil
+	}
+	_, _ = s.fetchTopic(context.Background(), "one")
+	_, _ = s.fetchTopic(context.Background(), "two")
+	if requests != 24 || pauses != requests-1 {
+		t.Fatalf("requests=%d pauses=%d", requests, pauses)
+	}
+}
+
+func TestSearchPacingCancellation(t *testing.T) {
+	requests := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests++; fmt.Fprint(w, `{"results":[]}`) }))
+	defer ts.Close()
+	s := New(config.Config{SearxngInstances: []string{ts.URL}, SearchRequestDelaySeconds: 3600}, nil)
+	s.searchStarted = true
+	ctx, cancel := context.WithCancel(context.Background())
+	s.searchWait = func(ctx context.Context, d time.Duration) error { cancel(); return ctx.Err() }
+	_, err := s.fetchTopic(ctx, "one")
+	if !errors.Is(err, context.Canceled) || requests != 0 {
+		t.Fatalf("%v requests=%d", err, requests)
+	}
+	// Exercise the real timer path without waiting for the configured delay.
+	s.searchWait = nil
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	if err := s.paceSearch(ctx, "news", "day", 1); !errors.Is(err, context.DeadlineExceeded) || time.Since(started) > time.Second {
+		t.Fatal("uncancellable wait", err)
+	}
+}
+
 func TestSearchRedirectCannotReachOtherOrigin(t *testing.T) {
 	reached := false
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached = true; fmt.Fprint(w, `{"results":[]}`) }))

@@ -209,6 +209,17 @@ Historical context docs (read-only unless explicitly requested):
 - Privileged deployment orchestration must come from an administrator-controlled
   copy. Never run service-owned scripts or candidate binaries as root. Run build,
   candidate inspection and service-checkout file operations as the service user.
+- SearXNG upgrades use `bash scripts/searxng-update.sh` from an administrator
+  checkout with sudo, never the Discover service checkout. Keep existing settings,
+  secret, listener, base Python and service unit untouched. Root only orchestrates;
+  Git/pip/application checks and file swaps run as the dedicated service user.
+  Source/venv rollback is not authorization to restore settings or Discover data.
+  Preserve snapshots/releases; reject unsupported launch/environment contracts.
+- Search pacing belongs at the HTTP request boundary, including failover, not
+  only between topics. Keep waits cancellable and excluded from topic active
+  timing. Do not disable engine suspensions, introduce proxy/IP rotation, or
+  increase traffic to work around upstream blocking. Pacing does not imply
+  recovery; distinguish API health, usable results and engine errors.
 
 ## Documentation Alignment Rule
 

@@ -3,6 +3,25 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 10:47 CEST
+
+### Completed Locally In v2.29
+
+- **Repeatable SearXNG Upgrade**: reviewed administrator-side orchestration for
+  the inventoried source/pyenv layout, separate candidate source/venv, strict
+  service/settings checks, retained previous paths and explicit rollback. No
+  settings/unit/OS/Python upgrade and no live server operation by the agent.
+  Synthetic ordering/recovery checks cover local behavior; actual server
+  compatibility and engine recovery remain operator validation.
+- **Gentler Individual Searches**: added default 5-second delay plus 0..2-second
+  jitter, cancellable waits, separate active/pause timing and two-hour bounded
+  manual/scheduled runs. Adaptive upstream backoff and outcome wording remain TODO.
+- **v2.28 Field Confirmation**: operator confirmed deployed version in service
+  and both UIs, archive/restore previews, a saved 45-day limit and shortened
+  main-domain reports. Ingestion populated thumbnails/publication dates; supplied
+  diagnostics identify upstream suspension/errors, not database failures. No
+  private report/log samples were committed.
+
 ## 2026-10-05 09:40 CEST
 
 ### Field Confirmation And Follow-up

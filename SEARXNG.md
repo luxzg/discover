@@ -38,6 +38,13 @@ omits `week` from its example enumeration, but the current
 [request parser](https://github.com/searxng/searxng/blob/master/searx/webadapter.py)
 accepts it. There is no supported `count` parameter to enlarge a page.
 
+Since Discover v2.29 these eight requests are sequential and individually paced:
+5 seconds plus 0..2 seconds jitter by default. The original topic delay is extra.
+Missing JSON keys inherit defaults without editing the file. At 32 topics this
+adds roughly 25 minutes of search pauses; it reduces bursts, not total request
+count. It does not guarantee upstream rate limits/CAPTCHAs disappear. Engine
+backoff/clearer outcome reporting remains future work.
+
 Test one exact Discover-style request on the server:
 
 ```bash
@@ -103,12 +110,9 @@ can pass `--home /absolute/path --service service_name`; unexpected/missing path
 are diagnostic failures, not permission to reinstall automatically.
 
 Share only non-sensitive revision/Python/dependency results if troubleshooting;
-do not paste the complete settings or environment. An installation-specific
-update helper can now use the confirmed layout; reviewing service launch details,
-current upstream compatibility and rollback is still pending. It must preserve the existing secret,
-JSON format and loopback listener, retain the prior source/environment, preflight
-compatibility and verify bounded JSON queries before claiming success. Do not
-run the generic upstream update script blindly against the custom pyenv layout.
+do not paste the complete settings or environment. The updater below now checks
+the actual launch contract and candidate compatibility without replacing settings.
+Do not run generic upstream install-script upgrades blindly against this layout.
 
 Upstream's current [installation documentation](https://docs.searxng.org/admin/installation-searxng.html)
 uses a virtual environment with editable package installation and minimal settings
@@ -118,6 +122,133 @@ than replacing it and losing local settings. Application-server migration is a
 separate decision; the [Granian guide](https://docs.searxng.org/admin/installation-granian.html)
 documents a production option. Keeping a private instance updated a few times
 a year can refresh engine adapters but cannot guarantee result quality/dates.
+
+## Update The Existing Source/Pyenv Installation
+
+Use an **administrator-owned** Discover checkout, never
+`/home/discover/apps/discover` for a sudo script. The administrator's checkout
+and ancestors must not be group/other writable. Do not relax a private home:
+the updater stages reviewed helper copies under `/run` for the service user.
+
+On the server, sign in as your administrator (not `discover` or `searxng`):
+
+```bash
+# First time only, if this directory does not already exist:
+git clone https://github.com/luxzg/discover.git ~/discover-deployer
+cd ~/discover-deployer
+# On later runs, inspect changes first, then update this administrator copy:
+git status --short
+git pull --ff-only
+```
+
+Review `scripts/searxng-update.sh`, `scripts/searxng-worker.sh` and
+`scripts/searxng-check.py` before granting sudo. Run the preflight:
+
+```bash
+sudo bash scripts/searxng-update.sh --check
+```
+
+This creates/removes disposable reviewed helper copies only; it does not download
+packages, back up settings, search upstream, change source/config or stop services.
+It requires the inventoried service contract: dedicated non-root user,
+`WorkingDirectory=/usr/local/searxng/searxng`,
+`ExecStart=/usr/local/searxng/searx-venv/bin/python -m searx.webapp`, and exactly
+`SEARXNG_SETTINGS_PATH=/usr/local/searxng/searx-settings.yml` with no environment
+files. It checks clean source, installed dependencies, private `127.0.0.1:8888`,
+debug disabled, JSON enabled and a non-default secret. Unsupported contracts are
+refused, not automatically rewritten. `--home`/`--service` support the same layout
+at another path; IPv6/port/application-server changes need separate review.
+
+If preflight succeeds, update explicitly:
+
+```bash
+sudo bash scripts/searxng-update.sh --apply
+```
+
+**Effects and prerequisites:**
+
+- Requires sudo, Bash, Git, runuser/flock, timeout and standard coreutils, a
+  working existing Python/venv, HTTPS access to GitHub/PyPI and at least 2 GiB
+  free space. Native dependency builds may need OS development libraries; the
+  script does not install system packages or upgrade pyenv/base Python. Current
+  [upstream package metadata](https://github.com/searxng/searxng/blob/master/setup.py)
+  accepts Python 3.10+; installation/import checks still decide actual compatibility.
+- Downloads current upstream `master` into a new `update-*` directory under the
+  service home. `--revision FULL_40_CHARACTER_COMMIT` pins a reviewed revision.
+  Creates a separate venv using existing base Python, installs current upstream
+  packages/bootstrap dependencies, records revision and resolved packages, checks
+  dependency consistency, loads candidate settings and checks webapp module
+  resolution/syntax. It deliberately does not import/start webapp before switching:
+  upstream webapp imports initialize caches and engine networking. Full application
+  startup compatibility is checked by post-switch local health and recovery.
+  These operations run as `searxng`, never root, with caller proxy/pip/Python
+  environment overrides removed. Private pip index/proxy setups need separate
+  adaptation; no arbitrary package source flag is accepted.
+- Retains root-restricted settings/unit snapshots under `/var/backups/searxng`.
+  Previous source/venv paths are moved into the candidate's `previous-*` paths
+  at activation; candidate and old installations are never automatically deleted.
+  Scripts do not overwrite settings or the systemd unit. Concurrent settings/unit
+  edits during preparation abort before service stop.
+- Stops SearXNG only after preparation, switches the stable source/venv paths to
+  candidate symlinks, starts the unchanged unit and checks local JSON `/config`.
+  Preparation is bounded to 30 minutes; worker phases to two minutes. Local
+  health requires JSON config with enabled news/general engines, but is not
+  evidence that upstream engines recovered. Service restart can
+  clear process-local engine suspension history; do not use this updater/restarts
+  repeatedly as a way to force blocked engines to answer.
+- If activation/start/local health fails, attempts to put the previous source/
+  environment paths back and restart. No settings or databases are restored.
+  Failures before activation leave the running installation alone. SIGKILL or
+  power loss can interrupt recovery; retain printed paths for manual inspection.
+- A full historical settings copy remains intact and may retain stale engine or
+  plugin definitions. Failed candidate settings loads abort before downtime;
+  review compatibility/minimal overrides separately rather than replacing secrets
+  with defaults. Existing development-server launch is intentionally retained;
+  migrating to Granian/uWSGI is a different task.
+
+Afterwards, check logs and continue normal scheduled Discover use:
+
+```bash
+journalctl -u searxng --since today -n 60 --no-pager
+sudo bash scripts/searxng-inspect.sh
+```
+
+Optional **two** spaced upstream searches (not required for update success):
+
+```bash
+sudo bash scripts/searxng-update.sh --apply --search-check
+```
+
+Use that flag only on a planned update when engines are ready for testing; it
+updates first and then checks news/general with `day`, page 1. It does not require
+nonempty results to treat the API contract as working; engine warnings are printed
+as counts. When engines are already blocked, omit it. A failed optional search
+check reports failure but leaves an otherwise healthy installed candidate in place.
+
+### Explicit Source/Environment Rollback
+
+The updater prints a command with its snapshot path. Use the actual printed path:
+
+```bash
+sudo bash scripts/searxng-update.sh --rollback /var/backups/searxng/release-XXXXXXXX
+```
+
+This is a deliberate source/environment rollback, not a settings restore. It
+verifies the snapshot identifies the current release, preflights the old app
+against current settings, stops SearXNG, restores the exact previous paths and
+checks local health. With multiple upgrades, roll back the latest first. No
+snapshot/release is deleted. If rollback fails after stopping, inspect retained
+paths and logs locally; do not overwrite current settings or blindly rerun an
+old installer. Keep backups private: they contain your existing secret.
+
+### Field Evidence (2026-10-05)
+
+Operator confirmed v2.28 deployment, saved 45-day archive limit and main-domain
+reports. A full ingest returned usable entries and enriched images/publication
+dates, but every topic had upstream engine warnings. Follow-up bounded JSON
+checks returned no results and reported rate limiting, CAPTCHA/access-denial,
+HTTP errors/timeouts. These do not prove all errors are rate limits or that an
+update will fix them. No production log/query/report samples are committed here.
 
 ## Historical Private-Instance Installation Recipe
 

@@ -77,6 +77,8 @@ Edit at least:
 - `feed_freshness_decay_days` (default `7`; `0` disables freshness adjustment without changing stored scores)
 - `score_evidence_window_hours` (default `36`; new/stronger search evidence stops adding points afterward)
 - `date_refresh_max_per_run` (default `40`; date-only metadata candidates per ingest, even with existing images)
+- `search_request_delay_seconds` (default `5`; pause between individual SearXNG requests)
+- `search_request_jitter_seconds` (default `2`; additional random 0..2-second request pause)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
 - `dedupe_title_key_chars` (default `50`; title-key prefix length used by ingest duplicate hiding)
 - `thumbnail_refresh_min_score` (default `60`; only unread items at/above this score are considered for thumbnail enrichment)
@@ -128,6 +130,12 @@ for scoring and history limitations before changing thresholds.
 - `TODO.md` for active open work
 - `FINISHED_TASKS.md` for completed/deferred task archive
 - `SEARXNG.md` for SearXNG install and uninstall
+
+SearXNG has a separate, operator-run updater: see `SEARXNG.md`. Discover now
+paces individual searches as well as topics; local hosting does not bypass
+upstream engine rate limits. Existing configs inherit the new pacing defaults
+without edits. A 32-topic run has 256 searches and roughly 25 minutes of request
+pauses with defaults, plus search/metadata work and your existing topic delays.
 
 ## Privacy Boundary
 

@@ -14,17 +14,18 @@ type Runner interface {
 }
 
 type Scheduler struct {
-	dailyHHMM string
-	interval  time.Duration
-	runner    Runner
-	mu        sync.Mutex
-	running   bool
-	state     RunState
-	ctx       context.Context
-	cancel    context.CancelFunc
-	started   bool
-	closed    bool
-	wg        sync.WaitGroup
+	dailyHHMM  string
+	interval   time.Duration
+	runTimeout time.Duration
+	runner     Runner
+	mu         sync.Mutex
+	running    bool
+	state      RunState
+	ctx        context.Context
+	cancel     context.CancelFunc
+	started    bool
+	closed     bool
+	wg         sync.WaitGroup
 }
 
 func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
@@ -33,7 +34,7 @@ func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
 		d = time.Duration(intervalMinutes) * time.Minute
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Scheduler{dailyHHMM: dailyHHMM, interval: d, runner: runner, ctx: ctx, cancel: cancel}
+	return &Scheduler{dailyHHMM: dailyHHMM, interval: d, runTimeout: 2 * time.Hour, runner: runner, ctx: ctx, cancel: cancel}
 }
 
 type RunState struct {
@@ -133,7 +134,7 @@ func (s *Scheduler) RequestRun() (RunState, error) {
 		return state, err
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(s.ctx, 10*time.Minute)
+		ctx, cancel := context.WithTimeout(s.ctx, s.runTimeout)
 		defer cancel()
 		_ = s.execute(ctx, "manual")
 	}()
@@ -170,7 +171,7 @@ func (s *Scheduler) run(ctx context.Context, source string) error {
 	if _, err := s.reserve(source); err != nil {
 		return err
 	}
-	runCtx, cancel := context.WithCancel(ctx)
+	runCtx, cancel := context.WithTimeout(ctx, s.runTimeout)
 	stop := context.AfterFunc(s.ctx, cancel)
 	defer stop()
 	defer cancel()

@@ -41,18 +41,28 @@ Use small capped boosts and leave exploration room for unfamiliar sources.
 Make reasons inspectable and preferences resettable. Automatic domain-focused
 search expansion is a later opt-in stage, not inferred from raw click totals.
 
-## Repeatable SearXNG Upgrade
+## Adaptive Search Backoff And Clearer Ingestion Outcomes
 
-The operator confirmed the existing private installation is under
-`/usr/local/searxng`. Inventory is complete: see SEARXNG.md for the February 15
-source revision, Python 3.12.12, dedicated service and confirmed source/venv paths.
-Review the exact launch contract and current upstream compatibility, then build
-a reviewed server-side update helper
-for this actual layout, with config preservation, preflight/dry-run, retained
-old source/environment, bounded JSON search checks and documented rollback.
-Do not apply generic upstream install-script upgrades blindly to the custom
-pyenv layout, execute service-owned scripts as root or expose the listener.
-Review a production application server separately from engine/package upgrades.
+v2.29 paces individual searches rather than just topics. Next, distinguish clean
+empty results, partial success with engine warnings, searches without any usable
+engine response, and storage/maintenance failures in summaries/Admin. Aggregate
+safe diagnostic classes without exposing upstream bodies or private queries.
+Consider bounded category/instance backoff when HTTP 200 carries engine suspension
+or repeated all-empty failures, retaining partial results and letting healthy
+categories continue. Avoid treating a legitimate empty topic as an outage or
+clearing SearXNG suspensions to force retries. Adaptive pauses/harvest reduction
+remain future work; request pacing alone is not guaranteed to prevent blocking.
+
+## SearXNG Production Server And Settings Review
+
+The installation-specific updater is implemented in v2.29; see SEARXNG.md for
+operator preflight, update and rollback. Confirm the real server launch contract
+and candidate compatibility in that preflight. Review converting the historical
+full settings copy to minimal current overrides without losing secrets, JSON or
+loopback settings. A production application-server migration (for example Granian)
+is separate from engine/package upgrades; the helper intentionally retains the
+existing `python -m searx.webapp` unit. Do not expand its supported launch contract
+or remove preflight checks merely to get an update to run.
 
 ## RSS / Atom Sources
 
