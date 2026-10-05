@@ -99,7 +99,8 @@ function setAuthUI() {
 function card(item) {
   const img = item.thumbnail_url ? `<img class="thumb" src="${esc(item.thumbnail_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '';
   const pub = publishedLabel(item.published_at);
-  const pubPart = pub ? ` | ${esc(pub)}` : '';
+  const firstSeen = pub ? '' : publishedLabel(item.first_seen_at);
+  const pubPart = pub ? ` | Published ${esc(pub)}` : firstSeen ? ` | First seen ${esc(firstSeen)}` : '';
   const sources = (item.sources || []).filter(s => safeLink(s.url));
   const otherSources = sources.length ? `<details class="story-sources"><summary>Other sources (${sources.length})</summary><ul>${sources.map(s => `<li><a href="${esc(safeLink(s.url))}" target="_blank" rel="noopener noreferrer" data-click="1" data-source-id="${s.id}">${esc(s.source_domain || s.title)}</a></li>`).join('')}</ul></details>` : '';
   return `<article class="card" data-id="${item.id}">

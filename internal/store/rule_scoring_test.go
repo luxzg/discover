@@ -19,8 +19,33 @@ func TestRuleEditLargeUnreadDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
+	s.ConfigureFreshness(30, 7, 36)
+	startAge := time.Now()
+	if err := s.prepareFirstSeen(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("40k-article first-seen migration completed in %s", time.Since(startAge))
+	var missing int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM articles WHERE first_seen_at IS NULL`).Scan(&missing); err != nil || missing != 0 {
+		t.Fatal("incomplete first-seen backfill", missing, err)
+	}
+	startAge = time.Now()
+	if _, err := s.FetchTopUnread(ctx, 10, 1); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("40k-article freshness feed selection completed in %s", time.Since(startAge))
+	startAge = time.Now()
+	if _, err := s.ArchiveOldUnread(ctx, 30, false); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("40k-article age archive completed in %s", time.Since(startAge))
+	startAge = time.Now()
+	if _, err := s.DomainReport(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("40k-article domain report completed in %s", time.Since(startAge))
 	start := time.Now()
 	if err := s.UpsertNegativeRule(ctx, model.NegativeRule{Pattern: "blocked.example", Penalty: 100, Enabled: true}); err != nil {
 		t.Fatal(err)

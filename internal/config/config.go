@@ -39,6 +39,10 @@ type Config struct {
 	MaxBodyBytes              int64    `json:"max_body_bytes"`
 	DefaultBatchSize          int      `json:"default_batch_size"`
 	FeedMinScore              float64  `json:"feed_min_score"`
+	FeedMaxAgeDays            int      `json:"feed_max_age_days"`
+	FeedFreshnessDecayDays    int      `json:"feed_freshness_decay_days"`
+	ScoreEvidenceWindowHours  int      `json:"score_evidence_window_hours"`
+	DateRefreshMaxPerRun      int      `json:"date_refresh_max_per_run"`
 	AutoHideBelowScore        float64  `json:"auto_hide_below_score"`
 	DedupeTitleKeyChars       int      `json:"dedupe_title_key_chars"`
 	ThumbnailRefreshMinScore  float64  `json:"thumbnail_refresh_min_score"`
@@ -70,6 +74,10 @@ func defaultConfig() Config {
 		MaxBodyBytes:              1 << 20,
 		DefaultBatchSize:          10,
 		FeedMinScore:              1,
+		FeedMaxAgeDays:            30,
+		FeedFreshnessDecayDays:    7,
+		ScoreEvidenceWindowHours:  36,
+		DateRefreshMaxPerRun:      40,
 		AutoHideBelowScore:        1,
 		DedupeTitleKeyChars:       50,
 		ThumbnailRefreshMinScore:  60,
@@ -209,6 +217,15 @@ func (c Config) Validate() error {
 	if c.FeedMinScore < -100 || c.FeedMinScore > 1000 {
 		return errors.New("feed_min_score out of range")
 	}
+	if c.FeedMaxAgeDays < 0 || c.FeedMaxAgeDays > 36500 || c.FeedFreshnessDecayDays < 0 || c.FeedFreshnessDecayDays > 36500 {
+		return errors.New("feed age/decay days must be 0..36500 (0 disables)")
+	}
+	if c.ScoreEvidenceWindowHours < 1 || c.ScoreEvidenceWindowHours > 8760 {
+		return errors.New("score_evidence_window_hours must be 1..8760")
+	}
+	if c.DateRefreshMaxPerRun < 0 || c.DateRefreshMaxPerRun > 500 {
+		return errors.New("date_refresh_max_per_run must be 0..500")
+	}
 	if c.HideRuleDefaultPenalty <= 0 || c.HideRuleDefaultPenalty > 1000 {
 		return errors.New("hide_rule_default_penalty must be >0 and <=1000")
 	}
@@ -277,6 +294,10 @@ func MissingKeys(path string) ([]string, error) {
 		"max_body_bytes",
 		"default_batch_size",
 		"feed_min_score",
+		"feed_max_age_days",
+		"feed_freshness_decay_days",
+		"score_evidence_window_hours",
+		"date_refresh_max_per_run",
 		"auto_hide_below_score",
 		"dedupe_title_key_chars",
 		"thumbnail_refresh_min_score",

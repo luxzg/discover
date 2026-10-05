@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -38,73 +39,36 @@ func normalizeThumbnailURL(raw string) string {
 	return u.String()
 }
 
-func (s *Service) refreshMissingThumbnails(ctx context.Context) (filled, scanned int, err error) {
-	failures := &PartialRunError{}
-	candidates, err := s.store.ListUnreadThumbnailCandidates(ctx, s.cfg.ThumbnailRefreshMinScore, s.cfg.ThumbnailRefreshMaxPerRun)
-	if err != nil {
-		failures.add(dbFailure("thumbnail_candidates", err))
-		return 0, 0, failures.err()
-	}
-	for _, c := range candidates {
-		if scanned >= s.cfg.ThumbnailRefreshMaxPerRun {
-			break
-		}
-		if ctx.Err() != nil {
-			failures.add(dbFailure("thumbnail_fetch", ctx.Err()))
-			break
-		}
-		scanned++
-		thumb, err := s.fetchThumbnailFromArticle(ctx, c.URL)
-		if err != nil {
-			f := Failure{Stage: "thumbnail_fetch", Code: errorCode(err), ArticleID: c.ID, cause: err}
-			if remote, ok := err.(Failure); ok {
-				f.Code = remote.Code
-			}
-			failures.add(f)
-			continue
-		}
-		if thumb == "" {
-			continue
-		}
-		ok, err := s.store.SetThumbnailIfEmpty(ctx, c.ID, thumb)
-		if err != nil {
-			f := dbFailure("thumbnail_update", err)
-			f.ArticleID = c.ID
-			failures.add(f)
-			continue
-		}
-		if ok {
-			filled++
-		}
-	}
-	return filled, scanned, failures.err()
+type articleMetadata struct {
+	Thumbnail string
+	Published time.Time
 }
 
-func (s *Service) fetchThumbnailFromArticle(ctx context.Context, articleURL string) (string, error) {
+func (s *Service) fetchArticleMetadata(ctx context.Context, articleURL string) (articleMetadata, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSpace(articleURL), nil)
 	if err != nil {
-		return "", Failure{Stage: "thumbnail_fetch", Code: "invalid_url", cause: err}
+		return articleMetadata{}, Failure{Stage: "thumbnail_fetch", Code: "invalid_url", cause: err}
 	}
 	if err := validateArticleURL(req.URL); err != nil {
-		return "", err
+		return articleMetadata{}, err
 	}
 	req.Header.Set("User-Agent", "discover")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
 	resp, err := s.articleClient.Do(req)
 	if err != nil {
-		return "", err
+		return articleMetadata{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", Failure{Stage: "thumbnail_fetch", Code: fmt.Sprintf("http_%d", resp.StatusCode)}
+		return articleMetadata{}, Failure{Stage: "thumbnail_fetch", Code: fmt.Sprintf("http_%d", resp.StatusCode)}
 	}
 	const maxBody = 1 << 20
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
 	if err != nil {
-		return "", Failure{Stage: "thumbnail_fetch", Code: "response_read", cause: err}
+		return articleMetadata{}, Failure{Stage: "thumbnail_fetch", Code: "response_read", cause: err}
 	}
 	// Resolve against the final validated redirect target, not the starting URL.
-	return thumbnailFromHTML(resp.Request.URL, body), nil
+	return articleMetadata{Thumbnail: thumbnailFromHTML(resp.Request.URL, body), Published: publicationFromHTML(body)}, nil
 }
 
 func thumbnailFromHTML(base *url.URL, body []byte) string {

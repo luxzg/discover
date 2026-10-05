@@ -36,6 +36,9 @@ func (s *Store) Prepare(ctx context.Context, keyChars int) error {
 		return errors.New("invalid story key length")
 	}
 	s.keyChars = keyChars
+	if err := s.prepareFirstSeen(ctx); err != nil {
+		return err
+	}
 	var previous string
 	err := s.db.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key='story_model_version'`).Scan(&previous)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -320,27 +323,37 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 	if limit < 1 || limit > 100 {
 		return nil, errors.New("limit must be 1..100")
 	}
-	rows, err := s.db.QueryContext(ctx, `WITH ranked AS (
+	days, err := s.FeedAgeLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx, ageCTE+`, eligible AS (
+ SELECT *,CASE WHEN ?>0 AND score>0 THEN score/(1+MAX(0,julianday('now')-age_date)/?) ELSE score END AS feed_rank
+ FROM aged WHERE archived_at IS NULL AND (?=0 OR age_date>=julianday('now')-?)
+), ranked AS (
  SELECT a.*,ROW_NUMBER() OVER(PARTITION BY CASE WHEN story_key='' THEN 'id:'||id ELSE story_key END ORDER BY score DESC,id ASC) AS rank
- FROM articles a WHERE status='unread' AND score>=?
+ FROM eligible a WHERE status='unread' AND score>=?
  AND (story_key='' OR NOT EXISTS (
  SELECT 1 FROM articles h WHERE h.story_key=a.story_key AND
  (h.status IN ('seen','read','useful') OR (h.status='hidden' AND h.hidden_reason IN ('manual','legacy',''))))))
- SELECT id,url,normalized_url,url_hash,title,content,thumbnail_url,source_domain,published_at,ingested_at,status,score,hit_count,engine_count,searx_score,story_key
- FROM ranked WHERE rank=1 ORDER BY score DESC,COALESCE(published_at,ingested_at) DESC,id DESC LIMIT ?`, minScore, limit)
+ SELECT id,url,normalized_url,url_hash,title,content,thumbnail_url,source_domain,
+ COALESCE(published_at,strftime('%Y-%m-%dT%H:%M:%fZ',story_published)),ingested_at,status,score,hit_count,engine_count,searx_score,story_key,
+ strftime('%Y-%m-%dT%H:%M:%fZ',story_first_seen),feed_rank
+ FROM ranked WHERE rank=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?`, s.decayDays, s.decayDays, days, days, minScore, limit)
 	if err != nil {
 		return nil, err
 	}
 	out := []model.Article{}
 	for rows.Next() {
 		var a model.Article
-		var pub, ing any
-		if err := rows.Scan(&a.ID, &a.URL, &a.NormalizedURL, &a.URLHash, &a.Title, &a.Content, &a.ThumbnailURL, &a.SourceDomain, &pub, &ing, &a.Status, &a.Score, &a.HitCount, &a.EngineCount, &a.SearxScore, &a.StoryKey); err != nil {
+		var pub, ing, first any
+		if err := rows.Scan(&a.ID, &a.URL, &a.NormalizedURL, &a.URLHash, &a.Title, &a.Content, &a.ThumbnailURL, &a.SourceDomain, &pub, &ing, &a.Status, &a.Score, &a.HitCount, &a.EngineCount, &a.SearxScore, &a.StoryKey, &first, &a.FeedRank); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		a.PublishedAt = parseDBTime(pub)
 		a.IngestedAt = parseDBTime(ing)
+		a.FirstSeenAt = parseDBTime(first)
 		a.ThumbnailURL = displayThumbnailURL(a.ThumbnailURL)
 		out = append(out, a)
 	}
@@ -421,6 +434,7 @@ func (s *Store) markSeen(ctx context.Context, ids []int64) error {
 }
 
 func (s *Store) markAction(ctx context.Context, id int64, status model.ArticleStatus, delta float64) error {
+	clicked := status == model.StatusRead
 	if id <= 0 {
 		return errors.New("invalid article id")
 	}
@@ -459,7 +473,7 @@ func (s *Store) markAction(ctx context.Context, id int64, status model.ArticleSt
 		newReason = "manual"
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE articles SET status=?,hidden_reason=?,duplicate_of=NULL,vote=?,score=score+?,score_base=CASE WHEN score_base IS NULL THEN NULL ELSE score_base+? END,
- read_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE read_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?`, status, newReason, newVote, adjustment, adjustment, status == model.StatusRead || old == "useful", id)
+ read_at=CASE WHEN ? THEN COALESCE(read_at,CURRENT_TIMESTAMP) ELSE read_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?`, status, newReason, newVote, adjustment, adjustment, clicked, id)
 	if err != nil {
 		return err
 	}

@@ -68,3 +68,6 @@ pre {
   .thumb { width: 92px; height: 76px; }
 }
 .card-action-status { font-size: 0.9rem; overflow-wrap: anywhere; margin: 0.5rem 0 0; }
+.table-scroll { overflow-x: auto; }
+.table-scroll table { width: 100%; border-collapse: collapse; }
+.table-scroll th, .table-scroll td { text-align: left; padding: .45rem; border-bottom: 1px solid #555; }

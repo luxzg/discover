@@ -184,6 +184,15 @@ Historical context docs (read-only unless explicitly requested):
   resetting the all-time dedupe counter or undoing deliberate hides.
 - Preserve legacy scores as a baseline; repeated identical results must not
   inflate scores. Never substitute ingestion time for an unknown publication date.
+- First-seen is immutable; existing row `created_at` is the best recoverable
+  initial discovery. Keep it distinct from last ingestion and user seen/read.
+  Stop new search evidence after the initial configured story window (36 hours
+  by default), without disabling explicit topic/rule/vote edits. Age archives
+  are reversible derived state, not dislikes or handled-story evidence.
+- Reading reports treat clicks/read as positive hints, not proof of finished
+  reading. Current deliberate hides override positives. Automatic duplicate,
+  score and age filtering must not train domain dislikes. Implement fuzzy/event
+  layers separately and conservatively; see TODO rather than enabling them here.
 - Field-tested databases have tens of thousands of unread articles. Validate
   interactive scoring changes with `bash scripts/test-hide-scale.sh`; do not
   rematch every rule when only one rule changed or hide slow logic behind a

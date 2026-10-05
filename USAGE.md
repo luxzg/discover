@@ -5,9 +5,9 @@
 - Open `/` in browser
 - Sign in with `user_name` and `user_secret`
 - While signed in, feed header/auth row shows current app version next to `Sign Out`
-- Feed shows top unread cards sorted by score/date
+- Feed shows eligible unread stories ordered by freshness-adjusted relevance (stored score is unchanged).
 - One card represents a conservative normalized-title story; expand `Other sources` for up to 20 alternate URLs. Reading an alternate also handles that story.
-- Card metadata is `domain | score | published date` with short relative dates. Unknown/invalid dates and their separator are omitted. Sorting falls back to ingestion time without presenting it as publication time.
+- Card metadata is `domain | score | Published today` or `First seen 3 days ago` when publication is unknown. A database discovery date is never presented as publication.
 - Tap card to open article (marks it as `read`)
 - Card menu actions:
   - `👍 Useful` -> `useful`
@@ -59,6 +59,45 @@ the backend must first receive and accept the request.
 - Ingestion status panel now shows the last two progress messages (`last_messages`) plus `last_message_at`
 - Admin session now uses sliding refresh behavior and tolerates client IP drift (similar to feed session) to reduce surprise sign-outs
 
+### Article Age And Archive
+
+The default feed age limit is 30 days. In **Article Age**, enter whole days
+(for example 90), click **Preview**, then **Apply Limit And Archive** and confirm.
+The action saves that ongoing feed limit in SQLite and archives older unhandled
+rows; it does not delete rows or modify reading/voting status. Increasing the
+limit restores qualifying age-archived rows, not deliberately hidden articles.
+`0` disables age filtering and restores age-archived rows. The saved Admin limit
+takes precedence over `feed_max_age_days` in JSON and persists across restarts.
+
+Every feed query enforces the active limit, even before running archive or ingest.
+Ingest maintains archive marks after enrichment. Admin counts show archived rows
+separately from unread/hidden counts. Preview counts newly archived article rows,
+including automatic duplicate/score-hidden alternatives, not distinct stories.
+Read/seen/useful and deliberate/legacy hides are not archived by this action.
+
+Age uses the earliest immutable first-seen timestamp across the conservative
+story group, or an earlier known publication date. Neither a new syndicated
+copy nor an updated publisher date resets the age clock. Existing rows recover
+`first_seen_at` from `created_at`; only malformed creation dates fall back to
+the timestamp still available in `ingested_at`. Already deleted history cannot
+be reconstructed. Increasing the age limit does not guarantee previously
+handled stories will reappear: existing handled-history rules still apply.
+
+### Reading By Domain
+
+Expand **Reading By Domain** and click **Generate / Refresh Report**. It queries
+retained database history on demand, with up to 500 domains ordered by positive
+article count. Read means opened; Useful and Read can overlap, but Positive
+counts an article once. A current explicit hide wins over an earlier read/useful
+hint. Automatic score/duplicate/age filtering is not a dislike. Unknown-origin
+legacy hides are not counted as proven explicit downvotes.
+
+Seen/handled is recorded exposure, not every rendered impression. Total includes
+all retained rows, including duplicates and archived entries. These are article
+counts, not click-event counts or guaranteed complete yearly history. Legacy
+read timestamps have limited provenance; no ranking/search preferences are
+automatically changed by this report yet.
+
 ## Sessions
 
 Admin idle lifetime is 24 hours; feed idle lifetime is 90 days. Valid API activity
@@ -100,6 +139,18 @@ rather than falsely claiming the server session was removed.
   - controlled by `thumbnail_refresh_min_score` and `thumbnail_refresh_max_per_run`
   - public destinations only; private/LAN/loopback/link-local addresses, unsafe redirects and environment proxy bypasses are rejected
   - metadata is parsed as HTML, including entities and relative URLs; stored original search thumbnail URLs remain unchanged by display decoding
+- Date enrichment shares the secure publisher fetch with thumbnails. An additional
+  `date_refresh_max_per_run` batch (default 40, 0 disables date-only candidates)
+  targets missing publication dates even if images already exist. It reads
+  Article/NewsArticle/BlogPosting JSON-LD `datePublished`, publication meta tags
+  and explicitly marked datePublished time elements, never dateModified.
+  Page-level publication tags take precedence; conflicting structured article
+  dates are left unknown rather than guessed from another article in a graph.
+  The union makes at most thumbnail cap + date cap requests; shared candidates
+  are fetched once and either batch can fill both missing fields. Failed/empty
+  metadata attempts wait at least a day before retry. Publication extraction
+  can still fail or be inaccurate on misleading publisher markup; no full-text
+  article content is stored by this enrichment.
 
 ## Query And Rule Tips
 
@@ -125,7 +176,11 @@ topic: `1 + max(engine_count, 1)*0.25 + searx_score*0.25 + term boosts`.
 Term boosts are `0.35` for each query term found in the title and `0.1` in content
 (terms shorter than three characters are ignored). Repeated identical evidence
 does not accumulate. A newly matching topic or stronger evidence can increase
-the score. Current enabled negative rules subtract their penalty once. Useful
+the score only within `score_evidence_window_hours` (default 36) of the earliest
+first-seen occurrence of that story. Afterward associations, hit counts,
+metadata and last-ingested diagnostics can still update, but additional search
+evidence cannot add points. Topic/rule edits and explicit votes still work.
+Current enabled negative rules subtract their penalty once. Useful
 adds one point once; reading preserves Useful status.
 
 Existing scores are preserved at migration, with a derived baseline that allows
@@ -148,13 +203,16 @@ groups and reconsiders only known duplicate hides, not deliberate/legacy hides.
 Re-ingested headline changes also reconcile story membership. Handled articles retain their
 original title/story identity so a publisher's later headline edit cannot revive
 the already handled story. Tied scores within
-a story prefer the oldest article ID consistently; feed-wide sorting still uses
-score followed by publication/ingestion date. Previously counted duplicates are
+a story prefer the oldest article ID consistently; feed-wide sorting uses
+`score / (1 + age_days / feed_freshness_decay_days)` for positive scores,
+then effective date/ID. `0` decay days disables that adjustment. Minimum score
+filtering and displayed score still use the stored score. Previously counted duplicates are
 not counted again if the representative changes.
 
 Known publication dates survive empty later results and are emitted as RFC3339.
 Legacy Go-formatted SQLite timestamps are converted. Old publication timestamps
 exactly equal to ingestion timestamps are treated as the former unknown-date
 fallback; other historical fallback values cannot be identified with certainty.
-No date is invented when the upstream does not supply one. Time-filter parameters
-are always sent, but engines can still return stale or undated stories.
+No publication date is invented when neither search nor publisher metadata
+supplies one; First seen remains only a discovery-date fallback. Time-filter
+parameters are always sent, but engines can still return stale or undated stories.

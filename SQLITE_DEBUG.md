@@ -55,6 +55,11 @@ Main tables used by Discover:
 - `article_evidence`: strongest relevance per `(article_id, topic_id)`; repeated hits do not accumulate scores.
 - `article_rule_effects`: current `penalty` and once-per-article `counted` marker per rule.
 - Additional `articles` columns: `story_key`, `hidden_reason`, `duplicate_of`, `dedupe_counted`, `score_base`, `vote`, `read_at`.
+- v2.27 adds `first_seen_at` (immutable original discovery), `archived_at`
+  (reversible age archive, separate from status) and `metadata_checked_at`
+  (shared date/image enrichment retry clock). `created_at` remains row creation;
+  `ingested_at` is the latest search rediscovery/run marker, not first discovery.
+- `app_settings.feed_max_age_days` is the Admin override for the JSON age limit.
 
 `hidden_reason` is `manual`, `score`, `duplicate`, or `legacy` for hidden rows.
 `duplicate_of` refers to the chosen representative/handled article. Existing
@@ -101,7 +106,7 @@ LIMIT 100;
 Include status and dates:
 
 ```sql
-SELECT title, score, status, published_at, ingested_at, url
+SELECT title, score, status, published_at, first_seen_at, ingested_at, archived_at, url
 FROM articles
 WHERE title LIKE '%AMD GPU Prices Fall%'
 ORDER BY score DESC, id DESC
@@ -119,14 +124,14 @@ LIMIT 100;
 ```
 
 Top scored unread rows (not the complete feed query: the UI also applies your
-configured minimum score, selects one representative per story and excludes
-handled stories):
+configured minimum score/age, excludes archived/handled stories, selects one
+representative and adjusts ordering for freshness):
 
 ```sql
 SELECT id, title, score, source_domain, published_at
 FROM articles
 WHERE status='unread'
-ORDER BY score DESC, COALESCE(published_at, ingested_at) DESC
+ORDER BY score DESC, COALESCE(published_at, first_seen_at) DESC
 LIMIT 50;
 ```
 
@@ -153,6 +158,16 @@ SELECT status, COUNT(*) AS count
 FROM articles
 GROUP BY status
 ORDER BY count DESC;
+```
+
+Raw status counts include age-archived rows, unlike Admin's separate Archived
+bucket. Inspect retained archives without modifying them:
+
+```sql
+SELECT COUNT(*) AS archived FROM articles WHERE archived_at IS NOT NULL;
+SELECT value AS active_feed_age_days FROM app_settings WHERE key='feed_max_age_days';
+SELECT id, title, status, hidden_reason, first_seen_at, published_at, archived_at
+FROM articles WHERE archived_at IS NOT NULL ORDER BY first_seen_at LIMIT 50;
 ```
 
 ## Story And Scoring Diagnostics

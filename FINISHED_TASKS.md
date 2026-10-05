@@ -3,6 +3,21 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-10-05 08:26 CEST
+
+### Completed Locally In v2.27
+
+- **Freshness And Reversible Age Archives**: immutable first discovery,
+  default 36-hour evidence window, 30-day ongoing feed age limit with editable
+  Admin preview/apply and freshness ordering without rewriting historical scores.
+- **Publication Date Enrichment**: capped secure publisher metadata fetches,
+  shared with images, date-only candidates and explicitly labeled First seen
+  fallback. Actual publisher coverage still requires field testing.
+- **Reading By Domain Baseline**: on-demand authenticated Admin report with
+  deliberate hides overriding read/useful hints. Adaptive ranking remains TODO.
+- **SearXNG Inventory Helper**: read-only installation diagnostics without
+  settings/secret contents. Real-server inventory/update remains pending.
+
 ## 2026-09-12 16:16 CEST
 
 ### Completed

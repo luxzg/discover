@@ -66,6 +66,15 @@ test('real embedded feed/admin assets, auth, stories and actions', async ({ page
   await page.locator('#loginBtn').click();
   await expect(page.locator('#countsPanel')).toBeVisible();
   await expect(page.locator('#ingestState')).toContainText(version);
+  await expect(page.locator('#archiveDays')).toHaveValue('30');
+  await page.locator('#archiveDays').fill('90');
+  await page.locator('#previewArchive').click();
+  await expect(page.locator('#archiveResult')).toContainText('Would newly archive');
+  await page.locator('#applyArchive').click();
+  await expect(page.locator('#archiveResult')).toContainText('Feed age limit: 90 days');
+  await page.locator('#domainsPanel summary').click();
+  await page.locator('#loadDomains').click();
+  await expect(page.locator('#domainRows')).toContainText('source0.example.test');
   await page.locator('#topicsPanel summary').click();
   await expect(page.locator('#topics')).toContainText('fixture news');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

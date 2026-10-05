@@ -30,7 +30,10 @@ Discover is a single-binary Go application that builds a personal, Discover-like
   - stores cumulative hidden-duplicate total in DB and shows it in admin status
 - Stable per-topic evidence scoring with reversible negative-rule effects; repeated identical results no longer inflate scores
 - Background Hide This/Hide Domain actions with immediate acceptance and visible completion progress
-- Publication dates shown when supplied, including previously stored dates in legacy SQLite formats
+- Publication dates recovered from search results or bounded publisher metadata fetches; unknown dates are clearly labeled First seen
+- Immutable first-seen clocks and a 36-hour search-evidence scoring window
+- Configurable feed age limit (30 days by default), reversible admin archiving and freshness-adjusted ordering
+- On-demand admin reading/domain report; deliberate hides override positive hints
 - State model: `unread`, `seen`, `useful`, `hidden`, `read`
 - Batch behavior: current batch can be marked `seen` when fetching next
 - Optional auto-hide for low-score unread items via `auto_hide_below_score`
@@ -70,6 +73,10 @@ Edit at least:
 - `listen_address` and `searxng_instances`
 - `ingest_interval_minutes` (default `120`; set `0` to use `daily_ingest_time`)
 - `feed_min_score` (recommended `1` to avoid low-score cards in feed)
+- `feed_max_age_days` (default `30`; `0` disables; Admin can persist an override)
+- `feed_freshness_decay_days` (default `7`; `0` disables freshness adjustment without changing stored scores)
+- `score_evidence_window_hours` (default `36`; new/stronger search evidence stops adding points afterward)
+- `date_refresh_max_per_run` (default `40`; date-only metadata candidates per ingest, even with existing images)
 - `auto_hide_below_score` (recommended `1` to suppress low-value unread entries)
 - `dedupe_title_key_chars` (default `50`; title-key prefix length used by ingest duplicate hiding)
 - `thumbnail_refresh_min_score` (default `60`; only unread items at/above this score are considered for thumbnail enrichment)

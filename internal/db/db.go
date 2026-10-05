@@ -102,6 +102,9 @@ func migrate(db *sql.DB) error {
 		{"score_base", "REAL"},
 		{"vote", "INTEGER NOT NULL DEFAULT 0"},
 		{"read_at", "DATETIME"},
+		{"first_seen_at", "DATETIME"},
+		{"archived_at", "DATETIME"},
+		{"metadata_checked_at", "DATETIME"},
 	}
 	for _, col := range columns {
 		if err := ensureColumn(db, "articles", col.name, col.ddl); err != nil {
@@ -109,6 +112,9 @@ func migrate(db *sql.DB) error {
 		}
 	}
 	for _, stmt := range []string{
+		`CREATE TRIGGER IF NOT EXISTS immutable_article_first_seen BEFORE UPDATE OF first_seen_at ON articles
+ WHEN OLD.first_seen_at IS NOT NULL AND NEW.first_seen_at IS NOT OLD.first_seen_at
+ BEGIN SELECT RAISE(ABORT,'first_seen_at is immutable'); END`,
 		`CREATE INDEX IF NOT EXISTS idx_articles_story ON articles(story_key)`,
 		`CREATE TABLE IF NOT EXISTS article_evidence (
    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,

@@ -14,27 +14,25 @@ import (
 )
 
 type Store struct {
-	db       *sql.DB
-	keyChars int
+	db          *sql.DB
+	keyChars    int
+	scoreWindow time.Duration
+	maxAgeDays  int
+	decayDays   int
 }
 
 type StatusCounts struct {
-	Unread int `json:"unread"`
-	Seen   int `json:"seen"`
-	Read   int `json:"read"`
-	Useful int `json:"useful"`
-	Hidden int `json:"hidden"`
+	Unread   int `json:"unread"`
+	Seen     int `json:"seen"`
+	Read     int `json:"read"`
+	Useful   int `json:"useful"`
+	Hidden   int `json:"hidden"`
+	Archived int `json:"archived"`
 }
 
 type TopicStats struct {
 	Unread int `json:"unread"`
 	Total  int `json:"total"`
-}
-
-type ThumbnailCandidate struct {
-	ID    int64
-	URL   string
-	Score float64
 }
 
 type IngestDedupeStats struct {
@@ -45,7 +43,15 @@ type IngestDedupeStats struct {
 const dedupeHiddenTotalSetting = "dedupe_hidden_total"
 
 func New(db *sql.DB) *Store {
-	return &Store{db: db, keyChars: 50}
+	return &Store{db: db, keyChars: 50, scoreWindow: 36 * time.Hour}
+}
+
+// Configure before serving requests; an admin age override is persisted separately.
+func (s *Store) ConfigureFreshness(maxAgeDays, decayDays, evidenceHours int) {
+	s.maxAgeDays, s.decayDays = maxAgeDays, decayDays
+	if evidenceHours > 0 {
+		s.scoreWindow = time.Duration(evidenceHours) * time.Hour
+	}
 }
 
 func (s *Store) DB() *sql.DB { return s.db }
@@ -241,7 +247,7 @@ func (s *Store) TopicStats(ctx context.Context) (map[int64]TopicStats, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT at.topic_id,
 		       COUNT(*) AS total_count,
-		       SUM(CASE WHEN a.status='unread' THEN 1 ELSE 0 END) AS unread_count
+		       SUM(CASE WHEN a.status='unread' AND a.archived_at IS NULL THEN 1 ELSE 0 END) AS unread_count
 		FROM article_topics at
 		JOIN articles a ON a.id = at.article_id
 		GROUP BY at.topic_id
@@ -328,7 +334,8 @@ func (s *Store) CullOldUnread(ctx context.Context, olderThanDays int, maxScore f
 		DELETE FROM articles
 		WHERE status IN ('unread','hidden') AND hidden_reason IN ('','score')
 		  AND score <= ?
-		  AND julianday(ingested_at) < julianday(?)
+		  AND archived_at IS NULL
+		  AND julianday(COALESCE(first_seen_at,created_at)) < julianday(?)
 	`, maxScore, dbTimestamp(time.Now().AddDate(0, 0, -olderThanDays)))
 	if err != nil {
 		return 0, err
@@ -348,55 +355,6 @@ func (s *Store) HideUnreadBelowScore(ctx context.Context, threshold float64) (in
 	return res.RowsAffected()
 }
 
-func (s *Store) ListUnreadThumbnailCandidates(ctx context.Context, minScore float64, limit int) ([]ThumbnailCandidate, error) {
-	if limit <= 0 {
-		return nil, nil
-	}
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, url, score
-		FROM articles
-		WHERE status='unread'
-		  AND score >= ?
-		  AND (thumbnail_url='' OR thumbnail_url IS NULL)
-		ORDER BY score DESC, id DESC
-		LIMIT ?
-	`, minScore, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make([]ThumbnailCandidate, 0, limit)
-	for rows.Next() {
-		var c ThumbnailCandidate
-		if err := rows.Scan(&c.ID, &c.URL, &c.Score); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) SetThumbnailIfEmpty(ctx context.Context, articleID int64, thumbnailURL string) (bool, error) {
-	thumbnailURL = strings.TrimSpace(thumbnailURL)
-	if articleID <= 0 || thumbnailURL == "" {
-		return false, nil
-	}
-	res, err := s.db.ExecContext(ctx, `
-		UPDATE articles
-		SET thumbnail_url=?, updated_at=CURRENT_TIMESTAMP
-		WHERE id=?
-		  AND (thumbnail_url='' OR thumbnail_url IS NULL)
-	`, thumbnailURL, articleID)
-	if err != nil {
-		return false, err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return n > 0, nil
-}
-
 func (s *Store) HideIngestTitleDuplicates(ctx context.Context, ingestedAt time.Time, keyChars int) (IngestDedupeStats, error) {
 	return s.dedupe(ctx, &ingestedAt, keyChars)
 }
@@ -410,7 +368,7 @@ func (s *Store) DedupeHiddenTotal(ctx context.Context) (int, error) {
 }
 
 func (s *Store) ArticleStatusCounts(ctx context.Context) (StatusCounts, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT status, COUNT(*) FROM articles GROUP BY status`)
+	rows, err := s.db.QueryContext(ctx, `SELECT CASE WHEN archived_at IS NOT NULL AND (status='unread' OR (status='hidden' AND hidden_reason IN ('duplicate','score'))) THEN 'archived' ELSE status END AS state, COUNT(*) FROM articles GROUP BY state`)
 	if err != nil {
 		return StatusCounts{}, err
 	}
@@ -433,6 +391,8 @@ func (s *Store) ArticleStatusCounts(ctx context.Context) (StatusCounts, error) {
 			out.Useful = count
 		case string(model.StatusHidden):
 			out.Hidden = count
+		case "archived":
+			out.Archived = count
 		}
 	}
 	return out, rows.Err()

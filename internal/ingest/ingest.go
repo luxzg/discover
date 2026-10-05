@@ -20,9 +20,11 @@ type ingestStore interface {
 	UpsertArticleHit(context.Context, store.UpsertArticleInput) error
 	HideUnreadBelowScore(context.Context, float64) (int64, error)
 	HideIngestTitleDuplicates(context.Context, time.Time, int) (store.IngestDedupeStats, error)
-	ListUnreadThumbnailCandidates(context.Context, float64, int) ([]store.ThumbnailCandidate, error)
-	SetThumbnailIfEmpty(context.Context, int64, string) (bool, error)
 	CullOldUnread(context.Context, int, float64) (int64, error)
+	ListMetadataCandidates(context.Context, float64, float64, int, int) ([]store.MetadataCandidate, error)
+	RecordMetadata(context.Context, int64, string, time.Time) (bool, bool, error)
+	FeedAgeLimit(context.Context) (int, error)
+	ArchiveOldUnread(context.Context, int, bool) (store.ArchiveStats, error)
 }
 
 type Service struct {
@@ -148,12 +150,24 @@ func (s *Service) Run(ctx context.Context) error {
 	} else if stats.SameRunHidden+stats.HistoricalHidden > 0 {
 		s.logf("ingest: title dedupe hidden %d unread article(s) (same_run=%d, historical_seen=%d)", stats.SameRunHidden+stats.HistoricalHidden, stats.SameRunHidden, stats.HistoricalHidden)
 	}
-	if s.cfg.ThumbnailRefreshMaxPerRun > 0 {
-		filled, scanned, err := s.refreshMissingThumbnails(ctx)
+	if s.cfg.ThumbnailRefreshMaxPerRun > 0 || s.cfg.DateRefreshMaxPerRun > 0 {
+		filled, dates, scanned, err := s.refreshMissingMetadata(ctx)
 		failures.merge(err, 0, 0)
 		if scanned > 0 {
-			s.logf("ingest: thumbnail refresh scanned %d high-score unread article(s), filled %d", scanned, filled)
+			s.logf("ingest: thumbnail refresh scanned %d eligible unread article(s), filled %d", scanned, filled)
+			s.logf("ingest: publication date refresh filled %d article(s) from %d shared metadata fetch(es)", dates, scanned)
 		}
+	}
+	days, ageErr := s.store.FeedAgeLimit(ctx)
+	if ageErr == nil {
+		var stats store.ArchiveStats
+		stats, ageErr = s.store.ArchiveOldUnread(ctx, days, false)
+		if ageErr == nil && (stats.Archived > 0 || stats.Restored > 0) {
+			s.logf("ingest: age archive archived=%d restored=%d limit_days=%d", stats.Archived, stats.Restored, days)
+		}
+	}
+	if ageErr != nil {
+		failures.add(dbFailure("age_archive", ageErr))
 	}
 	deleted, err := s.store.CullOldUnread(ctx, s.cfg.CullUnreadDays, s.cfg.CullMaxScore)
 	if err != nil {

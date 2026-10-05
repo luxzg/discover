@@ -73,6 +73,7 @@ func main() {
 	}
 	defer database.Close()
 	st := store.New(database)
+	st.ConfigureFreshness(cfg.FeedMaxAgeDays, cfg.FeedFreshnessDecayDays, cfg.ScoreEvidenceWindowHours)
 	if err := st.Prepare(context.Background(), cfg.DedupeTitleKeyChars); err != nil {
 		log.Fatalf("prepare article data: %v", err)
 	}

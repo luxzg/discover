@@ -39,12 +39,15 @@ func addTopic(t *testing.T, s *Store, query string) int64 {
 	return id
 }
 func hit(t *testing.T, s *Store, u, title string, topic int64, published time.Time) int64 {
+	return hitAt(t, s, u, title, topic, published, time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC))
+}
+func hitAt(t *testing.T, s *Store, u, title string, topic int64, published, ingested time.Time) int64 {
 	t.Helper()
 	norm, hash, domain, err := urlnorm.Normalize(u)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = s.UpsertArticleHit(context.Background(), UpsertArticleInput{URL: u, NormalizedURL: norm, URLHash: hash, SourceDomain: domain, Title: title, TopicID: topic, Engines: 1, SearxScore: 1, PublishedAt: published, IngestedAt: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)})
+	err = s.UpsertArticleHit(context.Background(), UpsertArticleInput{URL: u, NormalizedURL: norm, URLHash: hash, SourceDomain: domain, Title: title, TopicID: topic, Engines: 1, SearxScore: 1, PublishedAt: published, IngestedAt: ingested})
 	if err != nil {
 		t.Fatal(err)
 	}

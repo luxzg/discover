@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-05 08:58 CEST - v2.27
+
+- Added immutable first-seen timestamps, recovered from existing row creation on
+  upgrade. Last ingestion and user seen/read remain separate. New/stronger search
+  evidence stops adding points after the initial configurable story window
+  (36 hours by default), including later syndicated copies; historical score
+  baselines and explicit topic/rule/vote edits remain intact.
+- Default feed age is now 30 days, using the earliest story discovery or earlier
+  publication evidence. Freshness-adjusted ranking favors newer eligible stories
+  without rewriting scores or bypassing minimum-score gates. Admin can preview
+  and apply another day limit, such as 90; age archives are separate, retained,
+  reversible state and do not count as dislikes or handled stories.
+- Added bounded publication-date enrichment, sharing secure publisher fetches
+  with thumbnails and including date-only candidates. Persisted retry timing
+  limits repeated failures. Parse explicit publication metadata, reject ambiguous
+  structured dates, and label unknown publication as First seen on cards.
+- Added an authenticated on-demand Reading By Domain report. Positive article
+  hints combine read/useful without double counting; deliberate hides override
+  prior clicks. Automatic filters are not dislikes. Fixed read timestamps being
+  manufactured by non-read actions, and keep archived rows out of active counts.
+- Added a read-only SearXNG inventory helper and documented server confirmation
+  before an installation-specific updater. Recorded layered fuzzy dedupe,
+  coverage-fatigue suppression and bounded domain preferences as future work.
+  Existing private config/data were not accessed or overwritten.
+- Added migration/window/age/rank/metadata/report/auth/CSRF/UI regressions and
+  expanded synthetic 40,000-row checks. Race/vet/script/browser validation and
+  dated source/binary vulnerability scans are recorded in MAINTENANCE.md;
+  production deployment and publisher/SearXNG behavior remain operator checks.
+
 ## 2026-09-12 16:16 CEST - v2.26
 
 - Upgraded modernc.org/sqlite v1.39.1 to v1.58.0, embedding SQLite 3.53.4 instead

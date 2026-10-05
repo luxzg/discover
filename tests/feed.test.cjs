@@ -35,6 +35,37 @@ test('cards escape titles and source URLs; unknown date has no extra separator',
   assert.match(html, /score 10\.00<\/div>/);
 });
 
+test('database date is explicitly first seen, not publication', () => {
+  const b = browser();
+  const html = b.eval("card({id:1,title:'Unknown publication',score:5,first_seen_at:new Date().toISOString()})");
+  assert.match(html,/First seen today/);
+  assert.doesNotMatch(html,/Published/);
+});
+
+test('archive panel validates days and confirms mutations; domain report escapes domains', async () => {
+  const b = browser('admin.js');
+  b.eval('authenticated=true');
+  b.c.confirm = () => true;
+  b.eval("document.getElementById('archiveDays')");
+  const calls = [];
+  b.c.fetch = async (url,opts) => {
+    calls.push({url,body:opts.body});
+    return {ok:true,json:async()=>({stats:{archived:3,restored:1},items:[{domain:'<script>',positive:2,read:2}]})};
+  };
+  b.elements.get('archiveDays').value='90';
+  await b.elements.get('applyArchive').onclick();
+  assert.deepEqual(JSON.parse(calls[0].body),{days:90});
+  assert.match(b.elements.get('archiveResult').textContent,/Archived 3; restored 1/);
+  b.elements.get('archiveDays').value='1.5';
+  const count=calls.length;
+  await b.elements.get('applyArchive').onclick();
+  assert.equal(calls.length,count);
+  await b.elements.get('loadDomains').onclick();
+  assert.match(b.elements.get('domainRows').innerHTML,/&lt;script&gt;/);
+  b.eval('authenticated=false; setAuthUI()');
+  assert.equal(b.elements.get('domainRows').innerHTML,'');
+});
+
 test('failed feed request does not trigger ingest', async () => {
   const b = browser(); const calls = [];
   b.c.fetch = async url => { calls.push(url); return { ok: false, status: 500, statusText: 'failure', json: async () => ({}) }; };

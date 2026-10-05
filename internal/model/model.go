@@ -49,6 +49,8 @@ type Article struct {
 	SourceDomain  string        `json:"source_domain"`
 	PublishedAt   time.Time     `json:"published_at"`
 	IngestedAt    time.Time     `json:"ingested_at"`
+	FirstSeenAt   time.Time     `json:"first_seen_at"`
+	FeedRank      float64       `json:"feed_rank"`
 	Status        ArticleStatus `json:"status"`
 	Score         float64       `json:"score"`
 	HitCount      int           `json:"hit_count"`

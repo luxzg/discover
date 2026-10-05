@@ -1,6 +1,6 @@
 # SearXNG For Discover
 
-## Current Integration (Reviewed 2026-09-10)
+## Current Integration (Reviewed 2026-10-05)
 
 Discover uses the JSON search endpoint of a private SearXNG instance, normally
 `http://localhost:8888`. Enable `json` under `search.formats`. Keep the listener
@@ -54,13 +54,56 @@ every underlying engine answered.
 
 No setting guarantees publication dates or a fixed result count. Some engines
 ignore time filters or return updated/undated material. Discover preserves known
-dates, but cannot reconstruct an absent original publication date. `site:` is
+dates and additionally attempts bounded publisher metadata enrichment. If neither
+source supplies publication, the feed labels original discovery as First seen,
+not publication. `site:` is
 sent to engines as query syntax and depends on their support.
 
 Discover does not follow redirects from the search API, even within the same
 origin. Set the final base URL explicitly. Configured SearXNG endpoints and their
 DNS are administrator-trusted network destinations, unlike public article URLs.
 Use loopback/IP for a local instance; use HTTPS for a remote instance.
+
+## Existing Installation Inventory Before Updating
+
+The operator confirmed the private installation is under `/usr/local/searxng`
+and likely has not been updated since February 2026. The remaining source/venv
+paths below are from the historical recipe and still need server confirmation.
+Source revisions/dates are a better identifier than assuming a numeric release.
+
+From an administrator-owned Discover checkout on the server (see INSTALL.md
+section 7.3), run the read-only inventory:
+
+```bash
+cd ~/discover-deployer
+git pull --ff-only
+sudo bash scripts/searxng-inspect.sh
+```
+
+Alternatively run `bash scripts/searxng-inspect.sh` as the `searxng` service user
+if the helper is readable from that user's chosen location. The root invocation
+executes Git/Python checks as the service user, never root. It reports selected
+systemd location fields, Git revision/date/dirty state, Python version, dependency
+consistency and settings-file presence. It does not read settings contents,
+change packages, stop services, fetch Git updates or modify data. Custom layouts
+can pass `--home /absolute/path --service service_name`; unexpected/missing paths
+are diagnostic failures, not permission to reinstall automatically.
+
+Share only non-sensitive revision/Python/dependency results if troubleshooting;
+do not paste the complete settings or environment. An installation-specific
+update helper is pending this inventory. It must preserve the existing secret,
+JSON format and loopback listener, retain the prior source/environment, preflight
+compatibility and verify bounded JSON queries before claiming success. Do not
+run the generic upstream update script blindly against the custom pyenv layout.
+
+Upstream's current [installation documentation](https://docs.searxng.org/admin/installation-searxng.html)
+uses a virtual environment with editable package installation and minimal settings
+overrides inheriting current defaults. A historical full copy of settings may
+retain stale engine definitions even after a source upgrade; review it rather
+than replacing it and losing local settings. Application-server migration is a
+separate decision; the [Granian guide](https://docs.searxng.org/admin/installation-granian.html)
+documents a production option. Keeping a private instance updated a few times
+a year can refresh engine adapters but cannot guarantee result quality/dates.
 
 ## Historical Private-Instance Installation Recipe
 

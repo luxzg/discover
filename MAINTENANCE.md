@@ -184,6 +184,32 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 - The operator confirmed v2.25 remote deployment succeeded. v2.26 remote
   deployment/health checks remain an operator action after local validation.
 
+### 2026-10-05 08:58 CEST - v2.27 Freshness Validation
+
+- Kept the Go minimum, runtime dependencies and npm lockfile unchanged. Used Go
+  1.26.8 and govulncheck 1.8.0. This feature pass is not a full monthly online
+  release inventory; the suggested tooling review remains October 12.
+- Full vet/race/unit/script checks, ShellCheck 0.11.0 and binary smoke passed.
+  Production and development browser modes passed on desktop/mobile; inspected
+  synthetic feed/admin screenshots, including date labels, archive controls and
+  the horizontally scrollable domain report. No private state or external
+  publishers were used in those deterministic checks.
+- On the synthetic 40,000-article fixture, feed selection took about 571 ms,
+  archiving 136 ms, the domain report 59 ms and full hide 211 ms without race
+  instrumentation. A follow-up measured first-seen backfill at about 864 ms
+  with comparable feed/archive/report/hide timings. These individual measurements
+  are not production guarantees.
+- Source and built-binary govulncheck reported no vulnerabilities; npm audit
+  including development dependencies reported zero. The scanner database
+  timestamp was 2026-10-01 20:24:15 UTC. Dated scans do not prove permanent safety.
+- New tests cover immutable legacy discovery dates, bounded scoring windows,
+  syndicated clocks, reversible archives, raw-score preservation, shared date/
+  image requests and retry timing, read/hide precedence, admin auth/CSRF and UI
+  escaping. No production DB, server service or SearXNG installation was changed.
+- Deployment remains an operator action. Verify v2.27, preview the chosen age
+  limit, inspect retained domain history and run ingestion to evaluate publisher
+  date coverage. SearXNG updating is pending read-only server inventory.
+
 ## Maintenance Scope
 
 CI and recurring restore drills were declined as unnecessary for this small

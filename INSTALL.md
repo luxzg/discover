@@ -109,6 +109,10 @@ Example important keys:
   "daily_ingest_time": "07:30",
   "ingest_interval_minutes": 120,
   "feed_min_score": 1,
+  "feed_max_age_days": 30,
+  "feed_freshness_decay_days": 7,
+  "score_evidence_window_hours": 36,
+  "date_refresh_max_per_run": 40,
   "auto_hide_below_score": 1,
   "dedupe_title_key_chars": 50,
   "thumbnail_refresh_min_score": 60,
@@ -304,6 +308,24 @@ If you changed config keys in a new release, review and update `config.json` bef
 
 ### 7.4 Upgrade Checks And Recovery
 
+- v2.27 adds immutable `first_seen_at` recovered from existing `created_at`,
+  separate archive/metadata timestamps, a default 36-hour evidence window and
+  a 30-day feed age limit. Existing config is never rewritten; missing keys use
+  defaults. Scores and deliberate actions are preserved. The normal deployment
+  backup runs before the schema migration. No manual DB edits are needed.
+- In Admin, Article Age accepts 90 (or another whole day count) for experiments;
+  Preview before Apply Limit And Archive. This also saves the active feed age
+  limit. Increasing it restores qualifying age archives. Read history and
+  explicit hides are preserved. Date metadata enrichment runs during ingestion;
+  inspect `publication date refresh` and `age archive` messages in the journal.
+- Expand Reading By Domain and generate its report on demand. Confirm that a
+  deliberately hidden article is not also counted as a positive hint.
+- v2.27 rollback to an older binary ignores the new age/archive fields and may
+  show the old backlog again. It does not require restoring a database, but an
+  old binary can resume its former scoring behavior. Older strict config parsers
+  reject the new JSON keys: use a reviewed config compatible with that binary if
+  rolling back. Never restore data merely to undo an age limit: increase the
+  limit in Admin instead.
 - v2.26 upgrades the SQLite engine bundled in Discover from 3.50.4 to 3.53.4.
   Use the same update script and existing `discover.db`; no export/import,
   database conversion, re-ingestion, config change or system SQLite upgrade is

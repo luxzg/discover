@@ -39,6 +39,7 @@ type progressSource interface {
 }
 
 func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, user *auth.UserGuard, assets http.Handler) *API {
+	st.ConfigureFreshness(cfg.FeedMaxAgeDays, cfg.FeedFreshnessDecayDays, cfg.ScoreEvidenceWindowHours)
 	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets, hideJobs: newHideJobs()}
 }
 
@@ -68,6 +69,8 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
 	mux.Handle("/admin/api/dedupe", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminDedupe)))))
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
+	mux.Handle("/admin/api/archive", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminArchive)))))
+	mux.Handle("/admin/api/domains", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminDomains))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")

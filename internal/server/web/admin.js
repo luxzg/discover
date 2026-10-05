@@ -80,6 +80,12 @@ function setAuthUI() {
   rulesPanel.hidden = !authenticated;
   ingestionPanel.hidden = !authenticated;
   countsPanel.hidden = !authenticated;
+  document.getElementById('archivePanel').hidden = !authenticated;
+  document.getElementById('domainsPanel').hidden = !authenticated;
+  if (!authenticated) {
+    document.getElementById('domainRows').innerHTML = '';
+    document.getElementById('archiveResult').textContent = '';
+  }
 }
 
 loginBtn.onclick = async () => {
@@ -296,6 +302,7 @@ async function refreshStatus() {
       `read: ${counts.read || 0}\n` +
       `useful: ${counts.useful || 0}\n` +
       `hidden: ${counts.hidden || 0}\n` +
+      `archived: ${counts.archived || 0}\n` +
       `dedupe_hidden_total: ${Number(j.dedupe_hidden_total || 0)}`;
   } catch (e) {
     if (e.status === 401 || e.status === 403) {
@@ -331,6 +338,8 @@ document.getElementById('newRule').onclick = resetRuleEditor;
 
 async function bootstrapAfterAuth() {
   try {
+    const age = await call('/admin/api/archive');
+    document.getElementById('archiveDays').value = String(age.active_days ?? 30);
     await loadTopics();
     await loadRules();
     await refreshStatus();
@@ -338,6 +347,49 @@ async function bootstrapAfterAuth() {
     status(e.message);
   }
 }
+
+function archiveDays() {
+  const raw = document.getElementById('archiveDays').value.trim();
+  const days = Number(raw);
+  if (!raw || !Number.isInteger(days) || days < 0 || days > 36500) throw new Error('enter whole days from 0 to 36500');
+  return days;
+}
+
+document.getElementById('previewArchive').onclick = async () => {
+  try {
+    const j = await call(`/admin/api/archive?days=${archiveDays()}`);
+    document.getElementById('archiveResult').textContent = `Would newly archive ${j.stats.candidates} article rows. Active feed limit: ${j.active_days} days.`;
+  } catch (e) { status(`archive preview failed: ${e.message}`); }
+};
+
+document.getElementById('applyArchive').onclick = async () => {
+  const button = document.getElementById('applyArchive');
+  if (button.disabled) return;
+  try {
+    const days = archiveDays();
+    if (!confirm(`Set feed age limit to ${days} days and archive older unread stories? No deletion; increasing this limit can restore age-archived rows.`)) return;
+    button.disabled = true;
+    const j = await call('/admin/api/archive', {method:'POST',body:JSON.stringify({days})});
+    document.getElementById('archiveResult').textContent = `Archived ${j.stats.archived}; restored ${j.stats.restored}. Feed age limit: ${days} days.`;
+    status('age limit saved and archive completed');
+    await refreshStatus();
+  } catch (e) { status(`archive failed: ${e.message}; reload to verify the active limit before retrying`); }
+  finally { button.disabled = false; }
+};
+
+document.getElementById('loadDomains').onclick = async () => {
+  const button = document.getElementById('loadDomains');
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const j = await call('/admin/api/domains');
+    if (!authenticated) return;
+    document.getElementById('domainRows').innerHTML = (j.items || []).map(d =>
+      `<tr><td>${escHtml(d.domain || '(unknown)')}</td>${['positive','read','useful','hidden','seen','total'].map(k => `<td>${Number(d[k] || 0)}</td>`).join('')}</tr>`).join('');
+    status('domain report generated from retained database history');
+  } catch (e) { status(`domain report failed: ${e.message}`); }
+  finally { button.disabled = false; }
+};
 
 setAuthUI();
 status('checking session...');

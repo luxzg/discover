@@ -206,6 +206,9 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 	if in.URLHash == "" || strings.TrimSpace(in.Title) == "" || !finiteScore(in.SearxScore) || !finiteScore(in.ExtraTitleHit) {
 		return errors.New("invalid article")
 	}
+	if in.IngestedAt.IsZero() {
+		in.IngestedAt = time.Now().UTC()
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -216,12 +219,15 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 		return err
 	}
 	var a scoredRow
-	err = tx.QueryRowContext(ctx, `SELECT id,title,content,source_domain,url,score,score_base FROM articles WHERE url_hash=?`, in.URLHash).Scan(&a.id, &a.title, &a.content, &a.domain, &a.url, &a.score, &a.base)
+	firstSeen := in.IngestedAt
+	var firstRaw any
+	err = tx.QueryRowContext(ctx, `SELECT id,title,content,source_domain,url,score,score_base,COALESCE(first_seen_at,created_at) FROM articles WHERE url_hash=?`, in.URLHash).Scan(&a.id, &a.title, &a.content, &a.domain, &a.url, &a.score, &a.base, &firstRaw)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	oldKey := dedupeTitleKey(a.title, s.keyChars)
 	if a.id > 0 {
+		firstSeen = parseDBTime(firstRaw)
 		if err := initializeScore(ctx, tx, a, rules); err != nil {
 			return err
 		}
@@ -233,12 +239,12 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 		}
 		_, err = tx.ExecContext(ctx, `UPDATE articles SET title=CASE WHEN status='unread' OR hidden_reason='duplicate' THEN ? ELSE title END,content=CASE WHEN ?<>'' THEN ? ELSE content END,
    thumbnail_url=CASE WHEN thumbnail_url='' AND ?<>'' THEN ? ELSE thumbnail_url END,
-   published_at=COALESCE(?,published_at),ingested_at=?,story_key=CASE WHEN status='unread' OR hidden_reason='duplicate' THEN ? ELSE story_key END,
+   published_at=CASE WHEN ? IS NOT NULL AND (published_at IS NULL OR julianday(?)<julianday(published_at)) THEN ? ELSE published_at END,ingested_at=?,story_key=CASE WHEN status='unread' OR hidden_reason='duplicate' THEN ? ELSE story_key END,
    hit_count=hit_count+1,engine_count=MAX(engine_count,?),searx_score=MAX(searx_score,?),updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-			in.Title, in.Content, in.Content, in.ThumbnailURL, in.ThumbnailURL, dbTimestamp(in.PublishedAt), dbTimestamp(in.IngestedAt), dedupeTitleKey(in.Title, s.keyChars), in.Engines, in.SearxScore, a.id)
+			in.Title, in.Content, in.Content, in.ThumbnailURL, in.ThumbnailURL, dbTimestamp(in.PublishedAt), dbTimestamp(in.PublishedAt), dbTimestamp(in.PublishedAt), dbTimestamp(in.IngestedAt), dedupeTitleKey(in.Title, s.keyChars), in.Engines, in.SearxScore, a.id)
 	} else {
-		res, e := tx.ExecContext(ctx, `INSERT INTO articles(url,normalized_url,url_hash,title,content,thumbnail_url,source_domain,published_at,ingested_at,story_key,score_base,hit_count,engine_count,searx_score)
-   VALUES(?,?,?,?,?,?,?,?,?,?,0,1,?,?)`, in.URL, in.NormalizedURL, in.URLHash, in.Title, in.Content, in.ThumbnailURL, in.SourceDomain, dbTimestamp(in.PublishedAt), dbTimestamp(in.IngestedAt), dedupeTitleKey(in.Title, s.keyChars), in.Engines, in.SearxScore)
+		res, e := tx.ExecContext(ctx, `INSERT INTO articles(url,normalized_url,url_hash,title,content,thumbnail_url,source_domain,published_at,ingested_at,story_key,first_seen_at,score_base,hit_count,engine_count,searx_score)
+   VALUES(?,?,?,?,?,?,?,?,?,?,?,0,1,?,?)`, in.URL, in.NormalizedURL, in.URLHash, in.Title, in.Content, in.ThumbnailURL, in.SourceDomain, dbTimestamp(in.PublishedAt), dbTimestamp(in.IngestedAt), dedupeTitleKey(in.Title, s.keyChars), dbTimestamp(firstSeen), in.Engines, in.SearxScore)
 		if e != nil {
 			return e
 		}
@@ -251,10 +257,17 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO article_topics(article_id,topic_id) VALUES(?,?)`, a.id, in.TopicID); err != nil {
 			return err
 		}
-		relevance := 1 + float64(maxInt(in.Engines, 1))*.25 + in.SearxScore*.25 + in.ExtraTitleHit
-		if _, err := tx.ExecContext(ctx, `INSERT INTO article_evidence(article_id,topic_id,relevance) VALUES(?,?,?)
-   ON CONFLICT(article_id,topic_id) DO UPDATE SET relevance=MAX(article_evidence.relevance,excluded.relevance)`, a.id, in.TopicID, relevance); err != nil {
+		firstSeen, err = storyFirstSeen(ctx, tx, dedupeTitleKey(in.Title, s.keyChars), firstSeen)
+		if err != nil {
 			return err
+		}
+		age := in.IngestedAt.Sub(firstSeen)
+		if age >= 0 && age < s.scoreWindow {
+			relevance := 1 + float64(maxInt(in.Engines, 1))*.25 + in.SearxScore*.25 + in.ExtraTitleHit
+			if _, err := tx.ExecContext(ctx, `INSERT INTO article_evidence(article_id,topic_id,relevance) VALUES(?,?,?)
+   ON CONFLICT(article_id,topic_id) DO UPDATE SET relevance=MAX(article_evidence.relevance,excluded.relevance)`, a.id, in.TopicID, relevance); err != nil {
+				return err
+			}
 		}
 	}
 	a.title = in.Title

@@ -47,6 +47,13 @@ func TestOldSchemaUpgrade(t *testing.T) {
 	if len(cards) != 1 || cards[0].Score != 123 || cards[0].PublishedAt.Day() != 20 || !strings.Contains(cards[0].NormalizedURL, "id=1") {
 		t.Fatalf("%+v", cards)
 	}
+	var created any
+	if err := s.db.QueryRow(`SELECT created_at FROM articles WHERE id=1`).Scan(&created); err != nil {
+		t.Fatal(err)
+	}
+	if cards[0].FirstSeenAt.Sub(parseDBTime(created)).Abs() > time.Millisecond {
+		t.Fatal("first seen not recovered from creation", cards[0].FirstSeenAt, created)
+	}
 	var reason string
 	if err := s.db.QueryRow(`SELECT hidden_reason FROM articles WHERE id=2`).Scan(&reason); err != nil || reason != "legacy" {
 		t.Fatalf("%s %v", reason, err)
@@ -208,9 +215,9 @@ func TestLegacyReadNewRuleCount(t *testing.T) {
 func TestUnknownDateSortingAndRetention(t *testing.T) {
 	s := testStore(t)
 	topic := addTopic(t, s, "news")
-	old := hit(t, s, "https://example.com/old", "old", topic, time.Time{})
-	fresh := hit(t, s, "https://example.com/fresh", "fresh", topic, time.Time{})
 	now := time.Now().UTC()
+	old := hitAt(t, s, "https://example.com/old", "old", topic, time.Time{}, now.Add(-48*time.Hour-time.Minute))
+	fresh := hitAt(t, s, "https://example.com/fresh", "fresh", topic, time.Time{}, now)
 	s.db.Exec(`UPDATE articles SET ingested_at=?,score=0 WHERE id=?`, dbTimestamp(now.Add(-48*time.Hour-time.Minute)), old)
 	s.db.Exec(`UPDATE articles SET ingested_at=?,score=0 WHERE id=?`, dbTimestamp(now), fresh)
 	cards, err := s.FetchTopUnread(context.Background(), 10, -1)

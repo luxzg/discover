@@ -6,6 +6,26 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
 
+test('SearXNG inventory uses read-only commands and does not read settings', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'discover-searx-inventory-'));
+  try {
+    mkdirSync(path.join(dir, 'bin'));
+    mkdirSync(path.join(dir, 'searx-venv', 'bin'), {recursive:true});
+    writeFileSync(path.join(dir, 'searx-settings.yml'), 'DO_NOT_DISCLOSE_SECRET');
+    for (const [name,body] of Object.entries({
+      id: '[ "$1" = "-u" ] && echo 1000\n[ "$1" = "-un" ] && echo searxng\nexit 0',
+      systemctl: 'case "$*" in *--value*) echo searxng;; *show*) echo User=searxng;; *) exit 42;; esac',
+      git: 'case "$*" in *" log "*) echo "abcdef 2026-02-14";; *" status "*) exit 0;; *) exit 43;; esac',
+    })) writeFileSync(path.join(dir,'bin',name), `#!/bin/sh\n${body}\n`, {mode:0o755});
+    writeFileSync(path.join(dir,'searx-venv','bin','python'), '#!/bin/sh\necho synthetic-python\n', {mode:0o755});
+    const r=spawnSync('bash',['scripts/searxng-inspect.sh','--home',dir], {cwd:root,env:{...process.env,PATH:`${dir}/bin:${process.env.PATH}`},encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);
+    assert.match(r.stdout,/abcdef 2026-02-14/);
+    assert.doesNotMatch(r.stdout,/DO_NOT_DISCLOSE_SECRET/);
+    assert.match(r.stdout,/no service, source, packages or settings changed/);
+  } finally { rmSync(dir,{recursive:true,force:true}); }
+});
+
 test('tool helper preserves operator PATH over fallback installations', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'discover-tools-'));
   try {

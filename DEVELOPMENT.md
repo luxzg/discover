@@ -119,6 +119,23 @@ Do not infer a publication date from ingestion time. Do not strip arbitrary URL
 queries: they can distinguish articles. Never double-apply a negative rule to the
 clicked article. Keep URL/article identity distinct from conservative story keys.
 
+First-seen is immutable (including a SQLite update trigger), recovered from
+`created_at` on upgrade, and separate from last ingestion and user exposure.
+Search evidence can grow only in the configured initial story window; explicit
+topic/rule/vote edits remain effective. Feed eligibility and enrichment share a
+group age clock, including earlier publication evidence. Age archives are a
+separate reversible field, never an implicit vote or handled-story decision.
+The feed's freshness rank is derived; stored scores and minimum-score gates stay
+unchanged. Admin archive applies its limit and marks in one transaction.
+
+Metadata fetches share one secure HTTP request for date and image extraction;
+date-only candidates include already illustrated cards. Per-batch candidate caps
+and a persisted one-day retry delay bound work. Publisher JSON-LD/meta parsing
+does not execute scripts and does not substitute `dateModified` for publication.
+Reading-by-domain is on-demand, capped to 500 groups and currently descriptive,
+not an automatically trained ranking model. Tests also cover read-then-hide
+precedence, auth/CSRF, archive restoration and 40k-row feed/archive/report timing.
+
 ## Validation Boundaries
 
 Automated tests cover SSRF addressing/redirects, auth separation, CIDRs/CSRF,

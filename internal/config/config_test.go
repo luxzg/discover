@@ -43,7 +43,7 @@ func TestStrictValidationAndMissingDefaults(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, field := range []string{`"admin_bind_cidrs":null`, `"admin_bind_cidrs":["broken"]`, `"http_write_timeout_sec":0`, `"typo":1`, `"daily_ingest_time":"25:00"`} {
+	for _, field := range []string{`"admin_bind_cidrs":null`, `"admin_bind_cidrs":["broken"]`, `"http_write_timeout_sec":0`, `"typo":1`, `"daily_ingest_time":"25:00"`, `"feed_max_age_days":-1`, `"score_evidence_window_hours":0`, `"date_refresh_max_per_run":501`, `"feed_freshness_decay_days":-1`} {
 		path := filepath.Join(t.TempDir(), "config.json")
 		os.WriteFile(path, []byte(`{"admin_secret":"test-admin","user_secret":"test-user",`+field+`}`), 0600)
 		if _, err := Load(path); err == nil {
