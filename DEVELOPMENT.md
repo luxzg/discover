@@ -53,9 +53,13 @@ verifies `discover` using `--version`, then runs isolated CLI/config/listener
 smoke tests against that binary. Race testing requires a native C compiler
 and CGO enabled for Go's race detector; the application itself does not require CGO.
 
-Browser setup is needed initially and after lockfile/browser upgrades, not on every
-test run. It downloads locked npm dependencies and matching Chromium without
-installing OS packages. Browser tests and network vulnerability scans are separate
+Browser tools are centrally managed by the operator in `~/dev/playwright-tools`.
+`PLAYWRIGHT_MODULE` can select a different absolute Playwright package directory;
+helpers default to that shared installation even in an old IDE environment.
+`setup-browser.sh` only checks the shared version and matching Chromium; it never
+installs or updates anything. Discover no longer pins a separate @playwright/test.
+Record the shared version used; operator upgrades intentionally affect all projects.
+Browser tests and network vulnerability scans are separate
 from the default deterministic checks. Test artifacts are ignored; see
 `MAINTENANCE.md` for scope and cleanup guarantees.
 

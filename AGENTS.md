@@ -57,7 +57,7 @@ Historical context docs (read-only unless explicitly requested):
 - Full validation: `./scripts/check.sh --race` (vet, tests, scripts, build artifact).
 - Vulnerability scan: `bash scripts/security-check.sh`.
 - Browser validation: `bash scripts/test-browser.sh --all` after the one-time
-  `bash scripts/setup-browser.sh`; repeat setup after lockfile/browser updates.
+  `bash scripts/setup-browser.sh` (availability check, no installs).
 - Release security check: `bash scripts/security-check.sh --binary` after build.
 - Build deployable artifact: `./scripts/build.sh`, then `./discover --version`.
 - Formatting: `./scripts/format.sh`.
@@ -73,8 +73,13 @@ Historical context docs (read-only unless explicitly requested):
   not authorize unattended upgrades, OS installation or production deployment.
 - Verify supported Go patches with official sources. Respect operator PATH and
   do not raise the module minimum only because the installed compiler changed.
-- Include development dependencies in npm audits, keep lockfiles synchronized,
-  use `npm ci` for reproduction and matching project-local Playwright browsers.
+- Browser tests use operator-managed shared Playwright via `PLAYWRIGHT_MODULE`,
+  default `$HOME/dev/playwright-tools/node_modules/playwright`, never a shadowing
+  local dependency. The operator updates shared tools/browsers for all projects;
+  agents do not install/update that tree without approval. Record actual versions
+  each run and audit its lockfile including development dependencies. Use that
+  installation's matching Chromium. This overrides earlier project-local pinning
+  preferences (operator decision 2026-11-06).
 - Ask the user to install missing system tools/browser OS libraries. Do not assume
   sudo or run browser installation with automatic OS dependency installation.
 - Separate reachable Go findings from uncalled advisories; record dated scan

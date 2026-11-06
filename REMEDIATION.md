@@ -25,10 +25,11 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
-| F13 | P2 | SearXNG inspection does not reject UID zero | IN PROGRESS | Root/UID-zero alias reproductions fixed, valid service control retained; full checks next |
+| F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
 | F14 | P3 | Middle-click opens are not recorded | PENDING | |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
+| R01 | User | Use operator-managed central Playwright | IN PROGRESS | Shared 1.64.1 four browser runs passed; full helper checks next |
 
 ## Validation And Compatibility
 
@@ -111,3 +112,16 @@ deployment is authorized by this remediation task.
   reports revision/Python without reading settings. Noninteractive Git options
   also match the updater's existing operational contract. Eight targeted tests
   passed. Full checks before commit; no schema/config/upgrade changes.
+
+### R01 - Shared Browser Tools
+
+- Operator preference overrides earlier per-repo pinning. Default resolution is
+  the shared Playwright package, including the test runner it already contains;
+  no @playwright/test install is needed. No changes to the external tools tree.
+- Shared 1.64.1, Node 22.23.4: production/development desktop/mobile browser suite
+  passed (four runs). Setup confirms matching Chromium without downloading it.
+  Synthetic selector tests cover explicit installation choice, missing Chromium
+  and relative-path rejection. Full race/vet/script/build/smoke passed. Source/
+  binary scan remains zero reachable with the seven tracked uncalled advisories;
+  project and shared tooling npm audits both report zero. Config/runtime/database
+  upgrade behavior unchanged.

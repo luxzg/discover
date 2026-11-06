@@ -51,24 +51,32 @@ as fallbacks. They do not change `GOTOOLCHAIN` or install a system compiler.
 Go's automatic toolchain selection may download a compiler if the selected
 one is older than the module minimum.
 
-Install the exact npm lockfile and matching Chromium on the development machine:
+Check the shared Playwright installation and matching Chromium:
 
 ```bash
 bash scripts/setup-browser.sh
 ```
 
-This runs `npm ci` (replaces local `node_modules`) and the project-local Playwright
-Chromium installer, with a bounded download time. Browser/companion binaries use
-Playwright's user cache. No `--with-deps` or privileged OS installation is run.
-If download times out, check connectivity and retry. Equivalent manual commands:
+This check makes no installations or downloads. The operator requested one shared
+toolchain on 2026-11-06: default `~/dev/playwright-tools/node_modules/playwright`,
+or an absolute package directory via `PLAYWRIGHT_MODULE`. Project-local stale
+dependencies cannot shadow it. Shared updates intentionally affect every project;
+record actual Playwright/Node/browser versions per run rather than claiming the
+repository alone pins the test environment. Matching browser binaries use the
+normal Playwright cache. Never update shared tools without operator approval.
+
+For initial operator setup or an approved shared update, separately:
 
 ```bash
-npm ci
-npx --no-install playwright install chromium
+mkdir -p ~/dev/playwright-tools
+npm install --prefix ~/dev/playwright-tools playwright
+~/dev/playwright-tools/node_modules/.bin/playwright install chromium
 ```
 
-Keep `@playwright/test` exactly pinned and commit `package-lock.json`. After an
-intentional Playwright upgrade, install its matching browser revision again;
+Retain the shared installation's package.json/package-lock.json. `npm ci --prefix
+~/dev/playwright-tools` reproduces that lock but replaces shared node_modules;
+it is an explicit operator action, not routine project setup. After an
+intentional shared Playwright upgrade, install its matching browser revision again;
 arbitrary system Chrome is not a reproducible substitute. See
 [Playwright browser installation](https://playwright.dev/docs/browsers).
 
@@ -113,6 +121,8 @@ operator/opt-in checks, separate from deterministic fixtures.
 
 The security helper prints date and versions, runs `govulncheck -show verbose ./...`,
 optionally scans the already built binary, then runs `npm audit --include=dev`.
+It also audits the shared tooling's lockfile read-only using npm's prefix option;
+an unavailable shared lock is a failed check, not a clean result.
 It fails on scanner/audit errors. It is fail-fast: resolve earlier failures and
 rerun to ensure later checks execute. Failed/offline scans are never clean results.
 Use `GOVULNCHECK` to select another installed scanner if necessary. Build first
@@ -130,6 +140,12 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 ## Dated Review Results
 
 ### 2026-11-06 - Audit Toolchain Follow-up
+
+- Operator requested centrally maintained Playwright instead of per-repository
+  pins. Shared 1.64.1 / Node 22.23.4 with matching Chromium passed all four
+  production/development desktop/mobile runs. Helpers select the absolute shared
+  package, check without installs and print versions. Both project and shared
+  npm audits reported zero; future shared upgrades require revalidation.
 
 - PATH selected 1.26.8, but the operator's existing SDK supplies Go 1.26.10.
   `scripts/audit-check.sh` explicitly selects that SDK locally; no system install

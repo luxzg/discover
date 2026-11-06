@@ -1,4 +1,4 @@
-const { defineConfig, devices } = require('@playwright/test');
+const { defineConfig, devices } = require('./scripts/browser-tools.cjs');
 
 module.exports = defineConfig({
   testDir: './tests/browser',

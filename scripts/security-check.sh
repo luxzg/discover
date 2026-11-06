@@ -27,3 +27,8 @@ if [[ ${1:-} == --binary ]]; then
 fi
 echo '==> npm audit, including development dependencies'
 npm audit --include=dev
+echo '==> Shared Playwright installation audit (read-only; managed by operator)'
+playwright_module=${PLAYWRIGHT_MODULE:-$HOME/dev/playwright-tools/node_modules/playwright}
+tool_root=$(dirname -- "$(dirname -- "$playwright_module")")
+[[ -f "$tool_root/package-lock.json" ]] || { echo 'Shared tooling lockfile unavailable; audit not completed.' >&2; exit 1; }
+npm --prefix "$tool_root" audit --include=dev

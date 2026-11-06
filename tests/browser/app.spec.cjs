@@ -1,4 +1,4 @@
-const { test: base, expect } = require('@playwright/test');
+const { test: base, expect } = require('../../scripts/browser-tools.cjs');
 const { startFixture } = require('./fixture.cjs');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
@@ -12,6 +12,7 @@ const test = base.extend({
 });
 
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
+  console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();
   page.on('pageerror', err => errors.push(err.message));
   page.on('console', msg => {

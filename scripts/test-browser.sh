@@ -10,7 +10,8 @@ case "${1:-}" in
   *) echo 'Usage: bash scripts/test-browser.sh [--production|--development|--all]' >&2; exit 2 ;;
 esac
 [[ $# -le 1 ]] || exit 2
-[[ -x node_modules/.bin/playwright ]] || { echo 'Run npm ci, then npx --no-install playwright install chromium.' >&2; exit 1; }
+export PLAYWRIGHT_MODULE=${PLAYWRIGHT_MODULE:-$HOME/dev/playwright-tools/node_modules/playwright}
+node scripts/browser-tools.cjs
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 trap 'exit 130' INT
@@ -24,5 +25,5 @@ for mode in "${modes[@]}"; do
     binary="$work/discover-dev"
     go build -mod=readonly -o "$binary" ./cmd/discover
   fi
-  DISCOVER_TEST_BINARY="$binary" DISCOVER_BROWSER_MODE="$mode" node_modules/.bin/playwright test
+  DISCOVER_TEST_BINARY="$binary" DISCOVER_BROWSER_MODE="$mode" node "$PLAYWRIGHT_MODULE/cli.js" test
 done

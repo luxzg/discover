@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-06 15:16 CET - v2.36
+
+- Operator-requested shared browser tooling: use the central Playwright package
+  and its Chromium via PLAYWRIGHT_MODULE, defaulting to ~/dev/playwright-tools.
+  Removed the duplicate project pin; setup now checks only, never downloads or
+  changes shared tools. Security checks also audit the shared lockfile.
+- Shared Playwright 1.64.1 passed production/development desktop/mobile browser
+  checks with isolated data. Added selection/missing-browser/path regressions.
+  Runtime APIs/config/schema remain unchanged; no production deployment.
+
 ## 2026-11-06 15:12 CET - v2.35
 
 - F13: SearXNG inventory refuses any UID-zero service owner before Git/Python
