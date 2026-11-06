@@ -14,8 +14,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | ID | Priority | Finding / root cause | Status | Evidence / commit / push |
 | --- | --- | --- | --- | --- |
 | F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | VERIFIED | 48ef106; targeted 8/8 and full race checks; pushed |
-| F02 | P1 | Installed Go compiler lacks current security patches | IN PROGRESS | SDK 1.26.10 selected; full race/build/smoke passed; source/binary scans zero reachable, seven uncalled x/net advisories; commit/push next |
-| F03 | P2 | Privileged deployment backup root lacks ancestry validation | PENDING | |
+| F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
+| F03 | P2 | Privileged deployment backup root lacks ancestry validation | IN PROGRESS | Three unsafe-path reproductions now pass; full check/review next |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | PENDING | |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
 | F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
@@ -78,3 +78,19 @@ deployment is authorized by this remediation task.
   including developer dependencies: zero. These are dated observations only.
 - Existing legacy migration tests passed; no module/schema/config changes.
   Remote compiler selection and deployed binary remain operator verification.
+
+### F03
+
+- Confirmed root-shell snapshot writes trusted an unvalidated path; synthetic
+  non-root owner, writable ancestor and real symlink were accepted before the
+  fix and rejected afterward, with no service stop or backup creation.
+- Guard stays inline in administrator-controlled orchestration transmitted by
+  the SSH wrapper. Original lexical components are inspected before any path
+  resolution; root-owned non-writable ancestry prevents unprivileged replacement.
+  Default paths and existing failure-recovery tests pass. Review found the old
+  multi-missing-parent traversal limitation; newly created parents now use 0711,
+  while existing ancestry is never widened. Targeted suite: 16 tests. Static
+  independent review found no remaining F03 bypass; actual UID separation is
+  simulated, not a claim of a real-root deployment test.
+- No schema/config/data changes. Real server permissions are intentionally
+  uninspected; unsafe custom layouts will now fail explicitly, not be repaired.

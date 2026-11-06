@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 15:07 CET - v2.34
+
+- F03: privileged deployment validates the original backup path and every
+  existing ancestor before creating/chmodding snapshots. Rejects symlinks,
+  non-root owners, writable ancestry, dot components and filesystem-root targets;
+  normal absolute destinations and missing suffixes remain supported. Tests
+  reproduce unsafe ownership/modes/symlinks without root or production files.
+
 ## 2026-11-06 15:05 CET - v2.33
 
 - F02: select the operator's existing patched Go 1.26.10 SDK in a narrow local

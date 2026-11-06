@@ -306,6 +306,13 @@ Build/config failures leave the running binary alone. Failures after stopping
 attempt to restart the prior service; failures after swapping attempt to restore
 the previous binary first. **No database is ever restored automatically.** Backups
 and failed snapshots are retained under `/var/backups/discover/`; copy important backups off-host.
+Custom `BACKUP_ROOT` paths must have root-owned directories and ancestors without
+group/other write access. Symlinks, `.`/`..` components and `/` are refused before
+snapshot writes; the updater does not repair untrusted ownership/permissions.
+Repeated/trailing separators are normalized. The default remains unchanged.
+New backup parents are created root-owned with traversal-only access for other
+users (0711), so the service account can check retained candidates without listing
+snapshots. Existing ancestor permissions are never widened automatically.
 Build outputs that are symlinks or have multiple hard links are rejected rather
 than followed. Installation and binary recovery use unique service-user temporary
 files, not predictable recovery paths. Resolve any rejected local alias deliberately;

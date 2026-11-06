@@ -35,9 +35,43 @@ service env APP_DIR="$APP_DIR" bash "$APP_DIR/scripts/update_remote.sh"
 echo
 echo '==> Retaining candidate, previous binary and config in a root-owned snapshot'
 backup_root=${BACKUP_ROOT:-/var/backups/discover}
-[[ "$backup_root" == /* && "$backup_root" != *"'"* && "$backup_root" != *$'\n'* ]] || { echo 'Invalid backup root.' >&2; exit 1; }
+[[ "$backup_root" == /* && "$backup_root" != *"'"* && "$backup_root" != *$'\n'* && "$backup_root" != *$'\r'* ]] || { echo 'Invalid backup root.' >&2; exit 1; }
+# Inspect the original components: realpath would conceal symlink traversal.
+IFS=/ read -r -a backup_parts <<< "$backup_root"
+backup_root=''
+for part in "${backup_parts[@]}"; do
+  [[ -n "$part" ]] || continue
+  [[ "$part" != . && "$part" != .. ]] || { echo 'Backup path must use trusted explicit directory names.' >&2; exit 1; }
+  backup_root+="/$part"
+done
+[[ -n "$backup_root" ]] || { echo 'Backup root cannot be the filesystem root.' >&2; exit 1; }
+trusted_backup_dir() {
+  local mode uid
+  [[ -d "$1" && ! -L "$1" ]] || { echo 'Backup ancestry must be trusted directories, not symlinks.' >&2; return 1; }
+  uid=$(stat -c %u -- "$1")
+  mode=$(stat -c %a -- "$1")
+  if [[ "$uid" != 0 || ! "$mode" =~ ^[0-7]{3,4}$ ]] || (( (8#$mode & 0022) != 0 )); then
+    echo 'Backup ancestry must be root-owned without group/other write access.' >&2; return 1
+  fi
+}
+trusted_backup_dir /
+prefix=''
+for part in "${backup_parts[@]}"; do
+  [[ -n "$part" ]] || continue
+  prefix+="/$part"
+  [[ ! -L "$prefix" ]] || { echo 'Backup ancestry must not contain symlinks.' >&2; exit 1; }
+  if [[ -e "$prefix" ]]; then trusted_backup_dir "$prefix"; fi
+done
 umask 077
-mkdir -p -- "$backup_root"
+prefix=''
+for part in "${backup_parts[@]}"; do
+  [[ -n "$part" ]] || continue
+  prefix+="/$part"
+  # New parents need traversal for candidate checks, never directory listing.
+  # Do not widen any pre-existing ancestor's permissions.
+  if [[ ! -e "$prefix" ]]; then mkdir -m 0711 -- "$prefix"; fi
+  trusted_backup_dir "$prefix"
+done
 # Traversal lets the unprivileged candidate run; directory listing remains private.
 chmod 0711 "$backup_root"
 snapshot=$(mktemp -d "$backup_root/release-XXXXXXXX")

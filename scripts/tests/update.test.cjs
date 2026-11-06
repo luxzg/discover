@@ -62,7 +62,7 @@ test('wrapper sends trusted local orchestration, not a root command for a servic
   assert.doesNotMatch(args, /exec bash \/home\/discover/);
 });
 
-for (const failure of ['build', 'backup', 'start', 'none']) {
+for (const failure of ['build', 'backup', 'start', 'unsafe-owner', 'unsafe-mode', 'unsafe-symlink', 'unsafe-dangling', 'unsafe-dotdot', 'unsafe-cr', 'none', 'none-slashes', 'none-nested']) {
   test(`deployment ${failure}: ordering and recovery with isolated command doubles`, t => {
     const dir = mkdtempSync(join(tmpdir(), 'discover-deploy-'));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -71,6 +71,8 @@ for (const failure of ['build', 'backup', 'start', 'none']) {
     const log = join(dir, 'log');
     const executable = (path, body) => writeFileSync(path, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
     executable(join(bin, 'id'), 'echo 0');
+    // Only this isolated fixture's metadata is simulated. Real link tests remain.
+    executable(join(bin, 'stat'), 'if [[ "$2" == %a ]]; then\n if [[ "$FAILURE" == unsafe-mode && "${@: -1}" == "$TEST_DIR" ]]; then echo 777; else echo 755; fi\nelse\n if [[ "$FAILURE" == unsafe-owner && "${@: -1}" == "$TEST_DIR" ]]; then echo 1000; else echo 0; fi\nfi');
     executable(join(bin, 'flock'), 'exit 0');
     executable(join(bin, 'sleep'), 'exit 0');
     executable(join(bin, 'runuser'), 'shift 3\ncase "$1" in\n git) echo pull >> "$TEST_LOG"; exit 0;;\n env) echo build >> "$TEST_LOG"; [[ "$FAILURE" != build ]]; exit $?;;\n *) exec "$@";;\nesac');
@@ -84,20 +86,33 @@ for (const failure of ['build', 'backup', 'start', 'none']) {
     const sentinel = join(app, 'sentinel'); writeFileSync(sentinel, 'untouched');
     // A service-owned stale recovery alias must not redirect recovery writes.
     symlinkSync(sentinel, join(app, 'discover.recovery'));
+    if (failure === 'unsafe-symlink') { mkdirSync(join(dir, 'target')); symlinkSync(join(dir, 'target'), join(dir, 'backups')); }
+    if (failure === 'unsafe-dangling') symlinkSync(join(dir, 'absent'), join(dir, 'backups'));
+    let backupRoot = join(dir, 'backups');
+    if (failure === 'unsafe-dotdot') backupRoot = `${dir}/../backups`;
+    if (failure === 'unsafe-cr') backupRoot += '\r';
+    if (failure === 'none-slashes') backupRoot = `${dir}//backups///`;
+    if (failure === 'none-nested') backupRoot = `${dir}/new-parent/backups`;
     // Substitute only the lock location in the test copy, never touch /run/lock.
     const script = readFileSync(join(root, 'scripts/deploy.sh'), 'utf8').replace('/run/lock/discover-deploy.lock', join(dir, 'lock'));
     writeFileSync(join(dir, 'deploy.sh'), script);
-    const r = spawnSync('bash', [join(dir, 'deploy.sh')], { encoding: 'utf8', env: { ...process.env, APP_DIR: app, BACKUP_ROOT: join(dir, 'backups'), PATH: `${bin}:${process.env.PATH}`, TEST_LOG: log, FAILURE: failure } });
+    const r = spawnSync('bash', [join(dir, 'deploy.sh')], { encoding: 'utf8', env: { ...process.env, APP_DIR: app, BACKUP_ROOT: backupRoot, PATH: `${bin}:${process.env.PATH}`, TEST_DIR: dir, TEST_LOG: log, FAILURE: failure } });
     const events = readFileSync(log, 'utf8');
-    if (failure === 'build') { assert.notEqual(r.status, 0); assert.doesNotMatch(events, /systemctl stop/); }
+    if (failure === 'build' || failure.startsWith('unsafe-')) {
+      assert.notEqual(r.status, 0); assert.doesNotMatch(events, /systemctl stop/);
+      if (failure.startsWith('unsafe-')) assert.match(r.stderr, /backup.*(trusted|symlink|root-owned|invalid)|invalid backup/i);
+      if (failure === 'unsafe-symlink') assert.deepEqual(require('node:fs').readdirSync(join(dir, 'target')), []);
+      if (failure === 'unsafe-owner' || failure === 'unsafe-mode') assert.equal(require('node:fs').existsSync(join(dir, 'backups')), false);
+    }
     else {
       assert.ok(events.indexOf('build') < events.indexOf('systemctl stop'));
       assert.ok(events.indexOf('systemctl stop') < events.indexOf('backup'));
       assert.match(events, /systemctl start/);
-      assert.equal(r.status === 0, failure === 'none', r.stderr);
-      assert.match(readFileSync(join(app, 'discover'), 'utf8'), failure === 'none' ? /echo new/ : /echo old/);
+      assert.equal(r.status === 0, failure.startsWith('none'), r.stderr);
+      assert.match(readFileSync(join(app, 'discover'), 'utf8'), failure.startsWith('none') ? /echo new/ : /echo old/);
     }
     assert.equal(readFileSync(join(app, 'test.db'), 'utf8'), 'fixture');
     assert.equal(readFileSync(sentinel, 'utf8'), 'untouched');
+    if (failure === 'none-nested') assert.equal(require('node:fs').statSync(join(dir, 'new-parent')).mode & 0o777, 0o711);
   });
 }
