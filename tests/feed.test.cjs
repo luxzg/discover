@@ -9,7 +9,7 @@ function browser(file = 'feed.js', initialFetch = () => new Promise(() => {})) {
   const elements = new Map();
   function element() { return { textContent: '', innerHTML: '', value: '', dataset: {}, disabled: false, hidden: false,
     listeners: {}, addEventListener(event, fn) { this.listeners[event] = fn; },
-    classList: { add() {}, remove() {}, toggle() {} }, querySelectorAll() { return []; } }; }
+    focus() {}, classList: { add() {}, remove() {}, toggle() {} }, querySelectorAll() { return []; } }; }
   const document = { getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
     addEventListener() {}, querySelectorAll() { return []; }, body: element() };
   const c = vm.createContext({ document, console, URL, Date, setTimeout, clearTimeout, AbortController, crypto: webcrypto, setInterval() {},
@@ -356,4 +356,34 @@ for (const file of ['feed.js','admin.js']) {
     } else {b.elements.get('secret').value='secret';await b.elements.get('loginBtn').onclick()}
     assert.equal(b.eval('authenticated'),false);
   });
+}
+
+for (const kind of ['Topic','Rule']) {
+  for (const change of ['typing','toggle','select','clear','unchanged','duplicate']) {
+    test(`${kind} save preserves subsequent ${change} intent`, async()=>{
+      const b=browser('admin.js');b.eval('authenticated=true; setAuthUI()');
+      const topic=kind==='Topic', text=topic?'topicQ':'ruleP', number=topic?'topicW':'rulePenalty', enabled=topic?'topicE':'ruleE';
+      b.eval(`editing${kind}ID=7; document.getElementById('${text}').value='Original'; document.getElementById('${number}').value='2'; document.getElementById('${enabled}').checked=true`);
+      let ready,release;const entered=new Promise(r=>{ready=r}), pending=new Promise(r=>{release=r});let submissions=0;
+      b.c.fetch=async(_url,opts)=>{
+        if(opts.method==='POST'){submissions++;ready();return pending}
+        return {ok:true,json:async()=>({items:[]})};
+      };
+      const save=b.elements.get(`add${kind}`).onclick(); await entered;let second;
+      if(change==='typing'){b.elements.get(text).value='New draft';b.elements.get(text).listeners.input?.()}
+      if(change==='toggle'){b.elements.get(enabled).checked=false;b.elements.get(enabled).listeners.change?.()}
+      if(change==='clear'){b.elements.get(`new${kind}`).onclick();b.elements.get(text).value='New draft';b.elements.get(text).listeners.input?.()}
+      if(change==='select'){
+        const dataset=topic?{editTopic:'8',topicQuery:'New draft',topicWeight:'3',topicEnabled:'false'}:{editRule:'8',rulePattern:'New draft',rulePenalty:'3',ruleEnabled:'false'};
+        await b.c.document.body.listeners.click({target:{dataset,matches:s=>s===`[data-edit-${kind.toLowerCase()}]`}});
+      }
+      if(change==='duplicate') second=b.elements.get(`add${kind}`).onclick();
+      release({ok:true,json:async()=>({ok:true})}); await save; if(second)await second;
+      assert.equal(submissions,1);
+      if(['typing','select','clear'].includes(change))assert.equal(b.elements.get(text).value,'New draft');
+      if(change==='toggle'){assert.equal(b.elements.get(text).value,'Original');assert.equal(b.elements.get(enabled).checked,false)}
+      if(change==='select')assert.equal(b.eval(`editing${kind}ID`),8);
+      if(['unchanged','duplicate'].includes(change))assert.equal(b.elements.get(text).value,'');
+    });
+  }
 }

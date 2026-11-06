@@ -55,6 +55,7 @@ the server state before repeating a mutation whose response was interrupted.
 - Manage topics (query, weight, enabled)
 - Manage negative rules (pattern, penalty, enabled)
 - `Edit` retains the existing row ID, so correcting text updates rather than inserts. `Clear / New` leaves edit mode. Weight `0` is valid; negative-rule penalties must be positive.
+- A pending save disables that editor's save button, not its fields or Edit/New controls. Later drafts are retained when the earlier save finishes; only the unchanged submitted draft is cleared.
 - Run ingestion manually from UI
 - Run retroactive title dedupe manually from UI (`Run Retroactive Dedupe`)
   - across all current `unread` items:

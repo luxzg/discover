@@ -49,6 +49,30 @@ for (const role of ['feed', 'admin']) {
   });
 }
 
+test('topic and rule saves retain later drafts in the rendered editor', async ({page,app}) => {
+  await page.goto(app.url+'/admin');
+  await page.locator('#secret').fill(app.admin);
+  await page.locator('#loginBtn').click();
+  await expect(page.locator('#addTopic')).toBeEnabled();
+  for (const kind of ['Topic','Rule']) {
+    const topic=kind==='Topic', endpoint=topic?'topics':'rules', field=topic?'topicQ':'ruleP';
+    await page.locator(topic?'#topicsPanel summary':'#rulesPanel summary').click();
+    let ready,release;
+    const entered=new Promise(r=>{ready=r}), gate=new Promise(r=>{release=r});
+    await page.route(`**/admin/api/${endpoint}`,async route=>{
+      if(route.request().method()!=='POST')return route.continue();
+      const response=await route.fetch(); ready(); await gate; await route.fulfill({response});
+    });
+    await page.locator('#'+field).fill('Saved '+kind);
+    await page.locator('#add'+kind).click(); await entered;
+    await expect(page.locator('#add'+kind)).toBeDisabled();
+    await page.locator('#'+field).fill('New unsaved '+kind);
+    release();
+    await expect(page.locator('#add'+kind)).toBeEnabled();
+    await expect(page.locator('#'+field)).toHaveValue('New unsaved '+kind);
+  }
+});
+
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
   console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();

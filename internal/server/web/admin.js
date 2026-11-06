@@ -20,6 +20,10 @@ let authenticated = false;
 let csrfToken = '';
 let editingTopicID = 0;
 let editingRuleID = 0;
+let topicEditorRevision = 0;
+let ruleEditorRevision = 0;
+let topicSaveInFlight = false;
+let ruleSaveInFlight = false;
 let requestedRunID = 0;
 let statusInFlight = false;
 let sessionGeneration = 0;
@@ -39,6 +43,8 @@ function advanceSession() {
   manualIngestInFlight = false;
   manualDedupeInFlight = false;
   engineCheckInFlight = false;
+  topicSaveInFlight = false;
+  ruleSaveInFlight = false;
 }
 
 async function sessionFetch(url, opts) {
@@ -137,6 +143,8 @@ function setAuthUI() {
   for (const id of ['addTopic','addRule','previewArchive','applyArchive','loadDomains']) {
     document.getElementById(id).disabled = !authenticated || authInFlight;
   }
+  document.getElementById('addTopic').disabled ||= topicSaveInFlight;
+  document.getElementById('addRule').disabled ||= ruleSaveInFlight;
   if (!authenticated) {
     latestEngineCheckID = 0;
     document.getElementById('engineRows').innerHTML = '';
@@ -215,35 +223,64 @@ async function loadRules() {
   document.getElementById('rules').innerHTML = (j.items || []).map(r => `<li>${escHtml(r.pattern)} (-${r.penalty}, enabled=${r.enabled}, applied=${Number(r.applied_count || 0)}) <button data-edit-rule="${r.id}" data-rule-pattern="${escAttr(r.pattern)}" data-rule-penalty="${r.penalty}" data-rule-enabled="${r.enabled}">edit</button> <button data-del-rule="${r.id}">delete</button></li>`).join('');
 }
 
+function topicDraft() {
+  return {id:editingTopicID, query:document.getElementById('topicQ').value, weight:Number(document.getElementById('topicW').value || 1), enabled:Boolean(document.getElementById('topicE').checked)};
+}
+function ruleDraft() {
+  return {id:editingRuleID, pattern:document.getElementById('ruleP').value, penalty:Number(document.getElementById('rulePenalty').value || 5), enabled:Boolean(document.getElementById('ruleE').checked)};
+}
+for (const id of ['topicQ','topicW','topicE']) {
+  document.getElementById(id).addEventListener('input', () => topicEditorRevision++);
+  document.getElementById(id).addEventListener('change', () => topicEditorRevision++);
+}
+for (const id of ['ruleP','rulePenalty','ruleE']) {
+  document.getElementById(id).addEventListener('input', () => ruleEditorRevision++);
+  document.getElementById(id).addEventListener('change', () => ruleEditorRevision++);
+}
+
 document.getElementById('addTopic').onclick = async () => {
+  if (topicSaveInFlight) return;
   if (!authenticated || authInFlight) {
     status('sign in first');
     return;
   }
+  const generation = sessionGeneration, revision = topicEditorRevision, submitted = JSON.stringify(topicDraft());
+  topicSaveInFlight = true;
+  setAuthUI();
   try {
-    await call('/admin/api/topics', { method: 'POST', body: JSON.stringify({ id: editingTopicID, query: document.getElementById('topicQ').value, weight: Number(document.getElementById('topicW').value || 1), enabled: document.getElementById('topicE').checked }) });
-    resetTopicEditor();
-    await loadTopics();
+    await call('/admin/api/topics', { method: 'POST', body: submitted });
+    if (generation === sessionGeneration && revision === topicEditorRevision && submitted === JSON.stringify(topicDraft())) resetTopicEditor();
     status('topic saved');
+    try { await loadTopics(); }
+    catch (e) { if (!e.staleSession) status(`topic saved; list refresh failed: ${e.message}`); }
   } catch (e) {
     if (e.staleSession) return;
     status(`topic save failed: ${e.message}`);
+  } finally {
+    if (generation === sessionGeneration) { topicSaveInFlight = false; setAuthUI(); }
   }
 };
 
 document.getElementById('addRule').onclick = async () => {
+  if (ruleSaveInFlight) return;
   if (!authenticated || authInFlight) {
     status('sign in first');
     return;
   }
+  const generation = sessionGeneration, revision = ruleEditorRevision, submitted = JSON.stringify(ruleDraft());
+  ruleSaveInFlight = true;
+  setAuthUI();
   try {
-    await call('/admin/api/rules', { method: 'POST', body: JSON.stringify({ id: editingRuleID, pattern: document.getElementById('ruleP').value, penalty: Number(document.getElementById('rulePenalty').value || 5), enabled: document.getElementById('ruleE').checked }) });
-    resetRuleEditor();
-    await loadRules();
+    await call('/admin/api/rules', { method: 'POST', body: submitted });
+    if (generation === sessionGeneration && revision === ruleEditorRevision && submitted === JSON.stringify(ruleDraft())) resetRuleEditor();
     status('rule saved');
+    try { await loadRules(); }
+    catch (e) { if (!e.staleSession) status(`rule saved; list refresh failed: ${e.message}`); }
   } catch (e) {
     if (e.staleSession) return;
     status(`rule save failed: ${e.message}`);
+  } finally {
+    if (generation === sessionGeneration) { ruleSaveInFlight = false; setAuthUI(); }
   }
 };
 
@@ -310,6 +347,7 @@ runDedupeBtn.onclick = async () => {
 document.body.addEventListener('click', async (e) => {
   if (!authenticated || authInFlight) return;
   if (e.target.matches('[data-edit-topic]')) {
+    topicEditorRevision++;
     editingTopicID = Number(e.target.dataset.editTopic);
     document.getElementById('addTopic').textContent = 'Update Topic';
     document.getElementById('topicQ').value = e.target.dataset.topicQuery || '';
@@ -319,6 +357,7 @@ document.body.addEventListener('click', async (e) => {
     status('topic loaded into editor');
   }
   if (e.target.matches('[data-edit-rule]')) {
+    ruleEditorRevision++;
     editingRuleID = Number(e.target.dataset.editRule);
     document.getElementById('addRule').textContent = 'Update Rule';
     document.getElementById('ruleP').value = e.target.dataset.rulePattern || '';
@@ -459,6 +498,7 @@ checkEnginesBtn.onclick = async () => {
 };
 
 function resetTopicEditor() {
+  topicEditorRevision++;
   editingTopicID = 0;
   document.getElementById('topicQ').value = '';
   document.getElementById('topicW').value = '1';
@@ -466,6 +506,7 @@ function resetTopicEditor() {
   document.getElementById('addTopic').textContent = 'Add/Update';
 }
 function resetRuleEditor() {
+  ruleEditorRevision++;
   editingRuleID = 0;
   document.getElementById('ruleP').value = '';
   document.getElementById('rulePenalty').value = '5';

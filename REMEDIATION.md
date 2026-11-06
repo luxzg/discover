@@ -19,8 +19,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | VERIFIED | 9b45ce8; targeted/full checks and clean source/binary/npm scans; pushed |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | VERIFIED | c49a2a4; 25 JS, twelve browser and full checks passed; pushed |
 | F06 | P2 | Batch replacement can race a rule-based hide | VERIFIED | effa887; 30 JS, twelve browser and full checks passed; pushed |
-| F07 | P2 | Admin accepts malformed successful JSON as an empty object | IN PROGRESS | Parser/login reproductions fixed; 34 JS tests pass; full/browser next |
-| F08 | P2 | Save completion clears subsequent editor changes | PENDING | |
+| F07 | P2 | Admin accepts malformed successful JSON as an empty object | VERIFIED | fdd1e32; 34 JS, twelve browser and full checks passed; pushed |
+| F08 | P2 | Save completion clears subsequent editor changes | VALIDATED | Ten race/duplicate reproductions fixed; 46 JS, sixteen browser and full checks passed; commit/push next |
 | F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
@@ -191,3 +191,15 @@ deployment is authorized by this remediation task.
   contract removed. No backend/schema/config changes or automatic retries.
   Full race/vet/script/build/smoke and twelve shared-browser checks passed.
   Inspected the synthetic mobile Admin screenshot; layout remains bounded.
+
+### F08
+
+- Ten failing cases (typing/toggle/select/clear/duplicate save, both editors) now
+  pass; unchanged drafts still reset. Revision plus submitted payload checks
+  preserve newer intent, and each editor serializes submissions. JS suite: 46.
+- Confirmed save and subsequent list refresh failure have distinct messages.
+  Epoch-owned cleanup respects F05; auth reset releases stale busy flags. No
+  backend API/schema/config or migration changes. Full race/vet/script/build/
+  smoke and sixteen production/development desktop/mobile browser checks passed.
+  A brief operator network interruption did not affect local checks; GitHub
+  connectivity and the previous pushed revision were verified afterward.

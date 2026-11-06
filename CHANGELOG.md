@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 16:13 CET - v2.42
+
+- F08: save Topic/Rule snapshots with editor revisions, preserving later typing,
+  enabled changes, Edit selections and Clear/New drafts. Serialize submissions
+  per editor; clear only unchanged drafts. A confirmed save followed by a failed
+  list refresh is reported separately. Added controlled and rendered-editor races.
+
 ## 2026-11-06 16:03 CET - v2.41
 
 - F07: reject unreadable/non-object successful API replies instead of converting
