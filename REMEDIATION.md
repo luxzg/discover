@@ -17,7 +17,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | VERIFIED | 9b45ce8; targeted/full checks and clean source/binary/npm scans; pushed |
-| F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
+| F05 | P2 | Obsolete auth responses can undo successful sign-in | IN PROGRESS | Eight reproduced startup races now pass; browser-cookie/full checks pending |
 | F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | PENDING | |
 | F08 | P2 | Save completion clears subsequent editor changes | PENDING | |
@@ -30,7 +30,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
-| R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | IN PROGRESS | Selection regression fixed; legacy no-SDK fallback retained; full checks next |
+| R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | VERIFIED | d3d9409; selection and full checks passed; pushed |
 
 ## Validation And Compatibility
 
@@ -155,3 +155,17 @@ deployment is authorized by this remediation task.
   corrected before rerun, not concealed by allowing external test traffic.
 - No runtime/schema/config/dependency changes; shared SDK upgrades still require
   tests/rebuild and operator deployment. Full checks before commit.
+
+### F05
+
+- Eight deterministic regressions reproduced delayed startup 401/success/JSON/
+  network failures for feed/Admin. Actual login handlers now retain new auth,
+  CSRF and status when obsolete responses arrive. Requests are epoch-fenced,
+  pending network fetches aborted at transitions, explicit auth serialized, and
+  stale catches/finally blocks cannot clear newer operation locks.
+- Existing failure/logout/current-401/hide tests retained; 25 JS tests passed.
+  Backend APIs/TTL/cookies unchanged. Browser cookie ordering and full checks
+  passed: twelve production/development desktop/mobile browser checks, including
+  real cookie/CSRF ordering for both roles, plus full race/vet/script/build/smoke.
+  Inspected the synthetic mobile feed screenshot; no private login state used.
+  No persistent data/config or migration changes.

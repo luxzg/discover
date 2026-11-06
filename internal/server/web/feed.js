@@ -6,6 +6,41 @@ let buildVersion = '';
 let nextInFlight = false;
 let sessionGeneration = 0;
 let hideInFlight = 0;
+let authInFlight = false;
+const sessionRequests = new Set();
+
+function staleSessionError() {
+  const err = new Error('Session changed; ignoring an old response.');
+  err.staleSession = true;
+  return err;
+}
+
+function advanceSession() {
+  sessionGeneration++;
+  for (const controller of sessionRequests) controller.abort();
+  nextInFlight = false;
+  hideInFlight = 0;
+}
+
+async function sessionFetch(url, opts) {
+  const generation = sessionGeneration;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (opts.signal?.aborted) abort();
+  else opts.signal?.addEventListener('abort', abort, {once:true});
+  sessionRequests.add(controller);
+  try {
+    const response = await fetch(url, {...opts, signal:controller.signal});
+    if (generation !== sessionGeneration) throw staleSessionError();
+    return response;
+  } catch (err) {
+    if (generation !== sessionGeneration) throw staleSessionError();
+    throw err;
+  } finally {
+    sessionRequests.delete(controller);
+    opts.signal?.removeEventListener('abort', abort);
+  }
+}
 
 const feed = document.getElementById('feed');
 const nextBtn = document.getElementById('nextBtn');
@@ -29,19 +64,17 @@ async function api(url, opts = {}) {
   if (csrfToken && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
     headers['X-CSRF-Token'] = csrfToken;
   }
-  const res = await fetch(url, { ...opts, headers });
+  const res = await sessionFetch(url, { ...opts, headers });
   let j = {}, bodyError;
   try { j = await res.json(); } catch (err) { bodyError = err; }
   if (generation !== sessionGeneration) {
-    const err = new Error('Session changed; ignoring an old response.');
-    err.staleSession = true;
-    throw err;
+    throw staleSessionError();
   }
   if (!res.ok) {
     if (res.status === 401) {
       authenticated = false;
       csrfToken = '';
-      sessionGeneration++;
+      advanceSession();
       setAuthUI();
       statusEl.textContent = 'Session expired; sign in again.';
     }
@@ -87,9 +120,11 @@ function setAuthUI() {
   userVersionSpacer.hidden = !authenticated || !buildVersion;
   userBuildVersionEl.hidden = !authenticated || !buildVersion;
   userBuildVersionEl.textContent = buildVersion || '';
-  userNameEl.disabled = authenticated;
-  userSecretEl.disabled = authenticated;
-  nextBtn.disabled = !authenticated || nextInFlight || hideInFlight > 0;
+  userNameEl.disabled = authenticated || authInFlight;
+  userSecretEl.disabled = authenticated || authInFlight;
+  userLoginBtn.disabled = authenticated || authInFlight;
+  userLogoutBtn.disabled = !authenticated || authInFlight;
+  nextBtn.disabled = !authenticated || authInFlight || nextInFlight || hideInFlight > 0;
   if (!authenticated) {
     feed.innerHTML = '';
     currentIds = [];
@@ -125,13 +160,14 @@ async function loadFeed() {
   const generation = sessionGeneration;
   try {
     const data = await api('/api/feed');
-    if (!authenticated || generation !== sessionGeneration) throw new Error('session changed');
+    if (!authenticated || generation !== sessionGeneration) throw staleSessionError();
     const items = data.items || [];
     currentIds = items.map(i => i.id);
     feed.innerHTML = items.map(card).join('');
     statusEl.textContent = `${new Date().toISOString()} loaded ${items.length} cards`;
     return items.length;
   } catch (e) {
+    if (e.staleSession) throw e;
     if (e.status === 401) {
       authenticated = false;
       setAuthUI();
@@ -171,12 +207,13 @@ async function waitForHide(state, cardEl) {
     }
     cardActionStatus(cardEl, 'Hide accepted. Applying hide in the background; you can keep reading or close this page.');
     await waitForHidePoll();
-    if (!authenticated || generation !== sessionGeneration) throw new Error('Session changed; reload to check the hide result.');
+    if (!authenticated || generation !== sessionGeneration) throw staleSessionError();
     state = await hideAPI(`/api/articles/dontshow/status?id=${encodeURIComponent(state.id)}`);
   }
 }
 
 async function applyHideRequest(cardEl, id, pattern, penalty) {
+  const generation = sessionGeneration;
   // Keep the same request ID on an uncertain network failure. A manual retry
   // checks/reuses the accepted job rather than applying another mutation.
   if (!cardEl.hideRequest || cardEl.hideRequest.pattern !== pattern || cardEl.hideRequest.penalty !== penalty) {
@@ -198,27 +235,31 @@ async function applyHideRequest(cardEl, id, pattern, penalty) {
     }
     throw err;
   } finally {
-    hideInFlight--;
-    setAuthUI();
+    if (generation === sessionGeneration) { hideInFlight--; setAuthUI(); }
   }
 }
 
 async function resumeHide() {
+  const generation = sessionGeneration;
   const state = await hideAPI('/api/articles/dontshow/status');
   if (state.status !== 'running') return;
   hideInFlight++;
   setAuthUI();
   try { await waitForHide(state, null); }
-  finally { hideInFlight--; setAuthUI(); }
+  finally { if (generation === sessionGeneration) { hideInFlight--; setAuthUI(); } }
 }
 
 userLoginBtn.addEventListener('click', async () => {
+  if (authInFlight || authenticated) return;
   const username = userNameEl.value.trim();
   const secret = userSecretEl.value.trim();
   if (!username || !secret) {
     statusEl.textContent = `${new Date().toISOString()} enter username and secret`;
     return;
   }
+  authInFlight = true;
+  advanceSession();
+  setAuthUI();
   try {
     const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ username, secret }) });
     csrfToken = j.csrf_token || '';
@@ -231,17 +272,28 @@ userLoginBtn.addEventListener('click', async () => {
     await resumeHide();
     await loadFeed();
   } catch (e) {
+    if (e.staleSession) return;
     statusEl.textContent = `${new Date().toISOString()} ${authenticated ? 'feed load failed' : 'sign in failed'}: ${e.message}`;
+  } finally {
+    authInFlight = false;
+    setAuthUI();
   }
 });
 
 userLogoutBtn.addEventListener('click', async () => {
+  if (authInFlight || !authenticated) return;
+  authInFlight = true;
+  advanceSession();
+  setAuthUI();
   try {
     await api('/api/logout', { method: 'POST', body: JSON.stringify({}) });
   } catch (e) {
+    if (e.staleSession) return;
     if (e.status !== 401) { statusEl.textContent = `Sign out failed: ${e.message}. Please retry.`; return; }
+  } finally {
+    authInFlight = false;
+    setAuthUI();
   }
-  sessionGeneration++;
   authenticated = false;
   csrfToken = '';
   buildVersion = '';
@@ -250,7 +302,7 @@ userLogoutBtn.addEventListener('click', async () => {
 });
 
 nextBtn.addEventListener('click', async () => {
-  if (!authenticated || nextInFlight || hideInFlight > 0) return;
+  if (!authenticated || authInFlight || nextInFlight || hideInFlight > 0) return;
   nextInFlight = true;
   setAuthUI();
   const generation = sessionGeneration;
@@ -271,22 +323,23 @@ nextBtn.addEventListener('click', async () => {
         count = await loadFeed();
         statusEl.textContent = `Ingestion ${state.failed ? 'finished with warnings' : 'completed'}; loaded ${count} cards.`;
       } catch (refreshErr) {
+        if (refreshErr.staleSession) return;
         statusEl.textContent = `${new Date().toISOString()} ingest refresh skipped: ${refreshErr.message}`;
       }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
+    if (e.staleSession) return;
     statusEl.textContent = `${new Date().toISOString()} next batch failed: ${e.message}`;
   } finally {
-    nextInFlight = false;
-    setAuthUI();
+    if (generation === sessionGeneration) { nextInFlight = false; setAuthUI(); }
   }
 });
 
 feed.addEventListener('error', e => { if (e.target.matches('img.thumb')) e.target.remove(); }, true);
 
 feed.addEventListener('click', async (e) => {
-  if (!authenticated) return;
+  if (!authenticated || authInFlight) return;
   const cardEl = e.target.closest('.card');
   if (!cardEl) return;
   const id = Number(cardEl.dataset.id);
@@ -360,6 +413,7 @@ feed.addEventListener('click', async (e) => {
       const sourceID = Number(e.target.closest('[data-click]').dataset.sourceId) || id;
       await api('/api/articles/click', { method: 'POST', body: JSON.stringify({ id: sourceID }) });
     } catch (err) {
+      if (err.staleSession) return;
       statusEl.textContent = `${new Date().toISOString()} click tracking failed: ${err.message}`;
     }
   }
@@ -384,6 +438,7 @@ statusEl.textContent = `${new Date().toISOString()} checking session...`;
     await resumeHide();
     await loadFeed();
   } catch (err) {
+    if (err.staleSession) return;
     if (err.status === 401 || err.status === 403) {
       authenticated = false;
       csrfToken = '';

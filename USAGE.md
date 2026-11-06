@@ -159,6 +159,12 @@ rather than falsely claiming the server session was removed.
 
 ## Ingestion Behavior
 
+Feed and Admin ignore responses from older login generations. Auth transitions
+abort obsolete in-flight requests and serialize login/logout, so a slow startup
+probe cannot undo a fresh login or replace its CSRF state. This does not make
+actions offline-capable: accepted background work remains server-owned, while an
+uncertain submission still needs its existing status/retry flow.
+
 - Scheduling modes:
   - interval mode via `ingest_interval_minutes` (default every 2 hours)
   - daily mode via `daily_ingest_time` when interval mode is disabled (`ingest_interval_minutes=0`)

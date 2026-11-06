@@ -11,6 +11,44 @@ const test = base.extend({
   },
 });
 
+for (const role of ['feed', 'admin']) {
+  test(`${role}: aborted old session response cannot replace new login cookies`, async ({page,context,app}) => {
+    const admin = role === 'admin';
+    const prefix = admin ? '/admin/api' : '/api';
+    const credentials = admin ? {secret:app.admin} : {username:'fixture-reader',secret:app.secret};
+    expect((await context.request.post(app.url + prefix + '/login', {data:credentials})).ok()).toBe(true);
+    let ready, release, finished;
+    const started = new Promise(resolve => {ready=resolve});
+    const gate = new Promise(resolve => {release=resolve});
+    const delivered = new Promise(resolve => {finished=resolve});
+    await page.route(`**${prefix}/session`, async route => {
+      const old = await route.fetch();
+      ready();
+      await gate;
+      try { await route.fulfill({response:old}); } finally { finished(); }
+    });
+    await page.goto(app.url + (admin ? '/admin' : '/'));
+    await started;
+    if (admin) {
+      await page.locator('#secret').fill(app.admin);
+      await page.locator('#loginBtn').click();
+      await expect(page.locator('#countsPanel')).toBeVisible();
+    } else {
+      await page.locator('#userName').fill('fixture-reader');
+      await page.locator('#userSecret').fill(app.secret);
+      await page.locator('#userLoginBtn').click();
+      await expect(page.locator('.card')).toHaveCount(5);
+    }
+    release(); await delivered;
+    const csrf = await page.evaluate(() => csrfToken);
+    const response = await context.request.post(app.url + prefix + (admin ? '/topics' : '/articles/action'), {
+      headers:{'X-CSRF-Token':csrf}, data:admin ? {query:'fixture news',weight:10,enabled:true} : {id:1,action:'up'}
+    });
+    expect(response.status()).toBe(200);
+    await expect(page.locator(admin ? '#logoutBtn' : '#userLogoutBtn')).toBeVisible();
+  });
+}
+
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
   console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();

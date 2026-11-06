@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-06 15:54 CET - v2.39
+
+- F05: fence feed/Admin requests by authentication generation and serialize
+  sign-in/sign-out. Abort obsolete requests at transitions, ignore stale success,
+  error and cleanup callbacks, and preserve authenticated UI after failed logout.
+  Buttons cannot submit mutations during an authentication transition.
+- Added eight deterministic startup-response races and real-browser stale-cookie
+  regressions for both roles. Backend session lifetimes and APIs unchanged.
+
 ## 2026-11-06 15:47 CET - v2.38
 
 - Operator-requested shared SDK selection: all Go helpers, including formatting,

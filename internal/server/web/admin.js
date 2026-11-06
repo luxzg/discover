@@ -22,6 +22,44 @@ let editingTopicID = 0;
 let editingRuleID = 0;
 let requestedRunID = 0;
 let statusInFlight = false;
+let sessionGeneration = 0;
+let authInFlight = false;
+const sessionRequests = new Set();
+
+function staleSessionError() {
+  const err = new Error('Session changed; ignoring an old response.');
+  err.staleSession = true;
+  return err;
+}
+
+function advanceSession() {
+  sessionGeneration++;
+  for (const controller of sessionRequests) controller.abort();
+  statusInFlight = false;
+  manualIngestInFlight = false;
+  manualDedupeInFlight = false;
+  engineCheckInFlight = false;
+}
+
+async function sessionFetch(url, opts) {
+  const generation = sessionGeneration;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (opts.signal?.aborted) abort();
+  else opts.signal?.addEventListener('abort', abort, {once:true});
+  sessionRequests.add(controller);
+  try {
+    const response = await fetch(url, {...opts, signal:controller.signal});
+    if (generation !== sessionGeneration) throw staleSessionError();
+    return response;
+  } catch (err) {
+    if (generation !== sessionGeneration) throw staleSessionError();
+    throw err;
+  } finally {
+    sessionRequests.delete(controller);
+    opts.signal?.removeEventListener('abort', abort);
+  }
+}
 
 function nowStamp() {
   const d = new Date();
@@ -48,6 +86,7 @@ function escHtml(v) {
 }
 
 async function call(url, opts = {}) {
+  const generation = sessionGeneration;
   const headers = { ...(opts.headers || {}) };
   const method = String(opts.method || 'GET').toUpperCase();
   const hasBody = typeof opts.body !== 'undefined';
@@ -57,12 +96,14 @@ async function call(url, opts = {}) {
   if (csrfToken && method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
     headers['X-CSRF-Token'] = csrfToken;
   }
-  const r = await fetch(url, { ...opts, headers });
+  const r = await sessionFetch(url, { ...opts, headers });
   const j = await r.json().catch(() => ({}));
+  if (generation !== sessionGeneration) throw staleSessionError();
   if (!r.ok) {
     if (r.status === 401) {
       authenticated = false;
       csrfToken = '';
+      advanceSession();
       manualIngestInFlight = false;
       setAuthUI();
     }
@@ -74,11 +115,11 @@ async function call(url, opts = {}) {
 }
 
 function setAuthUI() {
-  loginBtn.disabled = authenticated;
-  logoutBtn.disabled = !authenticated;
-  secretEl.disabled = authenticated;
-  runIngestBtn.disabled = !authenticated || manualIngestInFlight;
-  runDedupeBtn.disabled = !authenticated || manualDedupeInFlight || manualIngestInFlight;
+  loginBtn.disabled = authenticated || authInFlight;
+  logoutBtn.disabled = !authenticated || authInFlight;
+  secretEl.disabled = authenticated || authInFlight;
+  runIngestBtn.disabled = !authenticated || authInFlight || manualIngestInFlight;
+  runDedupeBtn.disabled = !authenticated || authInFlight || manualDedupeInFlight || manualIngestInFlight;
   topicsPanel.hidden = !authenticated;
   rulesPanel.hidden = !authenticated;
   ingestionPanel.hidden = !authenticated;
@@ -86,7 +127,10 @@ function setAuthUI() {
   document.getElementById('archivePanel').hidden = !authenticated;
   document.getElementById('domainsPanel').hidden = !authenticated;
   document.getElementById('enginePanel').hidden = !authenticated;
-  checkEnginesBtn.disabled = !authenticated || engineCheckInFlight;
+  checkEnginesBtn.disabled = !authenticated || authInFlight || engineCheckInFlight;
+  for (const id of ['addTopic','addRule','previewArchive','applyArchive','loadDomains']) {
+    document.getElementById(id).disabled = !authenticated || authInFlight;
+  }
   if (!authenticated) {
     latestEngineCheckID = 0;
     document.getElementById('engineRows').innerHTML = '';
@@ -97,11 +141,15 @@ function setAuthUI() {
 }
 
 loginBtn.onclick = async () => {
+  if (authInFlight || authenticated) return;
   const secret = secretEl.value.trim();
   if (!secret) {
     status('enter admin secret first');
     return;
   }
+  authInFlight = true;
+  advanceSession();
+  setAuthUI();
   try {
     const res = await call('/admin/api/login', { method: 'POST', body: JSON.stringify({ secret }) });
     csrfToken = res.csrf_token || '';
@@ -111,15 +159,27 @@ loginBtn.onclick = async () => {
     status('signed in');
     await bootstrapAfterAuth();
   } catch (e) {
+    if (e.staleSession) return;
     status(`sign in failed: ${e.message}`);
+  } finally {
+    authInFlight = false;
+    setAuthUI();
   }
 };
 
 logoutBtn.onclick = async () => {
+  if (authInFlight || !authenticated) return;
+  authInFlight = true;
+  advanceSession();
+  setAuthUI();
   try {
     await call('/admin/api/logout', { method: 'POST', body: JSON.stringify({}) });
   } catch (e) {
+    if (e.staleSession) return;
     if (e.status !== 401) { status(`sign out failed: ${e.message}; please retry`); return; }
+  } finally {
+    authInFlight = false;
+    setAuthUI();
   }
   authenticated = false;
   csrfToken = '';
@@ -150,7 +210,7 @@ async function loadRules() {
 }
 
 document.getElementById('addTopic').onclick = async () => {
-  if (!authenticated) {
+  if (!authenticated || authInFlight) {
     status('sign in first');
     return;
   }
@@ -160,12 +220,13 @@ document.getElementById('addTopic').onclick = async () => {
     await loadTopics();
     status('topic saved');
   } catch (e) {
+    if (e.staleSession) return;
     status(`topic save failed: ${e.message}`);
   }
 };
 
 document.getElementById('addRule').onclick = async () => {
-  if (!authenticated) {
+  if (!authenticated || authInFlight) {
     status('sign in first');
     return;
   }
@@ -175,11 +236,14 @@ document.getElementById('addRule').onclick = async () => {
     await loadRules();
     status('rule saved');
   } catch (e) {
+    if (e.staleSession) return;
     status(`rule save failed: ${e.message}`);
   }
 };
 
 runIngestBtn.onclick = async () => {
+  if (authInFlight) return;
+  const generation = sessionGeneration;
   if (manualIngestInFlight || runIngestBtn.disabled) {
     status('manual ingest ignored: already running');
     return;
@@ -195,18 +259,23 @@ runIngestBtn.onclick = async () => {
     status('manual ingest accepted; progress shown below');
     await refreshStatus();
   } catch (e) {
+    if (e.staleSession) return;
     if (String(e.message).includes('just completed')) {
       status(`manual ingest cooldown: ${e.message}`);
     } else {
       status(`manual ingest failed: ${e.message}`);
     }
   } finally {
-    manualIngestInFlight = false;
-    await refreshStatus().catch(() => {});
+    if (generation === sessionGeneration) {
+      manualIngestInFlight = false;
+      await refreshStatus().catch(() => {});
+    }
   }
 };
 
 runDedupeBtn.onclick = async () => {
+  if (authInFlight) return;
+  const generation = sessionGeneration;
   if (manualDedupeInFlight || runDedupeBtn.disabled) {
     status('retroactive dedupe ignored: already running');
     return;
@@ -222,14 +291,18 @@ runDedupeBtn.onclick = async () => {
     status(`retroactive dedupe completed: hidden=${Number(st.same_run_hidden || 0) + Number(st.historical_hidden || 0)} (highest_only=${Number(st.same_run_hidden || 0)}, historical=${Number(st.historical_hidden || 0)})`);
     await refreshStatus();
   } catch (e) {
+    if (e.staleSession) return;
     status(`retroactive dedupe failed: ${e.message}`);
   } finally {
-    manualDedupeInFlight = false;
-    await refreshStatus().catch(() => {});
+    if (generation === sessionGeneration) {
+      manualDedupeInFlight = false;
+      await refreshStatus().catch(() => {});
+    }
   }
 };
 
 document.body.addEventListener('click', async (e) => {
+  if (!authenticated || authInFlight) return;
   if (e.target.matches('[data-edit-topic]')) {
     editingTopicID = Number(e.target.dataset.editTopic);
     document.getElementById('addTopic').textContent = 'Update Topic';
@@ -255,6 +328,7 @@ document.body.addEventListener('click', async (e) => {
       await loadTopics();
       status('topic deleted');
     } catch (err) {
+      if (err.staleSession) return;
       status(`topic delete failed: ${err.message}`);
     }
   }
@@ -265,13 +339,15 @@ document.body.addEventListener('click', async (e) => {
       await loadRules();
       status('rule deleted');
     } catch (err) {
+      if (err.staleSession) return;
       status(`rule delete failed: ${err.message}`);
     }
   }
 });
 
 async function refreshStatus() {
-  if (!authenticated || statusInFlight) return;
+  if (!authenticated || authInFlight || statusInFlight) return;
+  const generation = sessionGeneration;
   statusInFlight = true;
   try {
     const j = await call('/admin/api/status');
@@ -320,6 +396,7 @@ async function refreshStatus() {
       `archived: ${counts.archived || 0}\n` +
       `dedupe_hidden_total: ${Number(j.dedupe_hidden_total || 0)}`;
   } catch (e) {
+    if (e.staleSession) return;
     if (e.status === 401 || e.status === 403) {
       authenticated = false;
       manualIngestInFlight = false;
@@ -330,7 +407,7 @@ async function refreshStatus() {
     }
     status(`status refresh failed: ${e.message}`);
   } finally {
-    statusInFlight = false;
+    if (generation === sessionGeneration) statusInFlight = false;
   }
 }
 
@@ -360,7 +437,8 @@ function renderEngineCheck(state, ingestState = {}) {
 }
 
 checkEnginesBtn.onclick = async () => {
-  if (!authenticated || checkEnginesBtn.disabled || engineCheckInFlight) return;
+  if (!authenticated || authInFlight || checkEnginesBtn.disabled || engineCheckInFlight) return;
+  const generation = sessionGeneration;
   engineCheckInFlight = true;
   checkEnginesBtn.disabled = true;
   runIngestBtn.disabled = true;
@@ -370,8 +448,8 @@ checkEnginesBtn.onclick = async () => {
     const accepted = await call('/admin/api/search-check', {method:'POST', body:JSON.stringify({})});
     renderEngineCheck(accepted);
     status('search engine check accepted; results will appear in Search Engines');
-  } catch (e) { status(`search engine check request failed: ${e.message}; refresh status before retrying`); }
-  finally { engineCheckInFlight = false; await refreshStatus(); }
+  } catch (e) { if (!e.staleSession) status(`search engine check request failed: ${e.message}; refresh status before retrying`); }
+  finally { if (generation === sessionGeneration) { engineCheckInFlight = false; await refreshStatus(); } }
 };
 
 function resetTopicEditor() {
@@ -399,6 +477,7 @@ async function bootstrapAfterAuth() {
     await loadRules();
     await refreshStatus();
   } catch (e) {
+    if (e.staleSession) return;
     status(e.message);
   }
 }
@@ -411,13 +490,16 @@ function archiveDays() {
 }
 
 document.getElementById('previewArchive').onclick = async () => {
+  if (!authenticated || authInFlight) return;
   try {
     const j = await call(`/admin/api/archive?days=${archiveDays()}`);
     document.getElementById('archiveResult').textContent = `Would newly archive ${j.stats.candidates} article rows; restore ${j.stats.restorable} age-archived rows. Active feed limit: ${j.active_days} days.`;
-  } catch (e) { status(`archive preview failed: ${e.message}`); }
+  } catch (e) { if (!e.staleSession) status(`archive preview failed: ${e.message}`); }
 };
 
 document.getElementById('applyArchive').onclick = async () => {
+  if (!authenticated || authInFlight) return;
+  const generation = sessionGeneration;
   const button = document.getElementById('applyArchive');
   if (button.disabled) return;
   try {
@@ -428,11 +510,13 @@ document.getElementById('applyArchive').onclick = async () => {
     document.getElementById('archiveResult').textContent = `Archived ${j.stats.archived}; restored ${j.stats.restored}. Feed age limit: ${days} days.`;
     status('age limit saved and archive completed');
     await refreshStatus();
-  } catch (e) { status(`archive failed: ${e.message}; reload to verify the active limit before retrying`); }
-  finally { button.disabled = false; }
+  } catch (e) { if (!e.staleSession) status(`archive failed: ${e.message}; reload to verify the active limit before retrying`); }
+  finally { if (generation === sessionGeneration) button.disabled = false; }
 };
 
 document.getElementById('loadDomains').onclick = async () => {
+  if (!authenticated || authInFlight) return;
+  const generation = sessionGeneration;
   const button = document.getElementById('loadDomains');
   if (button.disabled) return;
   button.disabled = true;
@@ -443,8 +527,8 @@ document.getElementById('loadDomains').onclick = async () => {
       `<tr><td>${escHtml(d.domain || '(unknown)')}</td>${['positive','read','useful','hidden','seen','total'].map(k => `<td>${Number(d[k] || 0)}</td>`).join('')}</tr>`).join('');
     if (!j.items?.length) document.getElementById('domainRows').innerHTML = '<tr><td colspan="7">No domains with at least 2 positive reads yet.</td></tr>';
     status('domain report generated from retained database history');
-  } catch (e) { status(`domain report failed: ${e.message}`); }
-  finally { button.disabled = false; }
+  } catch (e) { if (!e.staleSession) status(`domain report failed: ${e.message}`); }
+  finally { if (generation === sessionGeneration) button.disabled = false; }
 };
 
 setAuthUI();
@@ -458,7 +542,8 @@ status('checking session...');
     setAuthUI();
     status('session restored');
     await bootstrapAfterAuth();
-  } catch (_) {
+  } catch (e) {
+    if (e.staleSession) return;
     authenticated = false;
     csrfToken = '';
     setAuthUI();

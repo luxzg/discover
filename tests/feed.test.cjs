@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const { webcrypto } = require('node:crypto');
 
-function browser(file = 'feed.js') {
+function browser(file = 'feed.js', initialFetch = () => new Promise(() => {})) {
   const elements = new Map();
   function element() { return { textContent: '', innerHTML: '', value: '', dataset: {}, disabled: false, hidden: false,
     listeners: {}, addEventListener(event, fn) { this.listeners[event] = fn; },
@@ -13,7 +13,7 @@ function browser(file = 'feed.js') {
   const document = { getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
     addEventListener() {}, querySelectorAll() { return []; }, body: element() };
   const c = vm.createContext({ document, console, URL, Date, setTimeout, clearTimeout, AbortController, crypto: webcrypto, setInterval() {},
-    window: { scrollTo() {} }, fetch: () => new Promise(() => {}) });
+    window: { scrollTo() {} }, fetch: initialFetch });
   vm.runInContext(readFileSync(path.join(__dirname, '../internal/server/web', file), 'utf8'), c);
   return { c, elements, eval: source => vm.runInContext(source, c) };
 }
@@ -25,6 +25,31 @@ test('publication label omits unknown and displays real dates', () => {
   assert.equal(b.eval('publishedLabel(new Date().toISOString())'), 'today');
   assert.match(b.eval("publishedLabel('2026-01-01T10:00:00Z')"), /ago|today|yesterday/);
 });
+
+for (const file of ['feed.js', 'admin.js']) {
+  for (const outcome of ['401', 'success', 'json-error', 'network-error']) {
+    test(`${file}: delayed startup ${outcome} cannot undo a real login`, async () => {
+      let resolve, reject;
+      const pending = new Promise((yes,no) => { resolve=yes; reject=no; });
+      const b = browser(file, () => pending);
+      b.c.fetch = async url => ({ok:true, json:async()=> url.endsWith('/login') ? {csrf_token:'new-token'} : url.endsWith('/status') ? {status:'idle',ingest:{state:{}}} : {items:[],active_days:30}});
+      if (file === 'feed.js') {
+        b.elements.get('userName').value='reader'; b.elements.get('userSecret').value='secret';
+        await b.elements.get('userLoginBtn').listeners.click();
+      } else {
+        b.elements.get('secret').value='secret'; await b.elements.get('loginBtn').onclick();
+      }
+      assert.equal(b.eval('authenticated'), true);
+      const status = b.elements.get('status').textContent;
+      if (outcome === 'network-error') reject(new Error('old offline request'));
+      else resolve({ok:outcome!=='401',status:outcome==='401'?401:200,json:async()=>{if(outcome==='json-error')throw new SyntaxError('old truncated body');return {csrf_token:'old-token'}}});
+      await new Promise(setImmediate);
+      assert.equal(b.eval('authenticated'), true);
+      assert.equal(b.eval('csrfToken'),'new-token');
+      assert.equal(b.elements.get('status').textContent,status);
+    });
+  }
+}
 
 test('cards escape titles and source URLs; unknown date has no extra separator', () => {
   const b = browser();
@@ -44,7 +69,7 @@ test('database date is explicitly first seen, not publication', () => {
 
 test('archive panel validates days and confirms mutations; domain report escapes domains', async () => {
   const b = browser('admin.js');
-  b.eval('authenticated=true');
+  b.eval('authenticated=true; setAuthUI()');
   b.c.confirm = () => true;
   b.eval("document.getElementById('archiveDays')");
   const calls = [];
@@ -71,7 +96,7 @@ test('archive panel validates days and confirms mutations; domain report escapes
 
 test('domain report explains an empty filtered result', async () => {
   const b = browser('admin.js');
-  b.eval('authenticated=true');
+  b.eval('authenticated=true; setAuthUI()');
   b.c.fetch = async () => ({ok:true,json:async()=>({items:[]})});
   await b.elements.get('loadDomains').onclick();
   assert.match(b.elements.get('domainRows').innerHTML,/No domains with at least 2 positive reads yet/);
