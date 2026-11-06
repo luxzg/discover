@@ -97,7 +97,8 @@ async function call(url, opts = {}) {
     headers['X-CSRF-Token'] = csrfToken;
   }
   const r = await sessionFetch(url, { ...opts, headers });
-  const j = await r.json().catch(() => ({}));
+  let j = {}, bodyError;
+  try { j = await r.json(); } catch (err) { bodyError = err; }
   if (generation !== sessionGeneration) throw staleSessionError();
   if (!r.ok) {
     if (r.status === 401) {
@@ -107,9 +108,14 @@ async function call(url, opts = {}) {
       manualIngestInFlight = false;
       setAuthUI();
     }
-    const err = new Error(j.error || r.statusText);
+    const err = new Error(j?.error || r.statusText || `HTTP ${r.status}`);
     err.status = r.status;
     throw err;
+  }
+  if (bodyError) throw new SyntaxError('Unreadable server response; completion is unconfirmed. Reload to verify before retrying.');
+  if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('Invalid server response; expected an object.');
+  if (['/admin/api/login','/admin/api/session'].includes(url) && (typeof j.csrf_token !== 'string' || !j.csrf_token.trim())) {
+    throw new Error('Invalid session response; reload before retrying sign-in.');
   }
   return j;
 }

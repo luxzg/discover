@@ -322,3 +322,38 @@ test('Load Next waits for accepted hide and initial recovery, including helper c
     assert.equal(b.elements.get('nextBtn').disabled,false);
   }
 });
+
+test('admin rejects unreadable/non-object successes but preserves HTTP failure status', async () => {
+  for (const value of ['truncated',null,[],true,'text']) {
+    const b=browser('admin.js');
+    b.c.fetch=async()=>({ok:true,json:async()=>{if(value==='truncated')throw new SyntaxError('truncated');return value}});
+    await assert.rejects(b.eval("call('/admin/api/rules')"));
+  }
+  for (const code of [401,500]) {
+    const b=browser('admin.js'); b.eval('authenticated=true; setAuthUI()');
+    b.c.fetch=async()=>({ok:false,status:code,json:async()=>{throw new SyntaxError('not JSON')}});
+    await assert.rejects(b.eval("call('/admin/api/status')"), err=>err.status===code);
+    assert.equal(b.eval('authenticated'),code!==401);
+  }
+});
+
+test('malformed successful rule/topic mutation retains the editor and prior list', async () => {
+  const b=browser('admin.js'); b.eval("authenticated=true; setAuthUI(); document.getElementById('topicQ').value='Retain this draft'");
+  b.eval("document.getElementById('topics').innerHTML='Prior topics'");
+  b.c.fetch=async()=>({ok:true,json:async()=>{throw new SyntaxError('truncated mutation reply')}});
+  await b.elements.get('addTopic').onclick();
+  assert.equal(b.elements.get('topicQ').value,'Retain this draft');
+  assert.equal(b.elements.get('topics').innerHTML,'Prior topics');
+});
+
+for (const file of ['feed.js','admin.js']) {
+  test(`${file}: successful login requires a usable CSRF token`, async()=>{
+    const b=browser(file);
+    b.c.fetch=async()=>({ok:true,json:async()=>({items:[],ingest:{state:{}}})});
+    if(file==='feed.js'){
+      b.elements.get('userName').value='reader';b.elements.get('userSecret').value='secret';
+      await b.elements.get('userLoginBtn').listeners.click();
+    } else {b.elements.get('secret').value='secret';await b.elements.get('loginBtn').onclick()}
+    assert.equal(b.eval('authenticated'),false);
+  });
+}

@@ -46,6 +46,10 @@ the backend must first receive and accept the request.
 
 ## Admin UI
 
+Unreadable successful responses are reported as unconfirmed completion, not
+silently treated as success. Existing drafts/lists are retained. Reload and verify
+the server state before repeating a mutation whose response was interrupted.
+
 - Open `/admin` and sign in using the Admin Secret field
 - Admin routes can be CIDR-restricted by config
 - Manage topics (query, weight, enabled)

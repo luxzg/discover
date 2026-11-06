@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 16:03 CET - v2.41
+
+- F07: reject unreadable/non-object successful API replies instead of converting
+  them into empty success. Feed/Admin login restoration requires a CSRF token.
+  HTTP 401/error status handling remains intact even with non-JSON error bodies.
+- Preserve drafts and prior lists on uncertain mutation replies; do not retry
+  automatically. Added response-shape, status, draft and auth-token regressions.
+
 ## 2026-11-06 15:59 CET - v2.40
 
 - F06: exclude negative card actions during batch replacement and exclude Load

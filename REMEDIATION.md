@@ -18,8 +18,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | VERIFIED | 9b45ce8; targeted/full checks and clean source/binary/npm scans; pushed |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | VERIFIED | c49a2a4; 25 JS, twelve browser and full checks passed; pushed |
-| F06 | P2 | Batch replacement can race a rule-based hide | IN PROGRESS | Four race reproductions fixed; 30 JS tests pass; full/browser checks next |
-| F07 | P2 | Admin accepts malformed successful JSON as an empty object | PENDING | |
+| F06 | P2 | Batch replacement can race a rule-based hide | VERIFIED | effa887; 30 JS, twelve browser and full checks passed; pushed |
+| F07 | P2 | Admin accepts malformed successful JSON as an empty object | IN PROGRESS | Parser/login reproductions fixed; 34 JS tests pass; full/browser next |
 | F08 | P2 | Save completion clears subsequent editor changes | PENDING | |
 | F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
@@ -179,3 +179,15 @@ deployment is authorized by this remediation task.
 - No API, persistent-data, schema or config changes. No automatic retry/queue;
   accepted hides remain service-owned and positive actions keep cards visible.
   Full race/vet/script/build/smoke and twelve shared-browser checks passed.
+
+### F07
+
+- Reproduced malformed-success acceptance and token-less login. Successful replies
+  now require an object and auth replies require a usable CSRF token. Malformed
+  401/500 bodies preserve the HTTP status; current 401 still expires auth.
+  Tests retain drafts/prior lists on uncertain replies; one fake-DOM setup error
+  was corrected, not counted as a successful reproduction. JS suite: 34 passed.
+- Existing endpoints return JSON objects, including logout/deletes; no valid 204
+  contract removed. No backend/schema/config changes or automatic retries.
+  Full race/vet/script/build/smoke and twelve shared-browser checks passed.
+  Inspected the synthetic mobile Admin screenshot; layout remains bounded.

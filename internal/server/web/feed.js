@@ -83,6 +83,10 @@ async function api(url, opts = {}) {
     throw err;
   }
   if (bodyError) throw bodyError;
+  if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error('Invalid server response; expected an object.');
+  if (['/api/login','/api/session'].includes(url) && (typeof j.csrf_token !== 'string' || !j.csrf_token.trim())) {
+    throw new Error('Invalid session response; reload before retrying sign-in.');
+  }
   return j;
 }
 
