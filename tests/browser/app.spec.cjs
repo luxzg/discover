@@ -73,6 +73,31 @@ test('topic and rule saves retain later drafts in the rendered editor', async ({
   }
 });
 
+test('accepted dedupe recovers after reload without database panel polling',async({page,app})=>{
+  await page.goto(app.url+'/admin');await page.locator('#secret').fill(app.admin);await page.locator('#loginBtn').click();
+  await expect(page.locator('#runDedupe')).toBeEnabled();
+  let hold=true,accepted,dbPolls=0;
+  await page.route('**/admin/api/dedupe/jobs',async route=>{
+    if(route.request().method()==='POST'){
+      const reply=await route.fetch();accepted=await reply.json();return route.fulfill({response:reply});
+    }
+    if(hold&&accepted)return route.fulfill({json:{...accepted,status:'running'}});
+    return route.continue();
+  });
+  await page.locator('#runDedupe').click();
+  await expect(page.locator('#dedupeState')).toContainText('accepted');
+  page.on('request',request=>{if(hold&&/\/admin\/api\/(status|topics|rules|archive)$/.test(new URL(request.url()).pathname))dbPolls++});
+  await page.reload();await expect(page.locator('#dedupeState')).toContainText('running in the background');
+  await expect(page.locator('#logoutBtn')).toBeEnabled();
+  await expect(page.locator('#runDedupe')).toBeDisabled();
+  expect(dbPolls).toBe(0);
+  hold=false;
+  await expect(page.locator('#dedupeState')).toContainText('completed');
+  await expect(page.locator('#runDedupe')).toBeEnabled();
+  await page.locator('#topicsPanel summary').click();
+  await expect(page.locator('#topics')).toContainText('fixture news');
+});
+
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
   console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();

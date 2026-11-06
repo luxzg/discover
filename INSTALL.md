@@ -251,6 +251,12 @@ The browser acknowledges accepted jobs immediately; completion no longer depends
 on an open browser request. A service restart cancels unfinished jobs, so verify
 the rule/card state after deployment before retrying an interrupted action.
 
+Retroactive dedupe similarly logs `dedupe: completed in ...` or `dedupe: failed
+after ...`. Its Admin status survives page reloads, not service restarts. Ingest,
+engine checks and dedupe share exclusion; due ingestion waits for dedupe. Accepted
+work is canceled and awaited at shutdown before SQLite closes. No durable queue
+or automatic retry is enabled.
+
 ## 7. Update Existing Installation
 
 Preferred update method uses helper scripts.

@@ -32,7 +32,7 @@ for (const file of ['feed.js', 'admin.js']) {
       let resolve, reject;
       const pending = new Promise((yes,no) => { resolve=yes; reject=no; });
       const b = browser(file, () => pending);
-      b.c.fetch = async url => ({ok:true, json:async()=> url.endsWith('/login') ? {csrf_token:'new-token'} : url.endsWith('/status') ? {status:'idle',ingest:{state:{}}} : {items:[],active_days:30}});
+      b.c.fetch = async url => ({ok:true, json:async()=> url.endsWith('/login') ? {csrf_token:'new-token'} : url.endsWith('/dedupe/jobs') ? {status:'idle'} : url.endsWith('/status') ? {status:'idle',ingest:{state:{}}} : {items:[],active_days:30}});
       if (file === 'feed.js') {
         b.elements.get('userName').value='reader'; b.elements.get('userSecret').value='secret';
         await b.elements.get('userLoginBtn').listeners.click();
@@ -104,25 +104,25 @@ test('domain report explains an empty filtered result', async () => {
 
 test('admin engine check is explicit, CSRF protected and reports escaped observations', async () => {
   const b = browser('admin.js');
-  b.eval("authenticated=true; csrfToken='fixture-csrf'; setAuthUI()");
+  b.eval("authenticated=true; csrfToken='fixture-csrf'; adminDataDeferred=false; setAuthUI()");
   const calls = [];
   const next = new Date(Date.now() + 3600000).toISOString();
   const check = {id:1, status:'completed', completed_at:new Date().toISOString(), report:{checked_instances:1,configured_instances:1,categories:[{instance:1,category:'news',status:'warnings',results:0,engines:[{name:'<script>',status:'captcha'}]}]}};
   b.c.fetch = async (url,opts) => {
     calls.push({url,opts});
-    return {ok:true,json:async()=>url.endsWith('search-check') ? {id:1,status:'running'} : {search_check:check,ingest:{state:{next_scheduled_at:next,schedule_mode:'interval',search_check_cooldown_until:next}}}};
+    return {ok:true,json:async()=>url.endsWith('/dedupe/jobs') ? {status:'idle'} : url.endsWith('search-check') ? {id:1,status:'running'} : {search_check:check,ingest:{state:{next_scheduled_at:next,schedule_mode:'interval',search_check_cooldown_until:next}}}};
   };
   await b.eval('refreshStatus()');
-  assert.deepEqual(calls.map(c=>c.url), ['/admin/api/status']);
+  assert.deepEqual(calls.map(c=>c.url), ['/admin/api/dedupe/jobs','/admin/api/status']);
   assert.match(b.elements.get('nextScheduled').textContent,/Next scheduled ingestion:/);
   assert.match(b.elements.get('engineRows').innerHTML,/&lt;script&gt;: CAPTCHA/);
   assert.doesNotMatch(b.elements.get('engineRows').innerHTML,/<script>/);
   b.eval('latestEngineCheckID=0');
   b.elements.get('checkEngines').disabled=false;
   await b.elements.get('checkEngines').onclick();
-  assert.equal(calls[1].url,'/admin/api/search-check');
-  assert.equal(calls[1].opts.method,'POST');
-  assert.equal(calls[1].opts.headers['X-CSRF-Token'],'fixture-csrf');
+  assert.equal(calls[2].url,'/admin/api/search-check');
+  assert.equal(calls[2].opts.method,'POST');
+  assert.equal(calls[2].opts.headers['X-CSRF-Token'],'fixture-csrf');
   assert.equal(b.elements.get('checkEngines').disabled,true);
   assert.match(b.elements.get('engineCheckState').textContent,/unknown status/);
   b.eval('authenticated=false; setAuthUI()');
@@ -132,10 +132,10 @@ test('admin engine check is explicit, CSRF protected and reports escaped observa
 
 test('admin engine check rejects stale snapshots and shows scheduled work waiting', async () => {
   const b = browser('admin.js');
-  b.eval('authenticated=true; latestEngineCheckID=2');
+  b.eval('authenticated=true; latestEngineCheckID=2; adminDataDeferred=false');
   b.eval("renderEngineCheck({id:1,status:'completed',report:{}})");
   assert.equal(b.elements.get('engineCheckState').textContent,'');
-  b.c.fetch = async () => ({ok:true,json:async()=>({ingest:{state:{search_check_running:true,next_scheduled_at:new Date(Date.now()-1000).toISOString()}},search_check:{id:2,status:'running'}})});
+  b.c.fetch = async url => ({ok:true,json:async()=>url.endsWith('/dedupe/jobs') ? {status:'idle'} : ({ingest:{state:{search_check_running:true,next_scheduled_at:new Date(Date.now()-1000).toISOString()}},search_check:{id:2,status:'running'}})});
   await b.eval('refreshStatus()');
   assert.match(b.elements.get('nextScheduled').textContent,/due, waiting for engine check/);
   assert.equal(b.elements.get('runIngest').disabled,true);
@@ -386,4 +386,64 @@ for (const kind of ['Topic','Rule']) {
       if(['unchanged','duplicate'].includes(change))assert.equal(b.elements.get(text).value,'');
     });
   }
+}
+
+test('admin recovers running dedupe without querying SQLite-backed panels', async()=>{
+  const b=browser('admin.js');b.eval('authenticated=true; setAuthUI()');
+  const calls=[];let running=true;
+  b.c.fetch=async url=>{calls.push(url);return {ok:true,json:async()=>url.endsWith('/dedupe/jobs') ? {id:'job',status:running?'running':'completed',schedule:{next_scheduled_at:new Date(Date.now()-1000).toISOString()},result:{stats:{same_run_hidden:2,historical_hidden:3},dedupe_hidden_total:20}} : {items:[],ingest:{state:{}},active_days:30}}};
+  await b.eval('bootstrapAfterAuth()');
+  assert.deepEqual(calls,['/admin/api/dedupe/jobs']);
+  assert.equal(b.elements.get('runDedupe').disabled,true);
+  assert.equal(b.elements.get('runIngest').disabled,true);
+  assert.equal(b.elements.get('checkEngines').disabled,true);
+  assert.match(b.elements.get('nextScheduled').textContent,/waiting for dedupe/);
+  await b.eval('refreshStatus()');
+  assert.deepEqual(calls,['/admin/api/dedupe/jobs','/admin/api/dedupe/jobs']);
+  running=false;await b.eval('refreshStatus()');
+  assert.match(b.elements.get('dedupeState').textContent,/completed: hidden=5/);
+  assert.equal(b.elements.get('runDedupe').disabled,false);
+  assert.deepEqual(calls.slice(2),['/admin/api/dedupe/jobs','/admin/api/archive','/admin/api/topics','/admin/api/rules','/admin/api/status']);
+});
+
+test('uncertain dedupe acceptance checks memory state instead of submitting again',async()=>{
+  const b=browser('admin.js');b.eval("authenticated=true; csrfToken='token'; setAuthUI()");
+  const calls=[];
+  b.c.fetch=async(url,opts)=>{calls.push({url,opts});if(opts.method==='POST')throw new TypeError('offline');return {ok:true,json:async()=>({id:'job',status:'running'})}};
+  await b.elements.get('runDedupe').onclick();
+  assert.deepEqual(calls.map(c=>c.url),['/admin/api/dedupe/jobs','/admin/api/dedupe/jobs']);
+  assert.equal(calls[0].opts.headers['X-CSRF-Token'],'token');
+  assert.equal(b.elements.get('runDedupe').disabled,true);
+  assert.match(b.elements.get('dedupeState').textContent,/accepted/);
+});
+
+test('an old dedupe poll cannot clear a newer acceptance or auth generation',async()=>{
+  const b=browser('admin.js');b.eval('authenticated=true; setAuthUI()');
+  let release;const pending=new Promise(r=>{release=r});
+  b.c.fetch=async(_url,opts)=>opts.method==='POST'?{ok:true,json:async()=>({id:'new',status:'running'})}:pending;
+  const poll=b.eval('refreshDedupe()');
+  await b.elements.get('runDedupe').onclick();
+  release({ok:true,json:async()=>({status:'idle'})});await poll;
+  assert.equal(b.eval('manualDedupeInFlight'),true);
+  assert.equal(b.eval('lastDedupeState.id'),'new');
+  let late; b.c.fetch=()=>new Promise(r=>{late=r});
+  const obsolete=b.eval('refreshDedupe()');b.eval('advanceSession(); authenticated=false; setAuthUI()');
+  late({ok:true,json:async()=>({id:'old',status:'running'})});
+  await assert.rejects(obsolete,e=>e.staleSession===true);
+  assert.equal(b.eval('manualDedupeInFlight'),false);
+});
+
+for(const id of ['applyArchive','loadDomains']) {
+  test(`dedupe polling preserves pending ${id} busy state`,async()=>{
+    const b=browser('admin.js');b.eval("authenticated=true; setAuthUI(); document.getElementById('archiveDays').value='30'");b.c.confirm=()=>true;
+    let release,ready;const entered=new Promise(r=>{ready=r}),pending=new Promise(r=>{release=r});let requests=0;
+    b.c.fetch=async (url,opts)=>{if(url.endsWith('/dedupe/jobs'))return {ok:true,json:async()=>({status:'idle'})};if((id==='applyArchive'&&opts.method==='POST')||(id==='loadDomains'&&url.endsWith('/domains'))){requests++;ready();return pending}return {ok:true,json:async()=>({items:[],ingest:{state:{}}})}};
+    const first=b.elements.get(id).onclick();await entered;
+    await b.eval('refreshDedupe()');
+    assert.equal(b.elements.get(id).disabled,true);
+    const second=b.elements.get(id).onclick();
+    release({ok:true,json:async()=>({items:[],stats:{archived:0,restored:0}})});
+    await first;await second;
+    assert.equal(requests,1);
+  });
 }

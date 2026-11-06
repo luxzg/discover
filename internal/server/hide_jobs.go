@@ -112,4 +112,4 @@ func (j *hideJobs) status(id string) (hideJobState, bool) {
 func (j *hideJobs) shutdown() { j.mu.Lock(); j.closed = true; j.cancel(); j.mu.Unlock(); j.wg.Wait() }
 
 // Shutdown cancels and waits for accepted mutations before the database closes.
-func (a *API) Shutdown() { a.hideJobs.shutdown() }
+func (a *API) Shutdown() { a.scheduler.Shutdown(); a.hideJobs.shutdown() }

@@ -21,8 +21,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F06 | P2 | Batch replacement can race a rule-based hide | VERIFIED | effa887; 30 JS, twelve browser and full checks passed; pushed |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | VERIFIED | fdd1e32; 34 JS, twelve browser and full checks passed; pushed |
 | F08 | P2 | Save completion clears subsequent editor changes | VERIFIED | bff5e73; 46 JS, sixteen browser and full checks passed; pushed |
-| F09 | P2 | Score-hidden rows silently ignore positive actions | VALIDATED | Both reproductions fixed; full race/vet/script/build/smoke passed; commit/push next |
-| F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
+| F09 | P2 | Score-hidden rows silently ignore positive actions | VERIFIED | 580b50c; full race/vet/script/build/smoke passed; pushed |
+| F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | VALIDATED | Full race/vet/script/build/smoke, 51 JS and twenty browser checks passed; commit/push next |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
@@ -212,3 +212,22 @@ deployment is authorized by this remediation task.
   handled cards are not returned as unread. No schema/config changes.
 - Full race/vet/script/build/smoke passed, including all twelve hide-origin/action
   combinations and idempotent votes. Existing 40k store regression passed.
+
+### F10
+
+- Legacy dedupe returned success during active ingestion before the fix. Scheduler
+  gating now excludes dedupe/ingest/checks, waits for due automatic ingestion and
+  owns cancellation/shutdown. New Admin job endpoints use immediate acceptance
+  and memory-only snapshots. Existing synchronous API response remains unchanged.
+- Concurrent callers join one job. Recent results are bounded at 32; no durable
+  queue or schema/config change. Counter snapshots are inside the transaction.
+  Tests cover auth/CSRF/CIDR, browser cancellation, blocked SQLite/status, legacy
+  joining, rollback, shutdown, time limits, eviction and stale UI responses.
+  A first legacy-join test released work before the waiter joined, corrected with
+  an explicit synchronization signal; this was a fixture race, not a clean pass.
+- Independent review found idle dedupe polls could clear pending archive/report
+  button state. Two controlled regressions reproduced it; explicit epoch-owned
+  busy flags now survive polling. Cached scheduler state also preserves run/check
+  cooldown guards when rendering job status. Full race/vet/script/build/smoke,
+  51 JS and twenty production/development desktop/mobile browser checks passed.
+  Independent review reported no other blocking backend findings in this pass.

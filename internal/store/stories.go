@@ -272,13 +272,37 @@ func reconcileDerivedStories(ctx context.Context, tx *sql.Tx) error {
 }
 
 func (s *Store) dedupe(ctx context.Context, at *time.Time, keyChars int) (IngestDedupeStats, error) {
+	result, err := s.dedupeResult(ctx, at, keyChars)
+	return result.Stats, err
+}
+
+type DedupeResult struct {
+	Stats             IngestDedupeStats `json:"stats"`
+	DedupeHiddenTotal int               `json:"dedupe_hidden_total"`
+}
+
+func (s *Store) HideAllUnreadTitleDuplicatesResult(ctx context.Context, keyChars int) (DedupeResult, error) {
+	return s.dedupeResult(ctx, nil, keyChars)
+}
+
+func (s *Store) dedupeResult(ctx context.Context, at *time.Time, keyChars int) (result DedupeResult, err error) {
+	// Publish counts from the same transaction as the hides, never a subsequent
+	// request-owned query that can fail after the mutation committed.
+	stats, total, err := s.dedupeTransaction(ctx, at, keyChars)
+	if err != nil {
+		return DedupeResult{}, err
+	}
+	return DedupeResult{Stats: stats, DedupeHiddenTotal: total}, nil
+}
+
+func (s *Store) dedupeTransaction(ctx context.Context, at *time.Time, keyChars int) (IngestDedupeStats, int, error) {
 	var stats IngestDedupeStats
 	if keyChars != s.keyChars {
-		return stats, errors.New("story key configuration changed; restart to reindex")
+		return stats, 0, errors.New("story key configuration changed; restart to reindex")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return stats, err
+		return stats, 0, err
 	}
 	defer tx.Rollback()
 	query := `SELECT DISTINCT story_key FROM articles WHERE status='unread'`
@@ -289,34 +313,40 @@ func (s *Store) dedupe(ctx context.Context, at *time.Time, keyChars int) (Ingest
 	}
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
-		return stats, err
+		return stats, 0, err
 	}
 	keys := []string{}
 	for rows.Next() {
 		var k string
 		if err := rows.Scan(&k); err != nil {
 			rows.Close()
-			return stats, err
+			return stats, 0, err
 		}
 		keys = append(keys, k)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return stats, err
+		return stats, 0, err
 	}
 	rows.Close()
 	for _, key := range keys {
 		n, err := hideGroup(ctx, tx, key)
 		if err != nil {
-			return IngestDedupeStats{}, err
+			return IngestDedupeStats{}, 0, err
 		}
 		stats.SameRunHidden += n.SameRunHidden
 		stats.HistoricalHidden += n.HistoricalHidden
 	}
-	if err := tx.Commit(); err != nil {
-		return IngestDedupeStats{}, err
+	var raw string
+	err = tx.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key='dedupe_hidden_total'`).Scan(&raw)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return IngestDedupeStats{}, 0, err
 	}
-	return stats, nil
+	total, _ := strconv.Atoi(raw)
+	if err := tx.Commit(); err != nil {
+		return IngestDedupeStats{}, 0, err
+	}
+	return stats, total, nil
 }
 
 func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) ([]model.Article, error) {

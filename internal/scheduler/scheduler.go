@@ -14,19 +14,21 @@ type Runner interface {
 }
 
 type Scheduler struct {
-	dailyHHMM  string
-	interval   time.Duration
-	runTimeout time.Duration
-	runner     Runner
-	mu         sync.Mutex
-	running    bool
-	state      RunState
-	ctx        context.Context
-	cancel     context.CancelFunc
-	started    bool
-	closed     bool
-	wg         sync.WaitGroup
-	checkDone  chan struct{}
+	dailyHHMM     string
+	interval      time.Duration
+	runTimeout    time.Duration
+	runner        Runner
+	mu            sync.Mutex
+	running       bool
+	state         RunState
+	ctx           context.Context
+	cancel        context.CancelFunc
+	started       bool
+	closed        bool
+	wg            sync.WaitGroup
+	checkDone     chan struct{}
+	dedupeDone    chan struct{}
+	dedupeTimeout time.Duration
 }
 
 func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
@@ -35,13 +37,14 @@ func New(dailyHHMM string, intervalMinutes int, runner Runner) *Scheduler {
 		d = time.Duration(intervalMinutes) * time.Minute
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Scheduler{dailyHHMM: dailyHHMM, interval: d, runTimeout: 2 * time.Hour, runner: runner, ctx: ctx, cancel: cancel}
+	return &Scheduler{dailyHHMM: dailyHHMM, interval: d, runTimeout: 2 * time.Hour, dedupeTimeout: 10 * time.Minute, runner: runner, ctx: ctx, cancel: cancel}
 }
 
 type RunState struct {
 	NextScheduledAt          *time.Time `json:"next_scheduled_at"`
 	ScheduleMode             string     `json:"schedule_mode"`
 	SearchCheckRunning       bool       `json:"search_check_running"`
+	DedupeRunning            bool       `json:"dedupe_running"`
 	SearchCheckCooldownUntil time.Time  `json:"search_check_cooldown_until"`
 	RunID                    uint64     `json:"run_id"`
 	CooldownUntil            time.Time  `json:"cooldown_until"`
@@ -157,6 +160,9 @@ func (s *Scheduler) RequestSearchCheck(check func(context.Context)) error {
 	if s.running {
 		return ErrIngestAlreadyRunning
 	}
+	if s.state.DedupeRunning {
+		return ErrDedupeRunning
+	}
 	if s.state.SearchCheckRunning {
 		return ErrSearchCheckRunning
 	}
@@ -182,13 +188,48 @@ func (s *Scheduler) RequestSearchCheck(check func(context.Context)) error {
 	return nil
 }
 
+// Dedupe shares exclusion and shutdown ownership, but never changes ingest
+// history, cooldown or the next scheduled time.
+func (s *Scheduler) RequestDedupe(run func(context.Context)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.ctx.Err() != nil {
+		return ErrSchedulerStopped
+	}
+	if s.running {
+		return ErrIngestAlreadyRunning
+	}
+	if s.state.SearchCheckRunning {
+		return ErrSearchCheckRunning
+	}
+	if s.state.DedupeRunning {
+		return ErrDedupeRunning
+	}
+	s.state.DedupeRunning = true
+	s.dedupeDone = make(chan struct{})
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer func() {
+			s.mu.Lock()
+			s.state.DedupeRunning = false
+			close(s.dedupeDone)
+			s.mu.Unlock()
+		}()
+		ctx, cancel := context.WithTimeout(s.ctx, s.dedupeTimeout)
+		defer cancel()
+		run(ctx)
+	}()
+	return nil
+}
+
 func (s *Scheduler) RunNow(ctx context.Context) error {
 	return s.run(ctx, "manual")
 }
 
 // RequestRun reserves a job synchronously and runs it independently of the request.
 func (s *Scheduler) RequestRun() (RunState, error) {
-	state, err := s.reserve("manual")
+	state, _, err := s.reserve("manual")
 	if err != nil {
 		return state, err
 	}
@@ -200,23 +241,26 @@ func (s *Scheduler) RequestRun() (RunState, error) {
 	return state, nil
 }
 
-func (s *Scheduler) reserve(source string) (RunState, error) {
+func (s *Scheduler) reserve(source string) (RunState, <-chan struct{}, error) {
 	const minRunGap = 15 * time.Second
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed || s.ctx.Err() != nil {
-		return s.state, ErrSchedulerStopped
+		return s.state, nil, ErrSchedulerStopped
 	}
 	if s.running {
-		return s.state, ErrIngestAlreadyRunning
+		return s.state, nil, ErrIngestAlreadyRunning
 	}
 	if s.state.SearchCheckRunning {
-		return s.state, ErrSearchCheckRunning
+		return s.state, s.checkDone, ErrSearchCheckRunning
+	}
+	if s.state.DedupeRunning {
+		return s.state, s.dedupeDone, ErrDedupeRunning
 	}
 	if !s.state.LastCompletedAt.IsZero() {
 		sinceLast := time.Since(s.state.LastCompletedAt)
 		if sinceLast < minRunGap {
-			return s.state, ErrIngestCooldown
+			return s.state, nil, ErrIngestCooldown
 		}
 	}
 	s.running = true
@@ -229,18 +273,15 @@ func (s *Scheduler) reserve(source string) (RunState, error) {
 		s.state.NextScheduledAt = nil
 	}
 	s.wg.Add(1)
-	return s.state, nil
+	return s.state, nil, nil
 }
 
 func (s *Scheduler) run(ctx context.Context, source string) error {
 	for {
-		if _, err := s.reserve(source); err != nil {
-			if source != "scheduled" || err != ErrSearchCheckRunning {
+		if _, done, err := s.reserve(source); err != nil {
+			if source != "scheduled" || (err != ErrSearchCheckRunning && err != ErrDedupeRunning) {
 				return err
 			}
-			s.mu.Lock()
-			done := s.checkDone
-			s.mu.Unlock()
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -307,6 +348,7 @@ var (
 	ErrSchedulerStopped     = &runErr{"scheduler is shutting down"}
 	ErrSearchCheckRunning   = &runErr{"search engine check is running; retry ingestion after it finishes"}
 	ErrSearchCheckCooldown  = &runErr{"search engine check cooldown; wait five minutes between checks"}
+	ErrDedupeRunning        = &runErr{"retroactive dedupe is running; retry after it finishes"}
 )
 
 type runErr struct{ msg string }

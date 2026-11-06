@@ -240,6 +240,11 @@ Historical context docs (read-only unless explicitly requested):
   clear acceptance versus completion messages and transactional rollback.
   The user accepts cancellation on rare service restarts; do not add a durable
   hide-job queue without a new requirement.
+- Retroactive dedupe shares scheduler exclusion/shutdown with ingestion and engine
+  checks. Keep its new acceptance/status endpoint memory-only, preserve the legacy
+  synchronous response contract, and snapshot counters inside the transaction.
+  Polling must not clear another operation's pending flags; keep busy state in
+  epoch-owned variables, not only a DOM button's disabled property.
 - Privileged deployment orchestration must come from an administrator-controlled
   copy. Never run service-owned scripts or candidate binaries as root. Run build,
   candidate inspection and service-checkout file operations as the service user.

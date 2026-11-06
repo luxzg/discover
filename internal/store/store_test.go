@@ -202,6 +202,40 @@ func TestLowScoreHiddenDoesNotPoisonStory(t *testing.T) {
 	}
 }
 
+func TestDedupeResultAndCounterAtomicity(t *testing.T) {
+	s := testStore(t)
+	ctx := t.Context()
+	topic := addTopic(t, s, "news")
+	hit(t, s, "https://a.example/one", "Shared headline", topic, time.Time{})
+	b := hit(t, s, "https://b.example/two", "Shared headline", topic, time.Time{})
+	if _, err := s.db.Exec(`CREATE TRIGGER fail_counter BEFORE INSERT ON app_settings WHEN NEW.key='dedupe_hidden_total' BEGIN SELECT RAISE(ABORT,'synthetic failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.HideAllUnreadTitleDuplicatesResult(ctx, 50)
+	if err == nil || result.DedupeHiddenTotal != 0 {
+		t.Fatal(result, err)
+	}
+	if state, _ := statusScore(t, s, b); state != "unread" {
+		t.Fatal("failed counter left hides committed")
+	}
+	if _, err := s.db.Exec(`DROP TRIGGER fail_counter`); err != nil {
+		t.Fatal(err)
+	}
+	result, err = s.HideAllUnreadTitleDuplicatesResult(ctx, 50)
+	if err != nil || result.Stats.SameRunHidden != 1 || result.DedupeHiddenTotal != 1 {
+		t.Fatal(result, err)
+	}
+	again, err := s.HideAllUnreadTitleDuplicatesResult(ctx, 50)
+	if err != nil || again.DedupeHiddenTotal != 1 || again.Stats.SameRunHidden != 0 {
+		t.Fatal(again, err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := s.HideAllUnreadTitleDuplicatesResult(canceled, 50); err == nil {
+		t.Fatal("canceled transaction succeeded")
+	}
+}
+
 func TestStableEvidenceAndRuleEdits(t *testing.T) {
 	s := testStore(t)
 	topic := addTopic(t, s, "cpu")

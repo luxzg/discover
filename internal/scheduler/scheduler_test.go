@@ -204,3 +204,78 @@ func TestInitialDailySchedule(t *testing.T) {
 		t.Fatal(state)
 	}
 }
+
+func TestDedupeExclusionScheduleAndDeadline(t *testing.T) {
+	b := blockingRunner{make(chan struct{}), make(chan struct{})}
+	s := New("07:30", 120, b)
+	s.Start(t.Context())
+	t.Cleanup(s.Shutdown)
+	before := s.Snapshot()
+	entered, release := make(chan struct{}), make(chan struct{})
+	if err := s.RequestDedupe(func(ctx context.Context) {
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	if _, err := s.RequestRun(); err != ErrDedupeRunning {
+		t.Fatal(err)
+	}
+	if err := s.RequestSearchCheck(func(context.Context) {}); err != ErrDedupeRunning {
+		t.Fatal(err)
+	}
+	if err := s.RequestDedupe(func(context.Context) {}); err != ErrDedupeRunning {
+		t.Fatal(err)
+	}
+	if state := s.Snapshot(); state.RunID != before.RunID || !state.NextScheduledAt.Equal(*before.NextScheduledAt) || !state.LastCompletedAt.IsZero() {
+		t.Fatal("dedupe changed ingest history", state)
+	}
+	scheduled := make(chan error, 1)
+	go func() { scheduled <- s.run(s.ctx, "scheduled") }()
+	select {
+	case <-b.entered:
+		t.Fatal("scheduled run overlapped")
+	case <-time.After(15 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-b.entered:
+	case <-time.After(time.Second):
+		t.Fatal("due ingestion skipped")
+	}
+	if err := s.RequestDedupe(func(context.Context) {}); err != ErrIngestAlreadyRunning {
+		t.Fatal(err)
+	}
+	s.Shutdown()
+	<-scheduled
+	if err := s.RequestDedupe(func(context.Context) {}); err != ErrSchedulerStopped {
+		t.Fatal(err)
+	}
+	d := New("07:30", 120, b)
+	d.dedupeTimeout = 10 * time.Millisecond
+	expired := make(chan error, 1)
+	if err := d.RequestDedupe(func(ctx context.Context) { <-ctx.Done(); expired <- ctx.Err() }); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-expired:
+		if err != context.DeadlineExceeded {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("unbounded dedupe")
+	}
+	d.Shutdown()
+	c := New("07:30", 120, b)
+	t.Cleanup(c.Shutdown)
+	if err := c.RequestSearchCheck(func(ctx context.Context) { <-ctx.Done() }); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.RequestDedupe(func(context.Context) {}); err != ErrSearchCheckRunning {
+		t.Fatal(err)
+	}
+}

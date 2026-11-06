@@ -145,6 +145,11 @@ not an automatic validation step. Run full checks/scans afterward.
   cooldown and are awaited on shutdown. Due automatic ingestion waits for a check;
   manual ingestion leaves its scheduled timer unchanged. Tests use local synthetic
   HTTP/check callbacks, not real engines or operator sessions.
+- Retroactive dedupe shares the scheduler gate and shutdown lifecycle, with a
+  ten-minute bound. Admin uses immediate acceptance and memory-only status;
+  legacy synchronous callers join the same job. Job results include the counter
+  snapshot from the hiding transaction, not a request-owned post-commit query.
+  Its 32-entry result cache is transient; no durable job queue was added.
 - `db`/`store`: enforced foreign keys; transactional per-topic evidence and rule
   effects; baseline-preserving upgrades; derived story identity and hide reasons.
 - `server`: authenticated/CSRF-protected mutation routes, rolling cookies,

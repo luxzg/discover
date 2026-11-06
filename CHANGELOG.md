@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 19:24 CET - v2.44
+
+- F10: run retroactive dedupe as one bounded service-owned job, with immediate
+  Admin acceptance, reconnect-safe memory-only progress and scheduler exclusion.
+  Due ingestion waits; shutdown cancels and awaits work. Preserve the synchronous
+  API, joining concurrent requests to the active job. Capture dedupe totals inside
+  the mutation transaction. Added lifecycle, auth, rollback and browser regressions.
+
 ## 2026-11-06 19:16 CET - v2.43
 
 - F09: record Read/Useful on displayed cards that became automatically score-hidden

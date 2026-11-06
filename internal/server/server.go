@@ -32,6 +32,7 @@ type API struct {
 	user        *auth.UserGuard
 	assets      http.Handler
 	hideJobs    *hideJobs
+	dedupeJobs  *dedupeJobs
 	engineMu    sync.Mutex
 	engineState engineCheckState
 }
@@ -43,7 +44,9 @@ type progressSource interface {
 
 func New(cfg config.Config, st *store.Store, sched *scheduler.Scheduler, progress progressSource, guard *auth.Guard, user *auth.UserGuard, assets http.Handler) *API {
 	st.ConfigureFreshness(cfg.FeedMaxAgeDays, cfg.FeedFreshnessDecayDays, cfg.ScoreEvidenceWindowHours)
-	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets, hideJobs: newHideJobs()}
+	return &API{cfg: cfg, store: st, scheduler: sched, progress: progress, guard: guard, user: user, assets: assets, hideJobs: newHideJobs(), dedupeJobs: newDedupeJobs(func(ctx context.Context) (store.DedupeResult, error) {
+		return st.HideAllUnreadTitleDuplicatesResult(ctx, cfg.DedupeTitleKeyChars)
+	})}
 }
 
 func (a *API) Routes() http.Handler {
@@ -71,6 +74,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/rules", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminRules)))))
 	mux.Handle("/admin/api/ingest", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminIngest)))))
 	mux.Handle("/admin/api/dedupe", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminDedupe)))))
+	mux.Handle("/admin/api/dedupe/jobs", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleDedupeJobs)))))
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
 	mux.Handle("/admin/api/archive", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminArchive)))))
 	mux.Handle("/admin/api/domains", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminDomains))))
@@ -152,7 +156,7 @@ func (a *API) handleFeedRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := a.scheduler.RequestRun()
 	if err != nil {
-		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) || errors.Is(err, scheduler.ErrSearchCheckRunning) {
+		if errors.Is(err, scheduler.ErrIngestAlreadyRunning) || errors.Is(err, scheduler.ErrIngestCooldown) || errors.Is(err, scheduler.ErrSearchCheckRunning) || errors.Is(err, scheduler.ErrDedupeRunning) {
 			respondJSON(w, http.StatusConflict, map[string]any{"error": err.Error(), "state": state})
 			return
 		}
@@ -405,22 +409,27 @@ func (a *API) handleAdminDedupe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	stats, err := a.store.HideAllUnreadTitleDuplicates(ctx, a.cfg.DedupeTitleKeyChars)
+	job, state, err := a.dedupeJobs.start(a.scheduler)
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, err)
+		dedupeError(w, err)
 		return
 	}
-	total, err := a.store.DedupeHiddenTotal(r.Context())
-	if err != nil {
-		respondErr(w, http.StatusInternalServerError, err)
+	select {
+	case <-r.Context().Done():
+		return // Work remains service-owned.
+	case <-job.done:
+	}
+	a.dedupeJobs.mu.Lock()
+	state = copyDedupeState(job.state)
+	a.dedupeJobs.mu.Unlock()
+	if state.Result == nil {
+		respondErr(w, http.StatusInternalServerError, errors.New(state.Error))
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]any{
 		"ok":                  true,
-		"stats":               stats,
-		"dedupe_hidden_total": total,
+		"stats":               state.Result.Stats,
+		"dedupe_hidden_total": state.Result.DedupeHiddenTotal,
 	})
 }
 

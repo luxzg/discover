@@ -74,6 +74,27 @@ the server state before repeating a mutation whose response was interrupted.
   set when it finishes; a run due during a search check waits for that check.
 - Admin session now uses sliding refresh behavior and tolerates client IP drift (similar to feed session) to reduce surprise sign-outs
 
+### Background Retroactive Dedupe
+
+`Run Retroactive Dedupe` acknowledges acceptance immediately, then shows completion
+and counts in its own status line. Closing/reloading Admin does not cancel it;
+on sign-in the page checks the in-memory job before loading database-backed panels.
+Ingestion and engine checks cannot overlap this operation. Due scheduled ingestion
+waits without losing its due time. Other database requests may wait while the
+transaction owns SQLite; Admin avoids polling those panels until dedupe completes.
+
+Only one dedupe runs at a time; simultaneous requests join it. The last 32 results
+are retained in memory, including the latest result after completion. Lost replies
+are reconciled by status checks, never an automatic resubmission. A service restart
+cancels unfinished work and rolls back its transaction; verify database state
+before manually retrying. Ten minutes is a safety bound, not expected latency.
+
+The Admin UI uses POST `/admin/api/dedupe/jobs` (202) and GET on that path, optionally
+with `?id=...`. The original POST `/admin/api/dedupe` remains synchronous with its
+existing 200 payload for API compatibility, but also joins service-owned work.
+All endpoints require Admin auth/CIDR checks and CSRF on mutations; feed credentials
+do not grant dedupe access. Counters and hides commit together.
+
 ### Search Engine Check
 
 Click **Check Search Engines** in **Search Engines**. This is an explicit active
