@@ -26,8 +26,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F11 | P2 | Redundant scoring writes and per-card source queries | VERIFIED | 553a71b; benchmarks/plans, full race checks and 40k scale passed; pushed |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
-| F14 | P3 | Middle-click opens are not recorded | VALIDATED | Full race/vet/script/build/smoke, 56 JS and twenty-four browser checks passed; commit/push next |
-| F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
+| F14 | P3 | Middle-click opens are not recorded | VERIFIED | 93d13e2; full checks, 56 JS and twenty-four browser checks passed; pushed |
+| F15 | P3 | Hidden articles lose recorded-exposure contribution | VALIDATED | Four report regressions fixed; full race/vet/script/build/smoke passed; commit/push next |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
 | R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | VERIFIED | d3d9409; selection and full checks passed; pushed |
@@ -263,3 +263,13 @@ deployment is authorized by this remediation task.
   publisher-tab navigation is separately exercised. This limitation is documented.
 - Full race/vet/script/build/smoke, 56 JS and twenty-four production/development
   desktop/mobile browser checks passed after correcting that fixture assumption.
+
+### F15
+
+- Read/Useful then hide and historical read-timestamp cases lost Shown contribution
+  before the fix. Positive actions now retain last_seen_at, and report fallback
+  includes read_at. Current deliberate hides still override positive interest;
+  hide-only rows do not invent exposure. No migrations, guessed backfill or new
+  tracking/event model. Lost legacy Useful-only history remains unrecoverable.
+- Targeted actions and full race/vet/script/build/smoke passed, including legacy
+  state and the large synthetic store fixture. No production backfill performed.

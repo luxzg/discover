@@ -172,6 +172,10 @@ legacy hides are not counted as proven explicit downvotes.
 Hidden counts deliberate hides, not automatic filters. Shown is recorded
 exposure through read/useful or batch advancement with Load Next, not literal
 scroll tracking or every rendered impression. The API's `seen` key is unchanged.
+Recorded exposure remains counted after a later hide; that hide still removes
+the positive-interest contribution. Existing `read_at` timestamps also preserve
+exposure. Older Useful-then-hidden rows with no remaining exposure/read timestamp
+cannot be reconstructed reliably and are not guessed.
 Total includes
 all retained rows, including duplicates and archived entries. These are article
 counts, not click-event counts or guaranteed complete yearly history. Legacy

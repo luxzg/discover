@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -163,8 +164,55 @@ func TestDomainReportHideOverridesClick(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := s.DomainReport(ctx)
-	if err != nil || len(rows) != 1 || rows[0].Positive != 2 || rows[0].Read != 2 || rows[0].Useful != 1 || rows[0].Hidden != 1 {
+	if err != nil || len(rows) != 1 || rows[0].Positive != 2 || rows[0].Read != 2 || rows[0].Useful != 1 || rows[0].Hidden != 1 || rows[0].Seen != 3 {
 		t.Fatal(rows, err)
+	}
+}
+
+func TestDomainReportPreservesExposureAfterHide(t *testing.T) {
+	for _, mode := range []string{"read", "useful", "legacy_read_timestamp"} {
+		t.Run(mode, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			topic := addTopic(t, s, "news")
+			for i := 0; i < 2; i++ {
+				id := hit(t, s, fmt.Sprintf("https://a.example/positive%d", i), fmt.Sprintf("Positive story %d", i), topic, time.Time{})
+				if err := s.MarkRead(ctx, id); err != nil {
+					t.Fatal(err)
+				}
+			}
+			id := hit(t, s, "https://a.example/target", "Target story", topic, time.Time{})
+			if mode == "legacy_read_timestamp" {
+				if _, err := s.db.Exec(`UPDATE articles SET read_at=CURRENT_TIMESTAMP WHERE id=?`, id); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				action := model.StatusRead
+				if mode == "useful" {
+					action = model.StatusUseful
+				}
+				if err := s.MarkIDStatus(ctx, id, action, 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.MarkIDStatus(ctx, id, model.StatusHidden, -1); err != nil {
+				t.Fatal(err)
+			}
+			neverRecorded := hit(t, s, "https://a.example/hidden-only", "Only hidden", topic, time.Time{})
+			if err := s.MarkIDStatus(ctx, neverRecorded, model.StatusHidden, -1); err != nil {
+				t.Fatal(err)
+			}
+			rows, err := s.DomainReport(ctx)
+			if err != nil || len(rows) != 1 || rows[0].Seen != 3 || rows[0].Positive != 2 || rows[0].Hidden != 2 {
+				t.Fatal(rows, err)
+			}
+			if mode != "legacy_read_timestamp" {
+				var seen any
+				if err := s.db.QueryRow(`SELECT last_seen_at FROM articles WHERE id=?`, id).Scan(&seen); err != nil || seen == nil {
+					t.Fatal("positive exposure not retained", seen, err)
+				}
+			}
+		})
 	}
 }
 

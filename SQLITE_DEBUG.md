@@ -55,6 +55,9 @@ Main tables used by Discover:
 - `article_evidence`: strongest relevance per `(article_id, topic_id)`; repeated hits do not accumulate scores.
 - `article_rule_effects`: current `penalty` and once-per-article `counted` marker per rule.
 - Additional `articles` columns: `story_key`, `hidden_reason`, `duplicate_of`, `dedupe_counted`, `score_base`, `vote`, `read_at`.
+- `last_seen_at` records batch/positive-action exposure, not discovery. A later
+  hide preserves it and `read_at`; Admin's Shown report uses either as historical
+  evidence. Missing legacy exposure is not invented. Use `first_seen_at` for age.
 - v2.27 adds `first_seen_at` (immutable original discovery), `archived_at`
   (reversible age archive, separate from status) and `metadata_checked_at`
   (shared date/image enrichment retry clock). `created_at` remains row creation;

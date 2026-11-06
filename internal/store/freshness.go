@@ -151,7 +151,7 @@ func (s *Store) DomainReport(ctx context.Context) ([]DomainStats, error) {
  SUM(CASE WHEN status='useful' THEN 1 ELSE 0 END),
  SUM(CASE WHEN status='hidden' AND hidden_reason='manual' THEN 1 ELSE 0 END),
  SUM(CASE WHEN (status IN ('read','useful') OR read_at IS NOT NULL) AND NOT (status='hidden' AND hidden_reason IN ('manual','legacy','')) THEN 1 ELSE 0 END),
- SUM(CASE WHEN last_seen_at IS NOT NULL OR status IN ('seen','read','useful') THEN 1 ELSE 0 END)
+ SUM(CASE WHEN last_seen_at IS NOT NULL OR read_at IS NOT NULL OR status IN ('seen','read','useful') THEN 1 ELSE 0 END)
  FROM articles GROUP BY lower(source_domain)`)
 	if err != nil {
 		return nil, err

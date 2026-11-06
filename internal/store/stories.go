@@ -533,7 +533,8 @@ func (s *Store) markAction(ctx context.Context, id int64, status model.ArticleSt
 		newReason = "manual"
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE articles SET status=?,hidden_reason=?,duplicate_of=NULL,vote=?,score=score+?,score_base=CASE WHEN score_base IS NULL THEN NULL ELSE score_base+? END,
- read_at=CASE WHEN ? THEN COALESCE(read_at,CURRENT_TIMESTAMP) ELSE read_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?`, status, newReason, newVote, adjustment, adjustment, clicked, id)
+	read_at=CASE WHEN ? THEN COALESCE(read_at,CURRENT_TIMESTAMP) ELSE read_at END,
+ last_seen_at=CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE last_seen_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?`, status, newReason, newVote, adjustment, adjustment, clicked, clicked || status == model.StatusUseful, id)
 	if err != nil {
 		return err
 	}

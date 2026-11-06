@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 19:51 CET - v2.47
+
+- F15: preserve recorded Shown history after later hides. Positive actions now
+  retain exposure timestamps, and existing read timestamps count as exposure
+  regardless of current status. Explicit hides still override positive interest;
+  automatic filters and hide-only rows do not invent impressions. Added read,
+  useful and legacy-history report regressions; no schema migration.
+
 ## 2026-11-06 19:45 CET - v2.46
 
 - F14: record middle-click article opens as Read, including alternate sources,
