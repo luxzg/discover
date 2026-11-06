@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 14:56 CET - v2.32
+
+- F01: refuse build output symlinks/hard links before canonicalization and use
+  fresh service-user temporary files for deployment/recovery. Stale predictable
+  recovery paths cannot redirect copies; the live binary remains untouched until
+  atomic installation. Added synthetic alias and failed-start rollback tests.
+
 ## 2026-11-06 14:48 CET - Documentation / Audit Remediation Plan
 
 - Recorded the sixteen read-only audit findings and development-only execution

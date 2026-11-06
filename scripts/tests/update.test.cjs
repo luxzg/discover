@@ -1,10 +1,31 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } = require('node:fs');
+const { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, symlinkSync, linkSync, copyFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { spawnSync } = require('node:child_process');
 const root = resolve(__dirname, '../..');
+
+test('real build helper refuses output aliases before following them', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'discover-build-alias-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  mkdirSync(join(dir, 'scripts')); mkdirSync(join(dir, 'bin'));
+  copyFileSync(join(root, 'scripts/build.sh'), join(dir, 'scripts/build.sh'));
+  copyFileSync(join(root, 'scripts/tool-env.sh'), join(dir, 'scripts/tool-env.sh'));
+  writeFileSync(join(dir, 'bin/git'), '#!/bin/bash\necho fixture\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'bin/go'), '#!/bin/bash\nexit 91\n', { mode: 0o755 });
+  const target = join(dir, 'sentinel'); writeFileSync(target, 'untouched');
+  symlinkSync(target, join(dir, 'alias'));
+  linkSync(target, join(dir, 'hardlink'));
+  for (const name of ['alias', 'hardlink']) {
+    const r = spawnSync('bash', ['scripts/build.sh', '--output', join(dir, name)], {
+      cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${dir}/bin:${process.env.PATH}` }
+    });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /alias|symlink|links/);
+    assert.equal(readFileSync(target, 'utf8'), 'untouched');
+  }
+});
 
 test('SSH arguments are validated before connecting', () => {
   const r = spawnSync('bash', ['scripts/run_remote_update.sh', '-ip', '-oProxyCommand=bad', '-user', 'operator'], { cwd: root, encoding: 'utf8' });
@@ -60,6 +81,9 @@ for (const failure of ['build', 'backup', 'start', 'none']) {
     executable(join(app, 'discover'), 'echo old');
     executable(join(app, 'discover.next'), 'if [[ "$1" == --database-path ]]; then echo "$APP_DIR/test.db"; else echo new; fi');
     writeFileSync(join(app, 'config.json'), '{}'); writeFileSync(join(app, 'test.db'), 'fixture');
+    const sentinel = join(app, 'sentinel'); writeFileSync(sentinel, 'untouched');
+    // A service-owned stale recovery alias must not redirect recovery writes.
+    symlinkSync(sentinel, join(app, 'discover.recovery'));
     // Substitute only the lock location in the test copy, never touch /run/lock.
     const script = readFileSync(join(root, 'scripts/deploy.sh'), 'utf8').replace('/run/lock/discover-deploy.lock', join(dir, 'lock'));
     writeFileSync(join(dir, 'deploy.sh'), script);
@@ -74,5 +98,6 @@ for (const failure of ['build', 'backup', 'start', 'none']) {
       assert.match(readFileSync(join(app, 'discover'), 'utf8'), failure === 'none' ? /echo new/ : /echo old/);
     }
     assert.equal(readFileSync(join(app, 'test.db'), 'utf8'), 'fixture');
+    assert.equal(readFileSync(sentinel, 'utf8'), 'untouched');
   });
 }

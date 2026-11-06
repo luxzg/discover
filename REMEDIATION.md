@@ -13,7 +13,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 
 | ID | Priority | Finding / root cause | Status | Evidence / commit / push |
 | --- | --- | --- | --- | --- |
-| F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | IN PROGRESS | Baseline validation running |
+| F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | IN PROGRESS | Targeted 8/8 and full check.sh --race passed; commit/push next |
 | F02 | P1 | Installed Go compiler lacks current security patches | BLOCKED | Operator asked to install Go 1.26.10; module minimum stays unchanged |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | PENDING | |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | PENDING | |
@@ -45,3 +45,15 @@ The normal branch has no automatic deployment; deployment is operator-run.
 
 Implementation and validation evidence will be appended per finding. No production
 deployment is authorized by this remediation task.
+
+### F01
+
+- Original real build helper accepted an output symlink instead of rejecting it;
+  failed-start recovery overwrote a synthetic sentinel through a stale link.
+  Both regressions now pass, including the original build/backup/start failures.
+- Existing Go race tests passed before runtime changes. The initial broad command
+  reached script tests during edits and caught a temporary executable-mode
+  regression, corrected by chmod on the fresh temporary binary. A separate full
+  run passed before commit; do not call that mixed run a clean baseline.
+- No database/schema/config changes. Synthetic existing-installation recovery
+  verifies old binary and database preservation; fresh builds use the same helper.

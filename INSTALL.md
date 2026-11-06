@@ -305,6 +305,10 @@ Build/config failures leave the running binary alone. Failures after stopping
 attempt to restart the prior service; failures after swapping attempt to restore
 the previous binary first. **No database is ever restored automatically.** Backups
 and failed snapshots are retained under `/var/backups/discover/`; copy important backups off-host.
+Build outputs that are symlinks or have multiple hard links are rejected rather
+than followed. Installation and binary recovery use unique service-user temporary
+files, not predictable recovery paths. Resolve any rejected local alias deliberately;
+the updater never removes arbitrary user links or restores a database for you.
 An active process check is not a full application health test: verify login/feed
 and the new version after deployment.
 

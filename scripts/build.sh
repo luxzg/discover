@@ -12,8 +12,12 @@ esac
 cd "$ROOT"
 commit=$(git rev-parse --verify HEAD)
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-output=$(realpath -m -- "$output")
-[[ ! -d "$output" && ! -L "$output" ]] || { echo 'Output must not be a directory or symlink.' >&2; exit 1; }
+[[ ! -d "$output" && ! -L "$output" ]] || { echo 'Output must not be a directory or symlink alias.' >&2; exit 1; }
+if [[ -e "$output" && $(stat -c %h -- "$output") != 1 ]]; then
+  echo 'Output must not have multiple hard links.' >&2; exit 1
+fi
+# Canonicalize only the parent after checking the original final component.
+output="$(realpath -e -- "$(dirname -- "$output")")/$(basename -- "$output")"
 tmp=$(mktemp "$(dirname -- "$output")/.discover-build.XXXXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
 trap 'exit 130' INT
@@ -25,5 +29,5 @@ version=$(timeout 10 "$tmp" --version)
   exit 1
 }
 chmod 0755 "$tmp"
-mv -f -- "$tmp" "$output"
+mv -fT -- "$tmp" "$output"
 printf '%s\n' "$version"

@@ -146,6 +146,26 @@ Historical context docs (read-only unless explicitly requested):
   never request blanket approval for an interpreter or arbitrary shell code.
 - Verify edits with `git diff` and `git diff --check` before reporting success.
 
+## Permanent Helpers And Reusable Approvals
+
+- Keep elevated approval requests short and stable. Put complex commands in
+  permanent reviewable scripts, normally under `scripts/`, never inline code.
+- Require helpers for shell operators/pipelines/background work or `-lc`, explicit
+  environment/PATH/SDK/cache setup, repeated curl/wget/ss, venv interpreter paths,
+  interpreter flags/extra arguments and timeout/resource wrappers.
+- Bare `python3 scripts/task.py`, `node scripts/task.mjs` or
+  `bash scripts/task.sh` may be approved directly. Put flags/setup inside a helper
+  or dedicated wrapper. Existing scoped helpers are preferred.
+- New helpers need descriptive stable names, bounded validated inputs, internal
+  options/environment/cleanup, documented side effects and safe no-argument
+  behavior (usage or a documented check). First approval uses only the bare
+  entry point and proposes that same prefix; supported modes may follow later.
+- Never wrap an approved helper in ENV prefixes, shell wrappers, pipelines or
+  external timeout commands. Separate independent operations. Explain materially
+  changed side effects before extending approved helpers. No arbitrary-command
+  or unrestricted environment passthrough helpers; approvals never bypass scope
+  or a denied operation. This is the operator's 2026-11-06 cross-project policy.
+
 ## Commit Discipline
 
 - Default behavior: after any code/runtime/UI change that includes version bump

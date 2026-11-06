@@ -11,6 +11,23 @@ cd "$APP_DIR"
 exec 9>/run/lock/discover-deploy.lock
 flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
 service() { runuser -u "$SERVICE_USER" -- "$@"; }
+install_binary() {
+  # Never copy through predictable service-owned candidate/recovery aliases.
+  local staged
+  staged=$(service mktemp "$APP_DIR/.discover-install.XXXXXXXX")
+  if ! service cp -- "$1" "$staged"; then
+    service rm -f -- "$staged"
+    return 1
+  fi
+  if ! service chmod 0755 "$staged"; then
+    service rm -f -- "$staged"
+    return 1
+  fi
+  if ! service mv -fT -- "$staged" "$APP_DIR/discover"; then
+    service rm -f -- "$staged"
+    return 1
+  fi
+}
 echo
 echo '==> Building and checking candidate as service user; service stays running'
 service git -C "$APP_DIR" pull --ff-only
@@ -48,8 +65,7 @@ recover() {
     echo '==> Deployment failed; recovering previous binary (database is NOT restored)' >&2
     if [[ $swapped == 1 ]]; then
       systemctl stop "$SERVICE_NAME" || true
-      service cp -- "$snapshot/discover.previous" ./discover.recovery
-      service mv -fT -- ./discover.recovery ./discover
+      install_binary "$snapshot/discover.previous"
     fi
     if [[ $was_active == 1 ]]; then systemctl start "$SERVICE_NAME" || true; fi
   fi
@@ -70,8 +86,7 @@ integrity=$(service sqlite3 -batch -bail -readonly "$snapshot/data/discover.sqli
 [[ "$integrity" == ok ]] || { echo 'Backup integrity check failed; snapshot retained.' >&2; exit 1; }
 echo
 echo '==> Installing candidate and starting service'
-service cp -- "$snapshot/candidate" ./discover.next
-service mv -fT -- ./discover.next ./discover
+install_binary "$snapshot/candidate"
 swapped=1
 systemctl start "$SERVICE_NAME"
 sleep 3
