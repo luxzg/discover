@@ -109,7 +109,10 @@ bit with `chmod -x scripts/searxng-inspect.sh`; do not discard unrelated edits.
 
 Alternatively run `bash scripts/searxng-inspect.sh` as the `searxng` service user
 if the helper is readable from that user's chosen location. The root invocation
-executes Git/Python checks as the service user, never root. It reports selected
+executes Git/Python checks as the service user, never root. Service owners
+must resolve to a nonzero UID; root and UID-zero aliases are
+rejected before application commands. Git revision output disables pagers and
+signature verification to avoid interactive waits. It reports selected
 systemd location fields, Git revision/date/dirty state, Python version, dependency
 consistency and settings-file presence. It does not read settings contents,
 change packages, stop services, fetch Git updates or modify data. Custom layouts

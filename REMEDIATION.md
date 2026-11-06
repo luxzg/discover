@@ -24,8 +24,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
-| F12 | P2 | SQLite alternative-extension sidecars not ignored | IN PROGRESS | Reproduced sqlite-wal tracking gap; all twelve name variants now ignored; script regression next |
-| F13 | P2 | SearXNG inspection does not reject UID zero | PENDING | |
+| F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
+| F13 | P2 | SearXNG inspection does not reject UID zero | IN PROGRESS | Root/UID-zero alias reproductions fixed, valid service control retained; full checks next |
 | F14 | P3 | Middle-click opens are not recorded | PENDING | |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
@@ -103,3 +103,11 @@ deployment is authorized by this remediation task.
   synthetic database names were created or opened; no private data inspected.
 - No runtime, configuration, schema or upgrade impact. Script-suite integration
   makes the regression repeatable without requiring a new tool.
+
+### F13
+
+- Two failing synthetic owner cases (root and another UID-zero name) now reject
+  before the runuser/application double. The valid non-root inventory still
+  reports revision/Python without reading settings. Noninteractive Git options
+  also match the updater's existing operational contract. Eight targeted tests
+  passed. Full checks before commit; no schema/config/upgrade changes.

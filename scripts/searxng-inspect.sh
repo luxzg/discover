@@ -17,6 +17,8 @@ done
 [[ $home == /* && $service =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Expected an absolute home and simple service name.' >&2; exit 2; }
 owner=$(systemctl show "$service" --property=User --value)
 [[ $owner =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ ]] || { echo 'Cannot identify a dedicated service user.' >&2; exit 1; }
+owner_uid=$(id -u "$owner")
+[[ "$owner_uid" =~ ^[0-9]+$ && "$owner_uid" != 0 ]] || { echo 'Expected a dedicated non-root service user; UID zero is not supported.' >&2; exit 1; }
 as_service() {
   if [[ $(id -u) == 0 ]]; then
     runuser -u "$owner" -- "$@"
@@ -32,8 +34,8 @@ echo '==> Service location (no environment or secret values)'
 systemctl show "$service" --property=User --property=WorkingDirectory --property=FragmentPath
 echo
 echo '==> Installed source revision and date'
-as_service git -C "$home/searxng" log -1 --format='%h %ci'
-as_service git -C "$home/searxng" status --short
+as_service git --no-pager -c log.showSignature=false -C "$home/searxng" log -1 --format='%h %ci'
+as_service git --no-pager -C "$home/searxng" status --short
 echo
 echo '==> Installed Python and dependency consistency'
 as_service "$home/searx-venv/bin/python" --version

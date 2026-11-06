@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 15:12 CET - v2.35
+
+- F13: SearXNG inventory refuses any UID-zero service owner before Git/Python
+  execution, including aliases of root. Revision inspection bypasses pagers and
+  signature checks. Synthetic root/alias rejection and non-root control pass;
+  no production service or settings were changed.
+
 ## 2026-11-06 15:10 CET - Repository Privacy [F12]
 
 - Ignore WAL/SHM/journal sidecars for .sqlite/.sqlite3, plus temporary binary

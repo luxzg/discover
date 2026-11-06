@@ -15,7 +15,7 @@ test('SearXNG inventory uses read-only commands and does not read settings', () 
     for (const [name,body] of Object.entries({
       id: '[ "$1" = "-u" ] && echo 1000\n[ "$1" = "-un" ] && echo searxng\nexit 0',
       systemctl: 'case "$*" in *--value*) echo searxng;; *show*) echo User=searxng;; *) exit 42;; esac',
-      git: 'case "$*" in *" log "*) echo "abcdef 2026-02-14";; *" status "*) exit 0;; *) exit 43;; esac',
+      git: 'case "$*" in *" log "*) case "$*" in *--no-pager*log.showSignature=false*) echo "abcdef 2026-02-14";; *) exit 44;; esac;; *" status "*) exit 0;; *) exit 43;; esac',
     })) writeFileSync(path.join(dir,'bin',name), `#!/bin/sh\n${body}\n`, {mode:0o755});
     writeFileSync(path.join(dir,'searx-venv','bin','python'), '#!/bin/sh\necho synthetic-python\n', {mode:0o755});
     const r=spawnSync('bash',['scripts/searxng-inspect.sh','--home',dir], {cwd:root,env:{...process.env,PATH:`${dir}/bin:${process.env.PATH}`},encoding:'utf8'});
@@ -38,6 +38,21 @@ test('tool helper preserves operator PATH over fallback installations', () => {
     assert.equal(r.stdout.trim(), 'selected-compiler');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+for (const owner of ['root', 'uidzeroalias']) {
+  test(`SearXNG inventory rejects UID zero owner ${owner} before application execution`, t => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'discover-root-inspect-'));
+    t.after(() => rmSync(dir, {recursive:true, force:true}));
+    for (const [name, body] of Object.entries({
+      id: 'echo 0', systemctl: `echo ${owner}`,
+      runuser: 'echo APPLICATION_EXECUTED; exit 0'
+    })) writeFileSync(path.join(dir, name), `#!/bin/sh\n${body}\n`, {mode:0o755});
+    const r = spawnSync('bash', ['scripts/searxng-inspect.sh'], {cwd:root, encoding:'utf8', env:{...process.env, PATH:`${dir}:${process.env.PATH}`}});
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /non-root|UID zero/);
+    assert.doesNotMatch(r.stdout, /APPLICATION_EXECUTED/);
+  });
+}
 
 test('security scanner failure is not reported as a successful scan', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'discover-scan-'));
