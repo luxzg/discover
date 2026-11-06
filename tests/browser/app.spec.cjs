@@ -98,6 +98,38 @@ test('accepted dedupe recovers after reload without database panel polling',asyn
   await expect(page.locator('#topics')).toContainText('fixture news');
 });
 
+test('normal and middle-click opens track the selected source without removing cards',async({page,context,app})=>{
+  await context.route('**/*',route=>{
+    const url=new URL(route.request().url());
+    if(url.origin===app.url)return route.continue();
+    if(url.hostname.endsWith('.example.test'))return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic publisher</title><p>Fixture article</p>'});
+    return route.abort();
+  });
+  await page.goto(app.url);await page.locator('#userName').fill('fixture-reader');await page.locator('#userSecret').fill(app.secret);await page.locator('#userLoginBtn').click();
+  await expect(page.locator('.card')).toHaveCount(5);
+  const card=page.locator('.card').first();await card.locator('.story-sources summary').click();
+  await page.evaluate(()=>{
+    globalThis.auxEvidence=[];
+    document.addEventListener('auxclick',e=>auxEvidence.push({button:e.button,trusted:e.isTrusted,prevented:e.defaultPrevented}));
+  });
+  for(const [button,selector] of [['left','.card-link'],['middle','.story-sources a']]) {
+    const link=card.locator(selector).first();
+    const id=Number(await link.getAttribute('data-source-id')||await card.getAttribute('data-id'));
+    const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/articles/click'&&r.request().method()==='POST');
+    const opened=button==='left'?context.waitForEvent('page'):null;
+    await link.click({button});
+    const reply=await response;expect(reply.status()).toBe(200);expect(reply.request().postDataJSON()).toEqual({id});
+    if(opened){const tab=await opened;await tab.waitForLoadState('domcontentloaded');await tab.close();await page.bringToFront()}
+    else {
+      // Headless Chromium did not emit a page event for native middle-click.
+      // Assert the trusted event, untouched default and authenticated write.
+      expect(await page.evaluate(()=>auxEvidence.at(-1))).toEqual({button:1,trusted:true,prevented:false});
+      await expect(link).toHaveAttribute('target','_blank');
+    }
+    await expect(page.locator('.card')).toHaveCount(5);
+  }
+});
+
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
   console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();

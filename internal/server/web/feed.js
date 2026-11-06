@@ -355,6 +355,23 @@ nextBtn.addEventListener('click', async () => {
 
 feed.addEventListener('error', e => { if (e.target.matches('img.thumb')) e.target.remove(); }, true);
 
+async function trackArticleOpen(e) {
+  if (!authenticated || authInFlight) return;
+  const link = e.target.closest('[data-click]');
+  const cardEl = e.target.closest('.card');
+  if (!link || !cardEl) return;
+  const id = Number(link.dataset.sourceId) || Number(cardEl.dataset.id);
+  try {
+    await api('/api/articles/click', { method:'POST', body:JSON.stringify({id}) });
+  } catch (err) {
+    if (!err.staleSession) statusEl.textContent = `${new Date().toISOString()} click tracking failed: ${err.message}`;
+  }
+}
+
+feed.addEventListener('auxclick', async e => {
+  if (e.button === 1) await trackArticleOpen(e);
+});
+
 feed.addEventListener('click', async (e) => {
   if (!authenticated || authInFlight) return;
   const cardEl = e.target.closest('.card');
@@ -429,15 +446,7 @@ feed.addEventListener('click', async (e) => {
     return;
   }
 
-  if (e.target.closest('[data-click]')) {
-    try {
-      const sourceID = Number(e.target.closest('[data-click]').dataset.sourceId) || id;
-      await api('/api/articles/click', { method: 'POST', body: JSON.stringify({ id: sourceID }) });
-    } catch (err) {
-      if (err.staleSession) return;
-      statusEl.textContent = `${new Date().toISOString()} click tracking failed: ${err.message}`;
-    }
-  }
+  await trackArticleOpen(e);
 });
 
 document.addEventListener('click', (e) => {

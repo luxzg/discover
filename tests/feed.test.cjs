@@ -447,3 +447,19 @@ for(const id of ['applyArchive','loadDomains']) {
     assert.equal(requests,1);
   });
 }
+
+for(const [event,button,alternate] of [['click',0,false],['click',0,true],['auxclick',1,false],['auxclick',1,true],['auxclick',2,false]]) {
+  test(`article opens: ${event} button ${button}, alternate ${alternate}`,async()=>{
+    const b=browser();b.eval("authenticated=true; csrfToken='token'");
+    const calls=[];let removed=0,prevented=0;
+    b.c.fetch=async(url,opts)=>{calls.push({url,opts});return {ok:true,json:async()=>({ok:true})}};
+    const card={dataset:{id:'2'},remove(){removed++}};
+    const link={dataset:alternate?{sourceId:'7'}:{}};
+    const target={matches:()=>false,closest:s=>s==='.card'?card:s==='[data-click]'?link:null};
+    const handler=b.elements.get('feed').listeners[event];assert.equal(typeof handler,'function');
+    await handler({target,button,preventDefault(){prevented++}});
+    assert.equal(calls.length,button===2?0:1);
+    if(calls.length){assert.equal(calls[0].url,'/api/articles/click');assert.deepEqual(JSON.parse(calls[0].opts.body),{id:alternate?7:2});assert.equal(calls[0].opts.headers['X-CSRF-Token'],'token')}
+    assert.equal(removed,0);assert.equal(prevented,0);
+  });
+}

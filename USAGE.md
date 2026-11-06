@@ -8,7 +8,7 @@
 - Feed shows eligible unread stories ordered by freshness-adjusted relevance (stored score is unchanged).
 - One card represents a conservative normalized-title story; expand `Other sources` for up to 20 alternate URLs. Reading an alternate also handles that story.
 - Card metadata is `domain | score | Published today` or `First seen 3 days ago` when publication is unknown. A database discovery date is never presented as publication.
-- Tap card to open article (marks it as `read`)
+- Tap/click or middle-click a card/source link to open it (marks that source as `read`). Native new-tab behavior is retained. Browser context-menu opens may not emit a trackable click, so read history is not guaranteed complete.
 - Card menu actions:
   - `👍 Useful` -> `useful`
   - `👎 Hide` -> `hidden`

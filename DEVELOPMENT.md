@@ -240,6 +240,11 @@ in desktop/mobile Chromium, checks assets/console/layout and writes screenshots.
 It uses only synthetic fixtures and a fake local SearXNG. Root-path deployment is
 tested; subpath deployments, WebGL and workers are not applicable to this app.
 
+Click coverage exercises a real normal-click synthetic publisher tab and actual
+authenticated writes for trusted middle-click events on alternate sources.
+Headless Chromium did not emit a new-page event for the latter; that check verifies
+the uncanceled default and `_blank` target, not physical-browser tab behavior.
+
 After remote deployment, the operator should confirm login restoration after a
 fresh sign-in, card/menu/mobile layout, known publication dates, Other sources,
 manual ingest completion/warnings, and service version/logs. Actual search quality,

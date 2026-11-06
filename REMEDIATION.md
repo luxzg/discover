@@ -23,10 +23,10 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F08 | P2 | Save completion clears subsequent editor changes | VERIFIED | bff5e73; 46 JS, sixteen browser and full checks passed; pushed |
 | F09 | P2 | Score-hidden rows silently ignore positive actions | VERIFIED | 580b50c; full race/vet/script/build/smoke passed; pushed |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | VERIFIED | fe16948; full checks, 51 JS and twenty browser checks; pushed |
-| F11 | P2 | Redundant scoring writes and per-card source queries | VALIDATED | Benchmarks/plans, full race checks and 40k scale passed; independent review clear; commit/push next |
+| F11 | P2 | Redundant scoring writes and per-card source queries | VERIFIED | 553a71b; benchmarks/plans, full race checks and 40k scale passed; pushed |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
-| F14 | P3 | Middle-click opens are not recorded | PENDING | |
+| F14 | P3 | Middle-click opens are not recorded | VALIDATED | Full race/vet/script/build/smoke, 56 JS and twenty-four browser checks passed; commit/push next |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
@@ -248,3 +248,18 @@ deployment is authorized by this remediation task.
   caches, extra connections or production measurements. Full race/vet/script/
   build/smoke passed. Non-race 40k integration passed: feed 426ms, full hide 208ms
   on that different fixture. Independent review found no blocking regression.
+
+### F14
+
+- Missing auxiliary-click handling reproduced. Normal and middle-click share one
+  authenticated/CSRF tracking path, retain selected source IDs and leave native
+  navigation/cards intact. Other auxiliary buttons do not count as opens.
+- Added five controlled event cases and real synthetic publisher-tab browser
+  interactions. Context-menu navigation remains an explicit browser limitation;
+  no invasive navigation interception or tracking library added.
+- The first browser case incorrectly required a new-page event for middle-click;
+  this headless Chromium did not emit one. Coverage now checks its trusted native
+  event, uncanceled default, selected source and real API 200, while normal-click
+  publisher-tab navigation is separately exercised. This limitation is documented.
+- Full race/vet/script/build/smoke, 56 JS and twenty-four production/development
+  desktop/mobile browser checks passed after correcting that fixture assumption.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 19:45 CET - v2.46
+
+- F14: record middle-click article opens as Read, including alternate sources,
+  without preventing native new-tab navigation or removing cards. Normal clicks
+  share the same tracking path; other auxiliary buttons are ignored. Added unit
+  event cases and actual synthetic publisher-tab browser interactions.
+
 ## 2026-11-06 19:41 CET - v2.45
 
 - F11: rank narrow feed candidates before loading article payloads; batch Other
