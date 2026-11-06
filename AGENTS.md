@@ -71,8 +71,15 @@ Historical context docs (read-only unless explicitly requested):
 - Follow `MAINTENANCE.md`; when its last dated review is about a month old during
   normal work, remind the user and propose checking tools/dependencies. This does
   not authorize unattended upgrades, OS installation or production deployment.
-- Verify supported Go patches with official sources. Respect operator PATH and
-  do not raise the module minimum only because the installed compiler changed.
+- Prefer the newest installed stable Go under `$HOME/sdk/go*/bin` (development:
+  the operator's shared SDK directory), through `scripts/tool-env.sh`. With a
+  shared SDK selected, use GOTOOLCHAIN=local, not automatic compiler downloads.
+  Keep PATH/legacy fallback only when no shared SDK exists, preserving older
+  server installs. Never raise the module minimum merely because the compiler
+  changed. Verify supported patches and actual build metadata separately.
+- Future shareable SDKs/tools belong in operator-managed common locations;
+  document selection and actual versions here. Discovery is not authorization
+  to install/update shared tools or change other projects (2026-11-06 decision).
 - Browser tests use operator-managed shared Playwright via `PLAYWRIGHT_MODULE`,
   default `$HOME/dev/playwright-tools/node_modules/playwright`, never a shadowing
   local dependency. The operator updates shared tools/browsers for all projects;

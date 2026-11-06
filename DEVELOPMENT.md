@@ -15,13 +15,17 @@ Direct Go dependencies are `modernc.org/sqlite` (pure-Go SQLite) and
 `golang.org/x/net` (bounded HTML parsing for article metadata and bundled public-suffix
 grouping for domain reports). Other module
 requirements are transitive. Builds use `-mod=readonly`; only deliberate dependency
-maintenance uses `go mod tidy`/`go get`. Go may download the toolchain selected by
-`go.mod` under its normal automatic toolchain policy. No production Go compilation
-is run as root.
+maintenance uses `go mod tidy`/`go get`. Helpers prefer the newest installed stable
+SDK under `$HOME/sdk` and set GOTOOLCHAIN=local in that case: a missing required
+compiler is an operator action, not an automatic download. On legacy servers
+without SDKs, PATH and Go's existing toolchain policy remain unchanged. No
+production Go compilation is run as root.
 
 See `MAINTENANCE.md` for monthly tool/dependency reviews, dated scan results,
 download prerequisites and the policy for upgrading compilers without needlessly
-raising the module minimum. Helpers preserve the compiler selected by PATH.
+raising the module minimum. Shared toolchains are operator-managed, not installed
+or updated by routine validation. Synthetic compiler doubles isolate HOME as well
+as PATH so a real shared SDK cannot bypass them or trigger external requests.
 
 SQLite is compiled into the binary: `modernc.org/sqlite` v1.58.0 bundles engine
 3.53.4 and requires `modernc.org/libc` v1.75.6. Keep that exact pair together.
@@ -30,12 +34,12 @@ The installed `sqlite3` CLI is a separate backup/debug tool, not the app engine.
 ## Repeatable Commands
 
 The November audit uses `bash scripts/audit-check.sh`: it selects the already
-operator-installed `$HOME/sdk/go1.26.10` when present, otherwise respects PATH.
+operator-installed newest stable `$HOME/sdk/go*` when present, otherwise respects PATH.
 No downloads, shell/profile edits or deployment occur. Its default is the full
 race check; named bounded modes include `build`, `browser`, `security`, `scale`,
 `scripts`, `js`, `ingest`, `store` and `server`. Environment/flags stay inside
 the helper so recurring approvals use a stable entry point. Ordinary production
-builds continue to respect the server operator's selected compiler.
+builds use the same shared-SDK selection with legacy server fallback.
 
 Run each command separately from the repository root:
 

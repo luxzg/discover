@@ -39,6 +39,24 @@ test('tool helper preserves operator PATH over fallback installations', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('tool helper prefers newest installed stable shared SDK over older PATH compiler', t => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'discover-shared-sdk-'));
+  t.after(() => rmSync(dir,{recursive:true,force:true}));
+  for (const version of ['go1.26.9', 'go1.26.10', 'go1.27.1', 'go1.99rc1']) {
+    const bin = path.join(dir, 'sdk', version, 'bin'); mkdirSync(bin, {recursive:true});
+    writeFileSync(path.join(bin, 'go'), `#!/bin/sh\necho ${version}\n`, {mode:0o755});
+  }
+  const bin = path.join(dir, 'bin'); mkdirSync(bin);
+  writeFileSync(path.join(bin, 'go'), '#!/bin/sh\necho old-path-compiler\n', {mode:0o755});
+  const r = spawnSync('bash', ['-c', 'source scripts/tool-env.sh\ngo version\nprintf "%s" "$GOTOOLCHAIN"'], {cwd:root, encoding:'utf8', env:{...process.env, HOME:dir, PATH:`${bin}:${process.env.PATH}`}});
+  assert.equal(r.status,0,r.stderr);
+  assert.equal(r.stdout.trim(),'go1.27.1\nlocal');
+  rmSync(path.join(dir,'sdk/go1.27.1'),{recursive:true,force:true});
+  const patch = spawnSync('bash', ['-c', 'source scripts/tool-env.sh\ngo version'], {cwd:root, encoding:'utf8', env:{...process.env, HOME:dir, PATH:`${bin}:${process.env.PATH}`}});
+  assert.equal(patch.status,0,patch.stderr);
+  assert.equal(patch.stdout.trim(),'go1.26.10');
+});
+
 for (const owner of ['root', 'uidzeroalias']) {
   test(`SearXNG inventory rejects UID zero owner ${owner} before application execution`, t => {
     const dir = mkdtempSync(path.join(tmpdir(), 'discover-root-inspect-'));
@@ -61,7 +79,7 @@ test('security scanner failure is not reported as a successful scan', () => {
       writeFileSync(path.join(dir, name), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
     }
     const r = spawnSync('bash', ['scripts/security-check.sh'], {
-      cwd: root, env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, GOVULNCHECK: path.join(dir, 'scanner') }, encoding: 'utf8',
+      cwd: root, env: { ...process.env, HOME:dir, PATH: `${dir}:${process.env.PATH}`, GOVULNCHECK: path.join(dir, 'scanner') }, encoding: 'utf8',
     });
     assert.equal(r.status, 23, r.stderr);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -82,7 +100,7 @@ for (const [label, output, expected] of [
         writeFileSync(path.join(dir, name), `#!/bin/sh\n${body}\n`, { mode: 0o755 });
       }
       const r = spawnSync('bash', ['scripts/tooling-report.sh', '--online'], {
-        cwd: root, env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8',
+        cwd: root, env: { ...process.env, HOME:dir, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8',
       });
       assert.equal(r.status, expected, r.stderr);
     } finally { rmSync(dir, { recursive: true, force: true }); }

@@ -46,10 +46,10 @@ go install golang.org/x/vuln/cmd/govulncheck@latest
 ```
 
 This downloads modules and writes to GOBIN (normally `$HOME/go/bin`). Helpers
-respect the existing PATH, appending known Go installation/bin locations only
-as fallbacks. They do not change `GOTOOLCHAIN` or install a system compiler.
-Go's automatic toolchain selection may download a compiler if the selected
-one is older than the module minimum.
+select the newest installed stable Go under `$HOME/sdk`, using GOTOOLCHAIN=local
+so missing compilers require operator installation there. Without shared SDKs,
+legacy PATH/fallback and toolchain policy remain supported. Helpers never install
+a system compiler or raise the module minimum based on SDK selection alone.
 
 Check the shared Playwright installation and matching Chromium:
 

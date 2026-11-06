@@ -16,7 +16,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | VERIFIED | 48ef106; targeted 8/8 and full race checks; pushed |
 | F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
-| F04 | P2 | Publication extraction accepts unrelated/partial HTML | IN PROGRESS | Ingest and full race/build/smoke passed; source/binary and both npm scans zero findings; commit/push next |
+| F04 | P2 | Publication extraction accepts unrelated/partial HTML | VERIFIED | 9b45ce8; targeted/full checks and clean source/binary/npm scans; pushed |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
 | F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | PENDING | |
@@ -30,7 +30,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
-| R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | PENDING | Explicit operator convention; preserve module minimum, no automatic tool installs |
+| R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | IN PROGRESS | Selection regression fixed; legacy no-SDK fallback retained; full checks next |
 
 ## Validation And Compatibility
 
@@ -143,3 +143,15 @@ deployment is authorized by this remediation task.
   reachable or uncalled advisories, project/shared npm audits zero. Scan database
   timestamp: 2026-11-05 23:49:57 UTC. Historical publication provenance is unknown;
   prevention is fixed, but existing suspect dates require evidence before repair.
+
+### R02 - Shared Go SDKs
+
+- Reproduced PATH overriding a newer shared SDK in a synthetic fixture. Selection
+  now uses version ordering, excludes prereleases, sets GOTOOLCHAIN=local for the
+  selected SDK and preserves PATH fallback without SDKs. No SDK files changed.
+- Added formatting to the same selector and removed hard-coded 1.26.10 overrides.
+  Real selected compiler remains 1.26.10. Synthetic command doubles now isolate
+  HOME: the first regression run exposed a mock bypass into real module lookup,
+  corrected before rerun, not concealed by allowing external test traffic.
+- No runtime/schema/config/dependency changes; shared SDK upgrades still require
+  tests/rebuild and operator deployment. Full checks before commit.

@@ -9,7 +9,6 @@ case "${1:-check}" in
   *) exit 2 ;;
 esac
 [[ $# == 1 ]] || exit 2
-if [[ -x "$HOME/sdk/go1.26.10/bin/go" ]]; then export PATH="$HOME/sdk/go1.26.10/bin:$PATH"; fi
 source scripts/tool-env.sh
 before=$(sed -n 's/^go //p' go.mod)
 go get golang.org/x/net@v0.62.0

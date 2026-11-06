@@ -47,6 +47,11 @@ and standard Linux utilities. The Go command can download the required toolchain
 when `GOTOOLCHAIN=auto`; otherwise install it yourself. See `DEVELOPMENT.md` for
 tests and dependencies.
 
+Helpers prefer the newest installed stable Go under `$HOME/sdk`, with no automatic
+compiler download when that SDK is selected. Legacy PATH installations still work
+when the SDK directory is absent. Developer browser tests use the operator-managed
+shared Playwright installation; see `DEVELOPMENT.md` for selection and checks.
+
 ```bash
 git clone https://github.com/luxzg/discover.git
 cd discover

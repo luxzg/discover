@@ -8,10 +8,6 @@ case "${1:-check}" in
   *) echo 'Usage: bash scripts/audit-check.sh [check|format|build|browser|security|security-source|scale|scripts|js|ingest|store|server]' >&2; exit 2 ;;
 esac
 [[ $# -le 1 ]] || exit 2
-# The operator already installed this SDK. Do not download or change shell files.
-if [[ -x "$HOME/sdk/go1.26.10/bin/go" ]]; then
-  export PATH="$HOME/sdk/go1.26.10/bin:$PATH"
-fi
 source "$ROOT/scripts/tool-env.sh"
 go version
 case "$mode" in

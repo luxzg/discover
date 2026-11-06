@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-06 15:47 CET - v2.38
+
+- Operator-requested shared SDK selection: all Go helpers, including formatting,
+  prefer the newest installed stable version in HOME/sdk and avoid automatic
+  toolchain downloads when it is selected. No installs/profile edits or module
+  minimum changes. Legacy server PATH installations remain usable without SDKs.
+- Added ordering/prerelease/fallback regressions and isolated synthetic compiler
+  tests from the real SDK. Updated install/developer/agent maintenance guidance.
+
 ## 2026-11-06 15:39 CET - v2.37
 
 - F04: scope publication dates to agreeing page-head tags or unambiguous article
