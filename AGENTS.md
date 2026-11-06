@@ -108,6 +108,8 @@ Historical context docs (read-only unless explicitly requested):
   steps (for example `&&`, `||`, `;`) when steps are logically sequential.
 - Run sequential operations as separate commands and wait for each command
   result before running the next one.
+- Never edit a helper while it is executing: shell read offsets can become
+  invalid. Finish/cancel that owned run first, edit, then restart validation.
 - Do not run steps in parallel when there is an order dependency between them
   (for example stage -> commit -> push, or stop service -> build -> start
   service).

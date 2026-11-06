@@ -19,8 +19,10 @@ func TestRuleEditLargeUnreadDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
+	// Correctness fixture, not a latency assertion: race-instrumented SQLite can
+	// exceed two minutes in aggregate. The Go test deadline bounds the whole run;
+	// non-race phase timings are reported by the dedicated scale helper.
+	ctx := t.Context()
 	s.ConfigureFreshness(30, 7, 36)
 	startAge := time.Now()
 	if err := s.prepareFirstSeen(ctx); err != nil {

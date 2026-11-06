@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-06 15:05 CET - v2.33
+
+- F02: select the operator's existing patched Go 1.26.10 SDK in a narrow local
+  audit helper; update installation examples without raising the Go module
+  minimum or changing server PATH. Rebuild/redeployment still required remotely.
+- Separate scale-correctness testing from wall-clock performance: the 40k-row
+  race fixture now uses Go's test deadline instead of a shared two-minute budget
+  for unrelated phases. Non-race baseline passed in 3.57s; no application timeout
+  or correctness assertions were relaxed. Full race/build/smoke revalidation
+  passed; source/binary scans found no reachable vulnerabilities, but seven
+  uncalled x/net advisories remain for the metadata-parser dependency pass.
+
 ## 2026-11-06 14:56 CET - v2.32
 
 - F01: refuse build output symlinks/hard links before canonicalization and use

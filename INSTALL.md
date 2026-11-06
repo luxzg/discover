@@ -26,13 +26,14 @@ For downloads and official install instructions:
 Example (amd64 Linux):
 
 ```bash
-curl -fLO https://go.dev/dl/go1.26.8.linux-amd64.tar.gz
-sha256sum go1.26.8.linux-amd64.tar.gz
+curl -fLO https://go.dev/dl/go1.26.10.linux-amd64.tar.gz
+sha256sum go1.26.10.linux-amd64.tar.gz
 # Compare with the SHA256 published on go.dev/dl before extracting.
-mkdir -p "$HOME/toolchains/go1.26.8"
-tar -C "$HOME/toolchains/go1.26.8" --strip-components=1 -xzf go1.26.8.linux-amd64.tar.gz
+mkdir -p "$HOME/toolchains"
+mkdir "$HOME/toolchains/go1.26.10"
+tar -C "$HOME/toolchains/go1.26.10" --strip-components=1 -xzf go1.26.10.linux-amd64.tar.gz
 
-echo 'export PATH="$HOME/toolchains/go1.26.8/bin:$HOME/go/bin:$PATH"' >> ~/.profile
+echo 'export PATH="$HOME/toolchains/go1.26.10/bin:$HOME/go/bin:$PATH"' >> ~/.profile
 source ~/.profile
 
 go version

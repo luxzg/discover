@@ -13,8 +13,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 
 | ID | Priority | Finding / root cause | Status | Evidence / commit / push |
 | --- | --- | --- | --- | --- |
-| F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | IN PROGRESS | Targeted 8/8 and full check.sh --race passed; commit/push next |
-| F02 | P1 | Installed Go compiler lacks current security patches | BLOCKED | Operator asked to install Go 1.26.10; module minimum stays unchanged |
+| F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | VERIFIED | 48ef106; targeted 8/8 and full race checks; pushed |
+| F02 | P1 | Installed Go compiler lacks current security patches | IN PROGRESS | SDK 1.26.10 selected; full race/build/smoke passed; source/binary scans zero reachable, seven uncalled x/net advisories; commit/push next |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | PENDING | |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | PENDING | |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
@@ -57,3 +57,24 @@ deployment is authorized by this remediation task.
   run passed before commit; do not call that mixed run a clean baseline.
 - No database/schema/config changes. Synthetic existing-installation recovery
   verifies old binary and database preservation; fresh builds use the same helper.
+
+### F02
+
+- `PATH` selected Go 1.26.8, but the operator already installed SDK 1.26.10.
+  The helper confirms 1.26.10 without any install or global profile change.
+  Official downloads/release history checked 2026-11-06: 1.26.10 / 1.27.3.
+- Initial patched-compiler race run exceeded the existing aggregate 120-second
+  fixture deadline (not a production timeout). The identical non-race fixture
+  passed in 3.57s: backfill 1.43s, feed 704ms, archive 174ms, report 72ms, full
+  hide 282ms. Measurements are local observations, not production guarantees.
+  The test now uses Go's overall test deadline and keeps all data assertions;
+  no application timeouts changed. Full race rerun passed (store 96.6s), scripts,
+  vet, build and synthetic fresh/config/listener smoke passed. The running helper
+  was edited during one run, causing a shell read-offset error after its checks;
+  a stable unedited rerun passed. Do not edit a running script.
+- Source/binary govulncheck 1.8.0 (DB 2026-11-05 23:49:57 UTC) found zero reachable
+  vulnerabilities, two uncalled package and five uncalled module x/net advisories.
+  Track their compatible patch with F04 before changing parser APIs. npm audit
+  including developer dependencies: zero. These are dated observations only.
+- Existing legacy migration tests passed; no module/schema/config changes.
+  Remote compiler selection and deployed binary remain operator verification.

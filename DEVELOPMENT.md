@@ -29,6 +29,14 @@ The installed `sqlite3` CLI is a separate backup/debug tool, not the app engine.
 
 ## Repeatable Commands
 
+The November audit uses `bash scripts/audit-check.sh`: it selects the already
+operator-installed `$HOME/sdk/go1.26.10` when present, otherwise respects PATH.
+No downloads, shell/profile edits or deployment occur. Its default is the full
+race check; named bounded modes include `build`, `browser`, `security`, `scale`,
+`scripts`, `js`, `ingest`, `store` and `server`. Environment/flags stay inside
+the helper so recurring approvals use a stable entry point. Ordinary production
+builds continue to respect the server operator's selected compiler.
+
 Run each command separately from the repository root:
 
 ```bash

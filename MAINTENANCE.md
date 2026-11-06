@@ -4,7 +4,7 @@
 
 During normal development, check this record about once a month and ask the
 operator to review toolchain/dependency updates when it is stale. Last review:
-**2026-09-12**; next suggested review: **2026-10-12**. This is a workflow reminder,
+**2026-11-06**; next suggested review: **2026-12-06**. This is a workflow reminder,
 not an installed scheduler or unattended upgrade service. Review sooner after
 a relevant vulnerability disclosure. Append dated results; preserve history.
 
@@ -128,6 +128,21 @@ from production. Neither advisory database guarantees detection of every issue,
 including upstream SQLite engine vulnerabilities or local application logic flaws.
 
 ## Dated Review Results
+
+### 2026-11-06 - Audit Toolchain Follow-up
+
+- PATH selected 1.26.8, but the operator's existing SDK supplies Go 1.26.10.
+  `scripts/audit-check.sh` explicitly selects that SDK locally; no system install
+  or server change. Official patches checked: 1.26.10 and 1.27.3. Module minimum
+  stays 1.26.8. Server compiler and deployment remain separate operator checks.
+- Full race/vet/script/build/smoke passed on 1.26.10. The 40k correctness fixture
+  now uses Go's overall test deadline, not a two-minute aggregate performance
+  assertion; production deadlines unchanged. Non-race fixture 3.57s, race store
+  suite 96.6s; not production benchmarks. Never edit a helper while it runs.
+- Source/binary govulncheck 1.8.0, DB 2026-11-05 23:49:57 UTC: zero reachable
+  findings, two uncalled x/net package and five module advisories (patch tracked
+  in F04). npm audit including dev dependencies: zero. Not a clean all-advisory
+  result or permanent safety claim. No private data or production probes used.
 
 ### 2026-09-12 - v2.25 Tooling Review
 
