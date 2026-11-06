@@ -28,7 +28,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
 | F14 | P3 | Middle-click opens are not recorded | VERIFIED | 93d13e2; full checks, 56 JS and twenty-four browser checks passed; pushed |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | VERIFIED | 9aeac5a; targeted and full race/vet/script/build/smoke passed; pushed |
-| F16 | P3 | Editor labels and menu accessibility state incomplete | VALIDATED | Full checks, 57 JS and twenty-eight browser checks; clean source/binary/npm scans; commit/push next |
+| F16 | P3 | Editor labels and menu accessibility state incomplete | VERIFIED | 5835f45; full checks, 57 JS and twenty-eight browser checks; clean source/binary/npm scans; pushed |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
 | R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | VERIFIED | d3d9409; selection and full checks passed; pushed |
 
@@ -45,8 +45,23 @@ The normal branch has no automatic deployment; deployment is operator-run.
 
 ## Results
 
-Implementation and validation evidence will be appended per finding. No production
-deployment is authorized by this remediation task.
+All sixteen audit findings and both shared-tooling requests are verified locally,
+committed and pushed. The final application version is **v2.48**. Detailed evidence
+follows; final dated checks are also recorded in MAINTENANCE.md. No production
+deployment was performed or authorized by this remediation task.
+
+After the interrupted VS Code session and laptop restart, the expected pending
+F16 changes were preserved. Full checks and both browser build modes were rerun;
+the interrupted browser run was not counted. Synthetic old/new SQLite file
+compatibility and the 40k scale fixture passed. The compatibility helper initially
+hit read-only Go cache permissions, then passed with scoped helper approval.
+
+No remaining audit item is deferred to TODO. Its advanced product ideas remain
+separate future scope. This does not establish permanent safety or real-server
+health: publisher date coverage, upstream engine availability, production latency,
+systemd/TLS and physical-browser behavior still require operator field observation.
+Historical suspect publication dates and lost exposure timestamps were not guessed
+or rewritten. See INSTALL.md section 7 for deployment and upgrade checks.
 
 ### F01
 

@@ -139,6 +139,35 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 
 ## Dated Review Results
 
+### 2026-11-06 20:41 CET - v2.48 Remediation Closeout
+
+- All F01-F16 audit findings and shared-tooling requests are locally complete;
+  see REMEDIATION.md for per-finding evidence and commits. After the laptop reboot,
+  reran full checks: Go vet/race (unchanged packages reused valid Go test cache),
+  ShellCheck, 41 Node script regressions, three Python checker tests, 57 JavaScript
+  regressions, build metadata and two CLI/config/listener smoke tests passed.
+- All 28 production/development desktop/mobile browser cases passed with shared
+  Playwright 1.64.1, Node 22.23.4 and matching Chromium 156.0.8078.4. Reviewed
+  synthetic menu/label screenshots at both sizes. Interrupted runs are not passes.
+  Helpers stopped their test-owned services; no real browser profile was used.
+- Go 1.26.10 / govulncheck 1.8.0 source and binary scans at 20:39 CET found no
+  reachable or uncalled advisories. Database: 2026-11-05 23:49:57 UTC. Project
+  and shared-tooling npm audits including development dependencies both reported
+  zero. These are dated advisory checks, not a guarantee of application safety.
+- Synthetic SQLite 3.50.4-create / 3.53.4-write / old-and-new-reopen checks passed.
+  Its first attempt was blocked by sandbox Go-cache permissions, not a database
+  failure; the reviewed helper passed after scoped approval. No SQLite dependency
+  update, private file copy or production restore was performed in this closeout.
+- Final non-race 40k-row fixture passed: feed 406ms, archive 136ms, report 57ms,
+  rule edit 130ms and full domain hide 193ms. Local observations are not production
+  latency guarantees; comparative benchmark methodology is in DEVELOPMENT.md.
+- Existing configuration, scores, first-seen clocks and deliberate hides remain
+  preserved. No new config/schema change is required for this remediation.
+  Rebuild the final committed revision; deploy separately using INSTALL.md section
+  7 with a supported patched server compiler, then verify service and both UIs.
+  Real publisher date coverage, engine health, TLS/systemd and physical-browser
+  middle-click behavior remain field checks. No server was contacted or deployed.
+
 ### 2026-11-06 - Audit Toolchain Follow-up
 
 - F04 patched x/net 0.59.0 to 0.62.0 and required x/sys 0.48.0 to 0.49.0 before

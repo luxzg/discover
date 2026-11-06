@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 20:41 CET - Documentation
+
+- Close all sixteen audit findings with per-commit evidence in REMEDIATION.md;
+  archive completed scope and record post-reboot checks, dated security scans,
+  SQLite compatibility and 40k scale results. Link the ledger and document v2.48
+  deployment/field checks. Clarify helper download boundaries and interrupted-task
+  recovery. Documentation-only closeout; application remains v2.48.
+
 ## 2026-11-06 19:56 CET - v2.48
 
 - F16: explicitly label Topic/Rule fields and expose card action trigger names,

@@ -131,6 +131,7 @@ for scoring and history limitations before changing thresholds.
 - `INSTALL.md` for deployment and systemd setup
 - `DEVELOPMENT.md` for validation scripts, architecture, and review checks
 - `MAINTENANCE.md` for monthly tool/dependency checks, browser setup and dated scans
+- `REMEDIATION.md` for the November 2026 audit findings, fixes and validation limits
 - `USAGE.md` for feed/admin usage
 - `CHANGELOG.md` for versioned changes
 - `TODO.md` for active open work

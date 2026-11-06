@@ -362,6 +362,16 @@ If you changed config keys in a new release, review and update `config.json` bef
 
 ### 7.4 Upgrade Checks And Recovery
 
+- v2.48 completes the November audit remediation (see REMEDIATION.md). No new
+  config keys, schema migration, score reset or manual re-ingestion is required
+  when upgrading from v2.31. Use a supported patched compiler on the server;
+  1.26.10 was selected and validated locally on November 6, not installed remotely.
+  After the normal wrapper finishes, verify v2.48 in service logs and both UIs,
+  sign in again, try an editor save and a card action, and check that retroactive
+  dedupe reports acceptance/progress/completion if you choose to run it. It shares
+  exclusion with ingestion/engine checks. No extra live engine probe is required
+  just to validate deployment. Existing dates/exposure history are not guessed or
+  backfilled from unrelated metadata; future dates use stricter scope checks.
 - v2.27 adds immutable `first_seen_at` recovered from existing `created_at`,
   separate archive/metadata timestamps, a default 36-hour evidence window and
   a 30-day feed age limit. Existing config is never rewritten; missing keys use

@@ -182,6 +182,10 @@ Historical context docs (read-only unless explicitly requested):
 
 ## Commit Discipline
 
+- During an authorized multi-pass task, progress questions or connectivity/restart
+  updates do not silently cancel the remaining work. Resume from the ledger,
+  check for unexpected changes, and rerun interrupted checks instead of counting
+  them as passes. Stop only for completion, an explicit pause or a real blocker.
 - Default behavior: after any code/runtime/UI change that includes version bump
   + changelog update, commit in the same turn automatically.
 - Exception: do not commit only when user explicitly says `no commit`,

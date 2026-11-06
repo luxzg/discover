@@ -3,6 +3,21 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-11-06 20:41 CET
+
+- **November Application Audit Remediation (v2.32-v2.48)**: completed all sixteen
+  findings, covering deployment path safety, patched compiler/parser dependencies,
+  publication extraction, session/action/editor races, background dedupe lifecycle,
+  scoring/query efficiency, exposure tracking and accessible controls. Individual
+  commits and regression evidence are in REMEDIATION.md, not pending TODO items.
+- **Shared Development Tools**: helpers select the newest installed stable shared
+  Go SDK and operator-managed Playwright. No shared tools were installed/updated.
+- **Post-Restart Release Validation**: full race/vet/script/build/smoke, 28 browser
+  checks, old/new SQLite compatibility and 40k scale passed. Source/binary and
+  project/shared npm scans were clean at the recorded date. Production deployment,
+  publisher date coverage and everyday field behavior remain operator checks;
+  advanced fuzzy/RSS/domain-learning ideas remain active in TODO.
+
 ## 2026-10-05 13:23 CEST
 
 - **Incremental SearXNG Settings And Engine Startup Cleanup**: operator applied

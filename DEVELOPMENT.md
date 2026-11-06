@@ -35,7 +35,9 @@ The installed `sqlite3` CLI is a separate backup/debug tool, not the app engine.
 
 The November audit uses `bash scripts/audit-check.sh`: it selects the already
 operator-installed newest stable `$HOME/sdk/go*` when present, otherwise respects PATH.
-No downloads, shell/profile edits or deployment occur. Its default is the full
+No tool installation, shell/profile edits or deployment occur. Initial builds may
+download locked modules, and security mode contacts advisory/registry services;
+those are not offline checks. Its default is the full
 race check; named bounded modes include `build`, `browser`, `security`, `scale`,
 `scripts`, `js`, `ingest`, `store`, `actions`, `server`, `perf`, `plans` and `bench`. Environment/flags stay inside
 the helper so recurring approvals use a stable entry point. Ordinary production
