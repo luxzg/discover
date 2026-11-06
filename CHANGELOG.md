@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-06 15:10 CET - Repository Privacy [F12]
+
+- Ignore WAL/SHM/journal sidecars for .sqlite/.sqlite3, plus temporary binary
+  installation files. Added a read-only synthetic-name Git ignore regression;
+  example configuration remains trackable. No runtime/schema/version change.
+
 ## 2026-11-06 15:07 CET - v2.34
 
 - F03: privileged deployment validates the original backup path and every

@@ -15,7 +15,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | --- | --- | --- | --- | --- |
 | F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | VERIFIED | 48ef106; targeted 8/8 and full race checks; pushed |
 | F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
-| F03 | P2 | Privileged deployment backup root lacks ancestry validation | IN PROGRESS | Three unsafe-path reproductions now pass; full check/review next |
+| F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | PENDING | |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
 | F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
@@ -24,7 +24,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
-| F12 | P2 | SQLite alternative-extension sidecars not ignored | PENDING | |
+| F12 | P2 | SQLite alternative-extension sidecars not ignored | IN PROGRESS | Reproduced sqlite-wal tracking gap; all twelve name variants now ignored; script regression next |
 | F13 | P2 | SearXNG inspection does not reject UID zero | PENDING | |
 | F14 | P3 | Middle-click opens are not recorded | PENDING | |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
@@ -94,3 +94,12 @@ deployment is authorized by this remediation task.
   simulated, not a claim of a real-root deployment test.
 - No schema/config/data changes. Real server permissions are intentionally
   uninspected; unsafe custom layouts will now fail explicitly, not be repaired.
+
+### F12
+
+- Git's real ignore matcher rejected `synthetic-ignore-check.sqlite-wal` before
+  the fix; now all twelve extension/journal variants match, installation temps
+  are ignored and config.example.json remains trackable. No files with those
+  synthetic database names were created or opened; no private data inspected.
+- No runtime, configuration, schema or upgrade impact. Script-suite integration
+  makes the regression repeatable without requiring a new tool.
