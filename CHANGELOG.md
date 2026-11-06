@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 19:56 CET - v2.48
+
+- F16: explicitly label Topic/Rule fields and expose card action trigger names,
+  controlled panels and expanded state. Synchronize all close paths; Escape closes
+  and restores focus, as does Useful completion. Add keyboard/state/label browser
+  checks. Reconcile helper/cache guidance and document SQLite-generated UTC
+  timestamp formats identified in the final documentation review.
+
 ## 2026-11-06 19:51 CET - v2.47
 
 - F15: preserve recorded Shown history after later hides. Positive actions now

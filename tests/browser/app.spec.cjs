@@ -130,6 +130,31 @@ test('normal and middle-click opens track the selected source without removing c
   }
 });
 
+test('card actions support keyboard state and editor fields have explicit labels',async({page,app},info)=>{
+  await page.goto(app.url);await page.locator('#userName').fill('fixture-reader');await page.locator('#userSecret').fill(app.secret);await page.locator('#userLoginBtn').click();
+  await expect(page.locator('.card')).toHaveCount(5);
+  const first=page.locator('.card').first(),second=page.locator('.card').nth(1);
+  const trigger=first.getByRole('button',{name:'Article actions',exact:true});
+  await expect(trigger).toHaveAttribute('aria-expanded','false');
+  await trigger.focus();await trigger.press('Enter');await expect(trigger).toHaveAttribute('aria-expanded','true');
+  await page.screenshot({path:info.outputPath('menu.png'),fullPage:true});
+  await page.keyboard.press('Tab');await expect(first.locator('[data-action="up"]')).toBeFocused();
+  await page.keyboard.press('Escape');await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(trigger).toBeFocused();
+  await trigger.click();
+  const other=second.getByRole('button',{name:'Article actions',exact:true});await other.click();
+  await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(other).toHaveAttribute('aria-expanded','true');
+  await page.locator('h1').click();await expect(other).toHaveAttribute('aria-expanded','false');
+  await trigger.click();await first.locator('[data-action="up"]').click();
+  await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(trigger).toBeFocused();
+  await page.goto(app.url+'/admin');await page.locator('#secret').fill(app.admin);await page.locator('#loginBtn').click();
+  await expect(page.locator('#topicsPanel')).toBeVisible();await page.locator('#topicsPanel summary').click();await page.locator('#rulesPanel summary').click();
+  for(const [name,id] of [['Query','topicQ'],['Weight','topicW'],['Pattern','ruleP'],['Penalty','rulePenalty']]) {
+    await expect(page.getByLabel(name,{exact:true})).toHaveAttribute('id',id);
+  }
+  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath('labels.png'),fullPage:true});
+});
+
 test('real embedded feed/admin assets, auth, stories and actions', async ({ page, context, app }, info) => {
   console.log(`Chromium ${context.browser().version()}`);
   const errors = [], external = [], assets = new Set();

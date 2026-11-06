@@ -463,3 +463,11 @@ for(const [event,button,alternate] of [['click',0,false],['click',0,true],['auxc
     assert.equal(removed,0);assert.equal(prevented,0);
   });
 }
+
+test('card action trigger exposes controlled collapsed state',()=>{
+  const b=browser();const html=b.eval("card({id:42,title:'A card',score:1})");
+  assert.match(html,/aria-label="Article actions"/);
+  assert.match(html,/aria-expanded="false"/);
+  assert.match(html,/aria-controls="card-menu-42"/);
+  assert.match(html,/id="card-menu-42"/);
+});

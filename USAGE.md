@@ -17,6 +17,7 @@
 - Positive actions (`👍 Useful`, click/read) keep the card visible in the current batch until reload/next batch
 - Read/Useful still records your action if ingestion has automatically score-hidden that already displayed card. Stale tabs cannot undo deliberate or legacy hides.
 - `👍 Useful` closes the opened per-card menu automatically after action
+- The `Article actions` button exposes its open/closed state to assistive tools. Use Enter/Space to open, Tab through actions, and Escape to close and return focus to the button.
 - Negative actions remove card(s) from the current view after the server confirms completion
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
 - If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)

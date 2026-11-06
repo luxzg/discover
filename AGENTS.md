@@ -61,9 +61,9 @@ Historical context docs (read-only unless explicitly requested):
 - Release security check: `bash scripts/security-check.sh --binary` after build.
 - Build deployable artifact: `./scripts/build.sh`, then `./discover --version`.
 - Formatting: `./scripts/format.sh`.
-- If sandbox blocks default Go cache writes, use local cache:
-  `GOCACHE=$(pwd)/.gocache go build ./...`
-- Remove temporary `.gocache` after validation if created.
+- If sandbox blocks Go cache writes, use the documented helper with scoped
+  approval. Keep any needed cache setup/cleanup inside that reviewed helper;
+  never bypass the shared-SDK selector with an inline ENV-prefixed build.
 - For docs-only changes, skip build unless user requests build/test.
 
 ## Periodic Tooling Maintenance

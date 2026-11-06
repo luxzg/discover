@@ -27,8 +27,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
 | F14 | P3 | Middle-click opens are not recorded | VERIFIED | 93d13e2; full checks, 56 JS and twenty-four browser checks passed; pushed |
-| F15 | P3 | Hidden articles lose recorded-exposure contribution | VALIDATED | Four report regressions fixed; full race/vet/script/build/smoke passed; commit/push next |
-| F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
+| F15 | P3 | Hidden articles lose recorded-exposure contribution | VERIFIED | 9aeac5a; targeted and full race/vet/script/build/smoke passed; pushed |
+| F16 | P3 | Editor labels and menu accessibility state incomplete | VALIDATED | Full checks, 57 JS and twenty-eight browser checks; clean source/binary/npm scans; commit/push next |
 | R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
 | R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | VERIFIED | d3d9409; selection and full checks passed; pushed |
 
@@ -273,3 +273,16 @@ deployment is authorized by this remediation task.
   tracking/event model. Lost legacy Useful-only history remains unrecoverable.
 - Targeted actions and full race/vet/script/build/smoke passed, including legacy
   state and the large synthetic store fixture. No production backfill performed.
+
+### F16
+
+- Missing accessible trigger/state reproduced. Added field labels, controlled
+  panels, expanded-state synchronization and Escape/Useful focus restoration.
+  Existing visual language and native buttons remain; no menu framework added.
+- Added actual browser keyboard/label/layout regressions. Final documentation
+  review found an obsolete inline cache-build fallback and an overbroad RFC3339
+  storage claim; both corrected. After the laptop restart, reran full race/vet/
+  script/build/smoke and all twenty-eight production/development desktop/mobile
+  browser checks successfully; reviewed label/menu screenshots at both sizes.
+  Source/binary scans found no reachable or uncalled advisories, and project/
+  shared npm audits reported zero. The interrupted browser run is not counted.

@@ -67,7 +67,10 @@ Main tables used by Discover:
 `hidden_reason` is `manual`, `score`, `duplicate`, or `legacy` for hidden rows.
 `duplicate_of` refers to the chosen representative/handled article. Existing
 hidden rows with unknown provenance are `legacy` and are preserved. Publication
-may be NULL; ingestion is not publication. New timestamp values use UTC RFC3339.
+may be NULL; ingestion is not publication. Search/publication/first-seen writes
+use UTC RFC3339. SQLite-generated action/archive/audit timestamps use UTC
+`YYYY-MM-DD HH:MM:SS`; readers support both storage forms. Public publication
+dates are emitted as RFC3339, not raw SQLite timestamp strings.
 The application enables foreign keys on its connections; do not manually edit
 this database without a backup and understanding the derived scoring tables.
 

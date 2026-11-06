@@ -150,13 +150,22 @@ function card(item) {
         <div class="card-source">${esc(item.source_domain || 'unknown')} | score ${Number(item.score).toFixed(2)}${pubPart}</div>
       </div>
     </a>${otherSources}<p class="card-action-status" role="status" hidden></p></div>
-    <div class="menu"><button data-menu="1">⋯</button><div class="menu-panel">
+    <div class="menu"><button type="button" data-menu="1" aria-label="Article actions" aria-expanded="false" aria-controls="card-menu-${item.id}">⋯</button><div class="menu-panel" id="card-menu-${item.id}">
       <button data-action="up">👍 Useful</button>
       <button data-action="down">👎 Hide</button>
       <button data-action="dont" class="danger">🚫 Hide This</button>
       <button data-action="domain" class="danger">🌐 Hide Domain</button>
     </div></div>
   </article>`;
+}
+
+function setMenuOpen(menu, open, restoreFocus = false) {
+  if (!menu) return;
+  if (open) menu.classList.add('open');
+  else menu.classList.remove('open');
+  const trigger = menu.querySelector?.('[data-menu]');
+  trigger?.setAttribute('aria-expanded', String(open));
+  if (!open && restoreFocus) trigger?.focus();
 }
 
 async function loadFeed() {
@@ -226,7 +235,7 @@ async function applyHideRequest(cardEl, id, pattern, penalty) {
     const requestID = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
     cardEl.hideRequest = { id, pattern, penalty, request_id: requestID, visible_ids: currentIds.slice(0, 100) };
   }
-  cardEl.querySelector('.menu')?.classList.remove('open');
+  setMenuOpen(cardEl.querySelector('.menu'), false);
   cardActionStatus(cardEl, 'Submitting hide...');
   hideInFlight++;
   setAuthUI();
@@ -382,9 +391,9 @@ feed.addEventListener('click', async (e) => {
     e.preventDefault();
     const menu = cardEl.querySelector('.menu');
     document.querySelectorAll('.menu.open').forEach((m) => {
-      if (m !== menu) m.classList.remove('open');
+      if (m !== menu) setMenuOpen(m, false);
     });
-    menu.classList.toggle('open');
+    setMenuOpen(menu, !menu.classList.contains('open'));
     return;
   }
 
@@ -425,7 +434,7 @@ feed.addEventListener('click', async (e) => {
         await api('/api/articles/action', { method: 'POST', body: JSON.stringify({ id, action }) });
       }
       if (action === 'up') {
-        cardEl.querySelector('.menu')?.classList.remove('open');
+        setMenuOpen(cardEl.querySelector('.menu'), false, true);
       }
       if (action === 'down' || action === 'dont' || action === 'domain' || action === 'hide') {
         cardEl.remove();
@@ -451,8 +460,16 @@ feed.addEventListener('click', async (e) => {
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.menu')) {
-    document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+    document.querySelectorAll('.menu.open').forEach((m) => setMenuOpen(m, false));
   }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.menu.open').forEach(menu => {
+    setMenuOpen(menu, false, true);
+    e.preventDefault();
+  });
 });
 
 setAuthUI();
