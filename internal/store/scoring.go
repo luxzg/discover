@@ -147,23 +147,46 @@ func initializeUnreadScores(ctx context.Context, tx *sql.Tx) error {
 }
 
 func rescoreRow(ctx context.Context, tx *sql.Tx, a scoredRow, rules []model.NegativeRule) error {
+	type effect struct {
+		penalty float64
+		counted int
+	}
+	effects := make(map[int64]effect)
+	rows, err := tx.QueryContext(ctx, `SELECT rule_id,penalty,counted FROM article_rule_effects WHERE article_id=?`, a.id)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var id int64
+		var e effect
+		if err := rows.Scan(&id, &e.penalty, &e.counted); err != nil {
+			rows.Close()
+			return err
+		}
+		effects[id] = e
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
 		penalty := 0.0
 		if r.Enabled && matcher.MatchRule(r.Pattern, a.title, a.content, a.domain, a.url) {
 			penalty = r.Penalty
 		}
-		var counted int
-		err := tx.QueryRowContext(ctx, `SELECT counted FROM article_rule_effects WHERE article_id=? AND rule_id=?`, a.id, r.ID).Scan(&counted)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
+		previous, exists := effects[r.ID]
+		counted := previous.counted
 		if penalty > 0 && counted == 0 {
 			if _, err := tx.ExecContext(ctx, `UPDATE negative_rules SET applied_count=applied_count+1 WHERE id=?`, r.ID); err != nil {
 				return err
 			}
 			counted = 1
 		}
-		if penalty == 0 && counted == 0 {
+		if !exists && penalty == 0 && counted == 0 {
+			continue
+		}
+		if exists && previous.penalty == penalty && previous.counted == counted {
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO article_rule_effects(article_id,rule_id,penalty,counted) VALUES(?,?,?,?)
@@ -171,7 +194,7 @@ func rescoreRow(ctx context.Context, tx *sql.Tx, a scoredRow, rules []model.Nega
 			return err
 		}
 	}
-	_, err := tx.ExecContext(ctx, `UPDATE articles SET score=score_base+
+	_, err = tx.ExecContext(ctx, `UPDATE articles SET score=score_base+
   COALESCE((SELECT SUM(e.relevance+t.weight) FROM article_evidence e JOIN topics t ON t.id=e.topic_id WHERE e.article_id=articles.id AND t.enabled=1),0)-
   COALESCE((SELECT SUM(penalty) FROM article_rule_effects r WHERE r.article_id=articles.id),0),updated_at=CURRENT_TIMESTAMP
   WHERE id=? AND (status='unread' OR (status='hidden' AND hidden_reason='duplicate'))`, a.id)
@@ -265,7 +288,7 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 		if age >= 0 && age < s.scoreWindow {
 			relevance := 1 + float64(maxInt(in.Engines, 1))*.25 + in.SearxScore*.25 + in.ExtraTitleHit
 			if _, err := tx.ExecContext(ctx, `INSERT INTO article_evidence(article_id,topic_id,relevance) VALUES(?,?,?)
-   ON CONFLICT(article_id,topic_id) DO UPDATE SET relevance=MAX(article_evidence.relevance,excluded.relevance)`, a.id, in.TopicID, relevance); err != nil {
+   ON CONFLICT(article_id,topic_id) DO UPDATE SET relevance=excluded.relevance WHERE excluded.relevance>article_evidence.relevance`, a.id, in.TopicID, relevance); err != nil {
 				return err
 			}
 		}
@@ -280,7 +303,11 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 	if err := rescoreRow(ctx, tx, a, rules); err != nil {
 		return err
 	}
-	for _, key := range []string{oldKey, dedupeTitleKey(in.Title, s.keyChars)} {
+	keys := []string{oldKey}
+	if newKey := dedupeTitleKey(in.Title, s.keyChars); newKey != oldKey {
+		keys = append(keys, newKey)
+	}
+	for _, key := range keys {
 		var hasDerived bool
 		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM articles WHERE story_key=? AND hidden_reason='duplicate' AND status='hidden')`, key).Scan(&hasDerived); err != nil {
 			return err

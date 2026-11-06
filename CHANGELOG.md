@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-06 19:41 CET - v2.45
+
+- F11: rank narrow feed candidates before loading article payloads; batch Other
+  sources with indexed story lookups and the same ordering/20-source cap. Load
+  rule effects once per article, skip unchanged effects/evidence, avoid repeated
+  group reconciliation and no-op duplicate updates. Historical clocks, scores,
+  eligibility and manual actions are preserved. Added synthetic benchmarks,
+  query-plan and counter/source regressions; measurements in DEVELOPMENT.md.
+
 ## 2026-11-06 19:24 CET - v2.44
 
 - F10: run retroactive dedupe as one bounded service-owned job, with immediate

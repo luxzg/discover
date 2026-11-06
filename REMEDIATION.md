@@ -22,8 +22,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | VERIFIED | fdd1e32; 34 JS, twelve browser and full checks passed; pushed |
 | F08 | P2 | Save completion clears subsequent editor changes | VERIFIED | bff5e73; 46 JS, sixteen browser and full checks passed; pushed |
 | F09 | P2 | Score-hidden rows silently ignore positive actions | VERIFIED | 580b50c; full race/vet/script/build/smoke passed; pushed |
-| F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | VALIDATED | Full race/vet/script/build/smoke, 51 JS and twenty browser checks passed; commit/push next |
-| F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
+| F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | VERIFIED | fe16948; full checks, 51 JS and twenty browser checks; pushed |
+| F11 | P2 | Redundant scoring writes and per-card source queries | VALIDATED | Benchmarks/plans, full race checks and 40k scale passed; independent review clear; commit/push next |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
 | F13 | P2 | SearXNG inspection does not reject UID zero | VERIFIED | c67b8b0; targeted and full checks passed; pushed |
 | F14 | P3 | Middle-click opens are not recorded | PENDING | |
@@ -231,3 +231,20 @@ deployment is authorized by this remediation task.
   cooldown guards when rendering job status. Full race/vet/script/build/smoke,
   51 JS and twenty production/development desktop/mobile browser checks passed.
   Independent review reported no other blocking backend findings in this pass.
+
+### F11
+
+- Baseline unchanged-effect write reproduced; existing handled-legacy/new-rule
+  counting remains tested. Effects now bulk-load per article and no-op writes are
+  skipped without freezing changed evidence or deliberate edits. Dedupe skips
+  singleton groups/unchanged pointers and repeated old/new-key reconciliation.
+- Feed ranking loads payloads after selection; one indexed source query preserves
+  per-card caps, eligibility, order, dates and image fallback. Clock tests retain
+  hidden/archived history outside the source cap. A test's initial nanosecond
+  comparison was corrected to SQLite's existing millisecond display precision.
+- Three-sample local benchmark medians and fixture/version details are recorded
+  in DEVELOPMENT.md. The first join plan was too expensive and was rejected;
+  index/order correction has a regression test. No schema/config/API changes,
+  caches, extra connections or production measurements. Full race/vet/script/
+  build/smoke passed. Non-race 40k integration passed: feed 426ms, full hide 208ms
+  on that different fixture. Independent review found no blocking regression.

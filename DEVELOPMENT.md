@@ -37,7 +37,7 @@ The November audit uses `bash scripts/audit-check.sh`: it selects the already
 operator-installed newest stable `$HOME/sdk/go*` when present, otherwise respects PATH.
 No downloads, shell/profile edits or deployment occur. Its default is the full
 race check; named bounded modes include `build`, `browser`, `security`, `scale`,
-`scripts`, `js`, `ingest`, `store`, `actions` and `server`. Environment/flags stay inside
+`scripts`, `js`, `ingest`, `store`, `actions`, `server`, `perf`, `plans` and `bench`. Environment/flags stay inside
 the helper so recurring approvals use a stable entry point. Ordinary production
 builds use the same shared-SDK selection with legacy server fallback.
 
@@ -164,6 +164,43 @@ Rule edits scan candidates for that rule only, write changed effects using prepa
 statements, recompute only changed scores from their ledger and reconcile affected
 derived story groups. Topic edits reuse the current rule ledger. Avoid restoring the former per-article,
 per-rule database loop in interactive mutation paths.
+
+Feed selection ranks narrow IDs/score/clock fields before fetching large article
+payloads. Other sources use one indexed query for the selected cards, preserving
+the per-card 20-source cap/order and image fallback. Whole-history story clocks
+remain authoritative; source caps are never clock inputs. Rule effects are read
+once per article and written only on change, including first-count transitions
+on handled rows. Repeated identical evidence does not rewrite its ledger.
+
+For bounded, synthetic non-race performance comparisons, run separately:
+
+```bash
+bash scripts/audit-check.sh perf
+bash scripts/audit-check.sh plans
+bash scripts/audit-check.sh bench
+```
+
+`perf` checks effects/source contracts and legacy counting with the race detector.
+`plans` prints plans from an empty temporary schema and asserts indexed source
+lookups. `bench` creates disposable 40k rows (~2KiB content each, 25 per group)
+and an 80-rule repeated-hit fixture; three samples of three iterations, five-minute
+bound, no private DB/network. Allow a few hundred MiB of temporary disk space.
+Fixtures are outside timing; output includes ns/op, B/op and allocs/op.
+
+On 2026-11-06, Go 1.26.10 / SQLite driver 1.58.0, median local observations:
+
+| Synthetic Operation | Before | After |
+| --- | --- | --- |
+| Full feed, 10 cards | 1.540 s | 0.911 s |
+| Full feed, 100 cards | 1.577 s | 0.879 s |
+| Repeated hit, 80 rules | 2.480 ms | 0.473 ms |
+
+The initial batched join regressed source loading (~0.62s for 100 cards); its plan
+scanned status rows. Explicit outer candidate order and the existing story index
+reduced that component to ~14.7ms; a plan test guards this choice. These small
+synthetic samples are not production guarantees. Whole-history age aggregation
+still scales with retained history; no materialized cache or extra DB connection
+was introduced. Profile real workload evidence before adding either.
 
 Do not treat an automatically hidden duplicate as proof the story was handled.
 Do not infer a publication date from ingestion time. Do not strip arbitrary URL

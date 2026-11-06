@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 case "${1:-check}" in
-  check|format|build|browser|security|security-source|scale|scripts|js|ingest|store|server|actions) mode=${1:-check} ;;
-  *) echo 'Usage: bash scripts/audit-check.sh [check|format|build|browser|security|security-source|scale|scripts|js|ingest|store|server|actions]' >&2; exit 2 ;;
+  check|format|build|browser|security|security-source|scale|scripts|js|ingest|store|server|actions|bench|perf|plans) mode=${1:-check} ;;
+  *) echo 'Usage: bash scripts/audit-check.sh [check|format|build|browser|security|security-source|scale|scripts|js|ingest|store|server|actions|bench|perf|plans]' >&2; exit 2 ;;
 esac
 [[ $# -le 1 ]] || exit 2
 source "$ROOT/scripts/tool-env.sh"
@@ -23,5 +23,8 @@ case "$mode" in
   ingest) go test -race ./internal/ingest ;;
   store) go test -race ./internal/store ;;
   actions) go test -race ./internal/store -run 'TestPositive|TestDomainReport' ;;
+  perf) go test -race ./internal/store -run 'TestRepeatedEffects|TestStorySourceBatch|TestLegacyReadNewRuleCount' ;;
+  bench) go test ./internal/store -run '^$' -bench '^BenchmarkRemediation' -benchtime=3x -count=3 -benchmem -timeout=5m ;;
+  plans) go test ./internal/store -run '^TestStorySourceBatchQueryPlan$' -v -count=1 ;;
   server) go test -race ./internal/server ./internal/scheduler ;;
 esac

@@ -209,7 +209,7 @@ func hideGroup(ctx context.Context, tx *sql.Tx, key string) (IngestDedupeStats, 
 	newlyCounted := int64(0)
 	for _, a := range members {
 		if a.status == "hidden" && a.reason == "duplicate" && a.id != winner {
-			if _, err := tx.ExecContext(ctx, `UPDATE articles SET duplicate_of=? WHERE id=?`, winner, a.id); err != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE articles SET duplicate_of=? WHERE id=? AND duplicate_of IS NOT ?`, winner, a.id, winner); err != nil {
 				return stats, err
 			}
 		}
@@ -305,10 +305,11 @@ func (s *Store) dedupeTransaction(ctx context.Context, at *time.Time, keyChars i
 		return stats, 0, err
 	}
 	defer tx.Rollback()
-	query := `SELECT DISTINCT story_key FROM articles WHERE status='unread'`
+	query := `SELECT DISTINCT a.story_key FROM articles a WHERE a.status='unread' AND a.story_key<>''
+ AND EXISTS(SELECT 1 FROM articles b WHERE b.story_key=a.story_key AND b.id<>a.id)`
 	args := []any{}
 	if at != nil {
-		query += ` AND ingested_at=?`
+		query += ` AND a.ingested_at=?`
 		args = append(args, dbTimestamp(*at))
 	}
 	rows, err := tx.QueryContext(ctx, query, args...)
@@ -349,6 +350,22 @@ func (s *Store) dedupeTransaction(ctx context.Context, at *time.Time, keyChars i
 	return stats, total, nil
 }
 
+const feedSelectionSQL = ageCTE + `, eligible AS (
+ SELECT id,status,score,story_key,story_first_seen,story_published,age_date,
+ CASE WHEN ?>0 AND score>0 THEN score/(1+MAX(0,julianday('now')-age_date)/?) ELSE score END AS feed_rank
+ FROM aged WHERE archived_at IS NULL AND (?=0 OR age_date>=julianday('now')-?)
+), ranked AS (
+ SELECT a.*,ROW_NUMBER() OVER(PARTITION BY CASE WHEN story_key='' THEN 'id:'||id ELSE story_key END ORDER BY score DESC,id ASC) AS rank
+ FROM eligible a WHERE status='unread' AND score>=?
+ AND (story_key='' OR NOT EXISTS (
+ SELECT 1 FROM articles h WHERE h.story_key=a.story_key AND
+ (h.status IN ('seen','read','useful') OR (h.status='hidden' AND h.hidden_reason IN ('manual','legacy',''))))))
+ , selected AS (SELECT * FROM ranked WHERE rank=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?)
+ SELECT a.id,a.url,a.normalized_url,a.url_hash,a.title,a.content,a.thumbnail_url,a.source_domain,
+ COALESCE(a.published_at,strftime('%Y-%m-%dT%H:%M:%fZ',s.story_published)),a.ingested_at,a.status,a.score,a.hit_count,a.engine_count,a.searx_score,a.story_key,
+ strftime('%Y-%m-%dT%H:%M:%fZ',s.story_first_seen),s.feed_rank
+ FROM selected s JOIN articles a ON a.id=s.id ORDER BY s.feed_rank DESC,s.age_date DESC,s.id DESC`
+
 func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) ([]model.Article, error) {
 	if limit < 1 || limit > 100 {
 		return nil, errors.New("limit must be 1..100")
@@ -357,19 +374,7 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, ageCTE+`, eligible AS (
- SELECT *,CASE WHEN ?>0 AND score>0 THEN score/(1+MAX(0,julianday('now')-age_date)/?) ELSE score END AS feed_rank
- FROM aged WHERE archived_at IS NULL AND (?=0 OR age_date>=julianday('now')-?)
-), ranked AS (
- SELECT a.*,ROW_NUMBER() OVER(PARTITION BY CASE WHEN story_key='' THEN 'id:'||id ELSE story_key END ORDER BY score DESC,id ASC) AS rank
- FROM eligible a WHERE status='unread' AND score>=?
- AND (story_key='' OR NOT EXISTS (
- SELECT 1 FROM articles h WHERE h.story_key=a.story_key AND
- (h.status IN ('seen','read','useful') OR (h.status='hidden' AND h.hidden_reason IN ('manual','legacy',''))))))
- SELECT id,url,normalized_url,url_hash,title,content,thumbnail_url,source_domain,
- COALESCE(published_at,strftime('%Y-%m-%dT%H:%M:%fZ',story_published)),ingested_at,status,score,hit_count,engine_count,searx_score,story_key,
- strftime('%Y-%m-%dT%H:%M:%fZ',story_first_seen),feed_rank
- FROM ranked WHERE rank=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?`, s.decayDays, s.decayDays, days, days, minScore, limit)
+	rows, err := s.db.QueryContext(ctx, feedSelectionSQL, s.decayDays, s.decayDays, days, days, minScore, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -392,32 +397,56 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 		return nil, err
 	}
 	rows.Close()
-	for i := range out {
-		a := &out[i]
+	if err := s.fillStorySources(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Keep wanted outermost and seek by story key: the status OR otherwise led
+// SQLite to scan status rows for every requested card on the 40k fixture.
+const storySourcesSQL = `WITH wanted(slot,story_key,representative) AS (VALUES %s), sources AS (
+ SELECT w.slot,a.id,a.url,a.title,a.source_domain,a.published_at,a.thumbnail_url,
+ ROW_NUMBER() OVER(PARTITION BY w.slot ORDER BY a.score DESC,a.id ASC) AS source_rank
+ FROM wanted w CROSS JOIN articles a INDEXED BY idx_articles_story
+ WHERE a.story_key=w.story_key AND a.id<>w.representative
+ AND (a.status='unread' OR (a.status='hidden' AND a.hidden_reason='duplicate')))
+ SELECT slot,id,url,title,source_domain,published_at,thumbnail_url FROM sources WHERE source_rank<=20 ORDER BY slot,source_rank`
+
+func (s *Store) fillStorySources(ctx context.Context, out []model.Article) error {
+	var tuples []string
+	var args []any
+	for i, a := range out {
 		if a.StoryKey == "" {
 			continue
 		}
-		rows, err := s.db.QueryContext(ctx, `SELECT id,url,title,source_domain,published_at,thumbnail_url FROM articles
-   WHERE story_key=? AND id<>? AND (status='unread' OR (status='hidden' AND hidden_reason='duplicate')) ORDER BY score DESC,id LIMIT 20`, a.StoryKey, a.ID)
-		if err != nil {
-			return nil, err
+		tuples = append(tuples, "(?,?,?)")
+		args = append(args, i, a.StoryKey, a.ID)
+	}
+	if len(tuples) == 0 {
+		return nil
+	}
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf(storySourcesSQL, strings.Join(tuples, ",")), args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var slot int
+		var source model.StorySource
+		var pub any
+		if err := rows.Scan(&slot, &source.ID, &source.URL, &source.Title, &source.SourceDomain, &pub, &source.ThumbnailURL); err != nil {
+			return err
 		}
-		for rows.Next() {
-			var source model.StorySource
-			var pub any
-			if err := rows.Scan(&source.ID, &source.URL, &source.Title, &source.SourceDomain, &pub, &source.ThumbnailURL); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			source.PublishedAt = parseDBTime(pub)
-			source.ThumbnailURL = displayThumbnailURL(source.ThumbnailURL)
-			a.Sources = append(a.Sources, source)
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		rows.Close()
+		source.PublishedAt = parseDBTime(pub)
+		source.ThumbnailURL = displayThumbnailURL(source.ThumbnailURL)
+		out[slot].Sources = append(out[slot].Sources, source)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range out {
+		a := &out[i]
 		// Prefer the representative's image; borrow a source image only when missing.
 		if a.ThumbnailURL == "" {
 			for _, source := range a.Sources {
@@ -428,7 +457,7 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 			}
 		}
 	}
-	return out, nil
+	return nil
 }
 
 func (s *Store) markSeen(ctx context.Context, ids []int64) error {
