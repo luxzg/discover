@@ -37,7 +37,7 @@ The November audit uses `bash scripts/audit-check.sh`: it selects the already
 operator-installed newest stable `$HOME/sdk/go*` when present, otherwise respects PATH.
 No downloads, shell/profile edits or deployment occur. Its default is the full
 race check; named bounded modes include `build`, `browser`, `security`, `scale`,
-`scripts`, `js`, `ingest`, `store` and `server`. Environment/flags stay inside
+`scripts`, `js`, `ingest`, `store`, `actions` and `server`. Environment/flags stay inside
 the helper so recurring approvals use a stable entry point. Ordinary production
 builds use the same shared-SDK selection with legacy server fallback.
 

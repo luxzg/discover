@@ -319,6 +319,52 @@ func TestPositiveActionsIdempotent(t *testing.T) {
 	}
 }
 
+func TestPositiveActionsAfterAutomaticHide(t *testing.T) {
+	for _, reason := range []string{"score", "duplicate", "manual", "legacy", "", "unknown"} {
+		for _, action := range []model.ArticleStatus{model.StatusRead, model.StatusUseful} {
+			t.Run(reason+"/"+string(action), func(t *testing.T) {
+				s := testStore(t)
+				ctx := t.Context()
+				id := hit(t, s, "https://example.com/card", "Already displayed", addTopic(t, s, "news"), time.Time{})
+				_, original := statusScore(t, s, id)
+				if _, err := s.db.Exec(`UPDATE articles SET status='hidden',hidden_reason=? WHERE id=?`, reason, id); err != nil {
+					t.Fatal(err)
+				}
+				for i := 0; i < 2; i++ {
+					if err := s.MarkIDStatus(ctx, id, action, 1); err != nil {
+						t.Fatal(err)
+					}
+				}
+				state, score := statusScore(t, s, id)
+				var read any
+				var vote int
+				if err := s.db.QueryRow(`SELECT read_at,vote FROM articles WHERE id=?`, id).Scan(&read, &vote); err != nil {
+					t.Fatal(err)
+				}
+				allowed := reason == "score" || reason == "duplicate"
+				if !allowed {
+					if state != "hidden" || score != original || read != nil || vote != 0 {
+						t.Fatalf("deliberate/unknown hide changed: %s %v %v %d", state, score, read, vote)
+					}
+					return
+				}
+				wantScore, wantVote := original, 0
+				if action == model.StatusUseful {
+					wantScore++
+					wantVote = 1
+				}
+				if state != string(action) || score != wantScore || vote != wantVote || (action == model.StatusRead && read == nil) {
+					t.Fatalf("positive action lost/inflated: %s %v %v %d", state, score, read, vote)
+				}
+				cards, err := s.FetchTopUnread(ctx, 10, -100)
+				if err != nil || len(cards) != 0 {
+					t.Fatalf("handled card returned: %+v %v", cards, err)
+				}
+			})
+		}
+	}
+}
+
 func TestThumbnailDecodersAndUnicodeKey(t *testing.T) {
 	raw := "https://imgs.search.brave.com/signature/rs:fit:200:200:1:0/g:ce/aHR0cHM6Ly93d3cu/bm90ZWJvb2tjaGVj/ay5uZXQvZmlsZWFk/bWluL05vdGVib29r/cy9OZXdzL19uYzUv/SW50ZWwtVGl0YW4t/TGFrZS1SYXplci1M/YWtlLUhhbW1lci1M/YWtlLWFuZC1Ob3Zh/LUxha2UtQVgtQ1BV/LWFyY2hpdGVjdHVy/ZXMtaGF2ZS1sZWFr/ZWQtb25saW5lLmpw/Zw"
 	want := "https://www.notebookcheck.net/fileadmin/Notebooks/News/_nc5/Intel-Titan-Lake-Razer-Lake-Hammer-Lake-and-Nova-Lake-AX-CPU-architectures-have-leaked-online.jpg"

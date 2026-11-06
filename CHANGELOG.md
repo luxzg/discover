@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-06 19:16 CET - v2.43
+
+- F09: record Read/Useful on displayed cards that became automatically score-hidden
+  in the meantime. Keep deliberate, legacy and unknown-origin hides authoritative;
+  repeated votes remain idempotent. Added regressions for both action types and
+  all hide origins; no schema or configuration change.
+
 ## 2026-11-06 16:13 CET - v2.42
 
 - F08: save Topic/Rule snapshots with editor revisions, preserving later typing,

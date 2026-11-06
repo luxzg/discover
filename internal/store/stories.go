@@ -451,8 +451,9 @@ func (s *Store) markAction(ctx context.Context, id int64, status model.ArticleSt
 	if err := tx.QueryRowContext(ctx, `SELECT status,hidden_reason,story_key,vote FROM articles WHERE id=?`, id).Scan(&old, &reason, &key, &vote); err != nil {
 		return err
 	}
-	// Stale tabs must not undo a deliberate hide. Duplicate source links can be read.
-	if old == "hidden" && reason != "duplicate" && status != model.StatusHidden {
+	// Stale tabs cannot undo deliberate/unknown hides, but automatic filters do
+	// not override an explicit positive action on an already displayed card.
+	if old == "hidden" && reason != "duplicate" && reason != "score" && status != model.StatusHidden {
 		return tx.Commit()
 	}
 	if old == "useful" && status == model.StatusRead {

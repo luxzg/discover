@@ -15,6 +15,7 @@
   - `🚫 Hide This` -> prompts for pattern + editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
   - `🌐 Hide Domain` -> extracts domain from article URL, prompts editable penalty, creates/updates negative rule, retroactively adjusts unread, hides card
 - Positive actions (`👍 Useful`, click/read) keep the card visible in the current batch until reload/next batch
+- Read/Useful still records your action if ingestion has automatically score-hidden that already displayed card. Stale tabs cannot undo deliberate or legacy hides.
 - `👍 Useful` closes the opened per-card menu automatically after action
 - Negative actions remove card(s) from the current view after the server confirms completion
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top

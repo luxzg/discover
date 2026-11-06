@@ -20,8 +20,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | VERIFIED | c49a2a4; 25 JS, twelve browser and full checks passed; pushed |
 | F06 | P2 | Batch replacement can race a rule-based hide | VERIFIED | effa887; 30 JS, twelve browser and full checks passed; pushed |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | VERIFIED | fdd1e32; 34 JS, twelve browser and full checks passed; pushed |
-| F08 | P2 | Save completion clears subsequent editor changes | VALIDATED | Ten race/duplicate reproductions fixed; 46 JS, sixteen browser and full checks passed; commit/push next |
-| F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
+| F08 | P2 | Save completion clears subsequent editor changes | VERIFIED | bff5e73; 46 JS, sixteen browser and full checks passed; pushed |
+| F09 | P2 | Score-hidden rows silently ignore positive actions | VALIDATED | Both reproductions fixed; full race/vet/script/build/smoke passed; commit/push next |
 | F10 | P2 | Retroactive dedupe lacks service-owned lifecycle/exclusion | PENDING | |
 | F11 | P2 | Redundant scoring writes and per-card source queries | PENDING | Measure before optimizing; retain historical story clocks |
 | F12 | P2 | SQLite alternative-extension sidecars not ignored | VERIFIED | 96af635; matcher and 37 script tests passed; pushed |
@@ -203,3 +203,12 @@ deployment is authorized by this remediation task.
   smoke and sixteen production/development desktop/mobile browser checks passed.
   A brief operator network interruption did not affect local checks; GitHub
   connectivity and the previous pushed revision were verified afterward.
+
+### F09
+
+- Both score-hidden Read/Useful regressions failed before the fix. The guard now
+  permits positive actions only for known duplicate/score filters, not manual,
+  legacy, blank or unknown hide origins. Repeated votes remain single-counted;
+  handled cards are not returned as unread. No schema/config changes.
+- Full race/vet/script/build/smoke passed, including all twelve hide-origin/action
+  combinations and idempotent votes. Existing 40k store regression passed.
