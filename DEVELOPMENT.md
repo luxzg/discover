@@ -12,7 +12,7 @@
   `go install golang.org/x/vuln/cmd/govulncheck@latest`.
 
 Direct Go dependencies are `modernc.org/sqlite` (pure-Go SQLite) and
-`golang.org/x/net` (HTML tokenizer for article metadata and bundled public-suffix
+`golang.org/x/net` (bounded HTML parsing for article metadata and bundled public-suffix
 grouping for domain reports). Other module
 requirements are transitive. Builds use `-mod=readonly`; only deliberate dependency
 maintenance uses `go mod tidy`/`go get`. Go may download the toolchain selected by
@@ -116,6 +116,12 @@ test is explicitly skipped otherwise. Synthetic deadline tests verify phase
 diagnostics and cleanup without waiting two minutes or touching services.
 
 ## Architecture And Invariants
+
+The reviewed HTML parser patch can be reproduced with
+`bash scripts/update-html-parser.sh apply`; its no-argument mode shows usage.
+It updates only x/net to v0.62.0, required sums/transitives, and refuses an
+unexpected Go minimum change. This is deliberate networked dependency maintenance,
+not an automatic validation step. Run full checks/scans afterward.
 
 - `config`: exclusive default-file creation and read-only validation.
 - `auth`: independent in-memory admin/feed sessions, CSRF and login throttling;

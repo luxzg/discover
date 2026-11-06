@@ -63,9 +63,14 @@ func (s *Service) fetchArticleMetadata(ctx context.Context, articleURL string) (
 		return articleMetadata{}, Failure{Stage: "thumbnail_fetch", Code: fmt.Sprintf("http_%d", resp.StatusCode)}
 	}
 	const maxBody = 1 << 20
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
 		return articleMetadata{}, Failure{Stage: "thumbnail_fetch", Code: "response_read", cause: err}
+	}
+	if len(body) > maxBody {
+		// An early complete image tag is useful, but a partial document cannot
+		// establish that publication evidence is unambiguous.
+		return articleMetadata{Thumbnail: thumbnailFromHTML(resp.Request.URL, body[:maxBody])}, Failure{Stage: "metadata_fetch", Code: "response_too_large"}
 	}
 	// Resolve against the final validated redirect target, not the starting URL.
 	return articleMetadata{Thumbnail: thumbnailFromHTML(resp.Request.URL, body), Published: publicationFromHTML(body)}, nil

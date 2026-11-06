@@ -141,6 +141,13 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 
 ### 2026-11-06 - Audit Toolchain Follow-up
 
+- F04 patched x/net 0.59.0 to 0.62.0 and required x/sys 0.48.0 to 0.49.0 before
+  adopting HTML-tree parsing. Module minimum 1.26.8 and SQLite/libc pair unchanged.
+  Full race/vet/script/build/smoke and legacy upgrade tests passed. Fresh source
+  and binary scans now report no reachable or uncalled vulnerabilities; project
+  and shared npm audits zero (DB 2026-11-05 23:49:57 UTC). Historical results below
+  describe earlier intermediate states, not the final dependency set.
+
 - Operator requested centrally maintained Playwright instead of per-repository
   pins. Shared 1.64.1 / Node 22.23.4 with matching Chromium passed all four
   production/development desktop/mobile runs. Helpers select the absolute shared

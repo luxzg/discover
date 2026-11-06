@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-06 15:39 CET - v2.37
+
+- F04: scope publication dates to agreeing page-head tags or unambiguous article
+  markup/JSON-LD, ignoring sidebar/comment/unscoped dates. Detect oversized HTML;
+  retain useful early thumbnails but never infer publication from a partial page.
+  Existing publication values, scores and immutable discovery clocks are retained.
+- Patch x/net to v0.62.0 with required x/sys v0.49.0 before adopting HTML-tree
+  parsing; Go minimum and SQLite/libc pair unchanged. Added scope and body-limit
+  regressions and a bounded dependency maintenance helper.
+
 ## 2026-11-06 15:16 CET - v2.36
 
 - Operator-requested shared browser tooling: use the central Playwright package

@@ -206,8 +206,13 @@ rather than falsely claiming the server session was removed.
   targets missing publication dates even if images already exist. It reads
   Article/NewsArticle/BlogPosting JSON-LD `datePublished`, publication meta tags
   and explicitly marked datePublished time elements, never dateModified.
-  Page-level publication tags take precedence; conflicting structured article
-  dates are left unknown rather than guessed from another article in a graph.
+  Page-head publication tags take precedence only when they agree. Body meta/time
+  dates must belong to one unambiguous article scope; sidebar/navigation/footer,
+  nested comment articles and unscoped time tags are not publication evidence.
+  Conflicting structured/article dates are left unknown, not guessed. Oversized
+  pages are reported as response_too_large: an early complete image tag can still
+  fill a thumbnail, but dates are never extracted from truncated HTML. Existing
+  stored dates are not mass-repaired or reset by this change.
   The union makes at most thumbnail cap + date cap requests; shared candidates
   are fetched once and either batch can fill both missing fields. Failed/empty
   metadata attempts wait at least a day before retry. Publication extraction

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestPublicationMetadata(t *testing.T) {
 	for _, tc := range []struct{ html, want string }{
 		{`<meta property="article:published_time" content="2026-05-01T10:00:00+02:00">`, "2026-05-01T08:00:00Z"},
 		{`<script type="application/ld+json">{"@graph":[{"@type":"NewsArticle","datePublished":"2026-05-02","dateModified":"2026-09-01"}]}</script>`, "2026-05-02T00:00:00Z"},
-		{`<time itemprop="datePublished" datetime="2026-05-03"></time>`, "2026-05-03T00:00:00Z"},
+		{`<article><time itemprop="datePublished" datetime="2026-05-03"></time></article>`, "2026-05-03T00:00:00Z"},
 		{`<script type="application/ld+json">{"@type":"NewsArticle","dateModified":"2026-09-01"}</script>`, ""},
 		{`<script type="application/ld+json">{"@type":"WebSite","datePublished":"2026-01-01"}</script>`, ""},
 		{`<meta property="article:published_time" content="2099-01-01">`, ""},
@@ -72,5 +73,54 @@ func TestSharedMetadataFetchAndPersistentCooldown(t *testing.T) {
 	_, _, scanned, err = s.refreshMissingMetadata(ctx)
 	if err != nil || scanned != 0 || hits != 1 {
 		t.Fatal("metadata refetched", scanned, hits, err)
+	}
+}
+
+func TestPublicationScope(t *testing.T) {
+	for _, tc := range []struct{ name, page, want string }{
+		{"sidebar", `<head><script type="application/ld+json">{"@type":"NewsArticle","datePublished":"2026-05-02"}</script></head><body><aside><time itemprop="datePublished" datetime="2020-01-01"></time></aside></body>`, "2026-05-02"},
+		{"body meta", `<body><nav><meta itemprop="datePublished" content="2020-01-01"></nav></body>`, ""},
+		{"multiple articles", `<article><time itemprop="datePublished" datetime="2020-01-01"></time></article><article><time itemprop="datePublished" datetime="2026-05-02"></time></article>`, ""},
+		{"comment", `<article><article><time itemprop="datePublished" datetime="2020-01-01"></time></article><time itemprop="datePublished" datetime="2026-05-02"></time></article>`, "2026-05-02"},
+		{"conflicting head", `<head><meta property="article:published_time" content="2020-01-01"><meta property="article:published_time" content="2026-05-02"></head>`, ""},
+		{"unscoped time", `<time itemprop="datePublished" datetime="2020-01-01"></time>`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := publicationFromHTML([]byte(tc.page))
+			if tc.want == "" {
+				if !got.IsZero() {
+					t.Fatal("unexpected publication", got)
+				}
+				return
+			}
+			if got.Format("2006-01-02") != tc.want {
+				t.Fatal(got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMetadataBodyLimitDoesNotPublishTruncatedDates(t *testing.T) {
+	const capBytes = 1 << 20
+	for _, size := range []int{capBytes - 1, capBytes, capBytes + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			prefix := `<meta property="og:image" content="/image"><meta property="article:published_time" content="2026-05-01">`
+			body := prefix + strings.Repeat(" ", size-len(prefix))
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
+			defer upstream.Close()
+			s := New(config.Config{}, nil)
+			s.articleClient = articleTestClient(t, upstream.Listener.Addr().String())
+			m, err := s.fetchArticleMetadata(t.Context(), "http://publisher.test/article")
+			if size > capBytes {
+				if err == nil || !m.Published.IsZero() {
+					t.Fatal("truncated page accepted", m.Published, err)
+				}
+			} else if err != nil || m.Published.IsZero() {
+				t.Fatal(m.Published, err)
+			}
+			if m.Thumbnail != "http://publisher.test/image" {
+				t.Fatal(m.Thumbnail)
+			}
+		})
 	}
 }

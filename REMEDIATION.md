@@ -16,7 +16,7 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F01 | P1 | Build canonicalizes aliases; deployment copies into predictable paths | VERIFIED | 48ef106; targeted 8/8 and full race checks; pushed |
 | F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
-| F04 | P2 | Publication extraction accepts unrelated/partial HTML | PENDING | |
+| F04 | P2 | Publication extraction accepts unrelated/partial HTML | IN PROGRESS | Ingest and full race/build/smoke passed; source/binary and both npm scans zero findings; commit/push next |
 | F05 | P2 | Obsolete auth responses can undo successful sign-in | PENDING | |
 | F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | PENDING | |
@@ -29,7 +29,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F14 | P3 | Middle-click opens are not recorded | PENDING | |
 | F15 | P3 | Hidden articles lose recorded-exposure contribution | PENDING | |
 | F16 | P3 | Editor labels and menu accessibility state incomplete | PENDING | |
-| R01 | User | Use operator-managed central Playwright | IN PROGRESS | Shared 1.64.1 four browser runs passed; full helper checks next |
+| R01 | User | Use operator-managed central Playwright | VERIFIED | 5591044; four browser runs, full checks and project/shared npm audits passed; pushed |
+| R02 | User | Prefer newest stable installed Go SDK under HOME/sdk | PENDING | Explicit operator convention; preserve module minimum, no automatic tool installs |
 
 ## Validation And Compatibility
 
@@ -125,3 +126,20 @@ deployment is authorized by this remediation task.
   binary scan remains zero reachable with the seven tracked uncalled advisories;
   project and shared tooling npm audits both report zero. Config/runtime/database
   upgrade behavior unchanged.
+
+### F04
+
+- Six scope cases and an over-limit HTML case failed before the fix and pass
+  afterward. Head conflicts remain unknown; one article scope excludes nested
+  articles and navigation/sidebar/footer. Complete structured data still works.
+  Test sizes: 1MiB-1, exactly 1MiB, 1MiB+1. Oversized documents retain an early
+  valid image but no guessed date. Extraction depth is bounded and fails unknown.
+- x/net 0.62.0 fixes the seven previously uncalled advisories before use of the
+  tree parser. Required x/sys is 0.49.0. Upstream go.mod requires Go 1.26.0;
+  application minimum remains 1.26.8, SQLite/libc unchanged. Dependency helper
+  applies only this reviewed version and tidies sums. No database migration or
+  historical-date rewriting; fresh and legacy fixture checks remain required.
+  Full race suite passed, including legacy upgrades; Go scans now show no
+  reachable or uncalled advisories, project/shared npm audits zero. Scan database
+  timestamp: 2026-11-05 23:49:57 UTC. Historical publication provenance is unknown;
+  prevention is fixed, but existing suspect dates require evidence before repair.

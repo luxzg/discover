@@ -12,49 +12,99 @@ import (
 )
 
 func publicationFromHTML(body []byte) time.Time {
-	z := html.NewTokenizer(bytes.NewReader(body))
-	var explicit, structured time.Time
-	ambiguousStructured := false
-	for {
-		typ := z.Next()
-		if typ == html.ErrorToken {
-			break
+	doc, err := html.Parse(bytes.NewReader(body))
+	if err != nil {
+		return time.Time{}
+	}
+	var headDates, articleDates, structured []time.Time
+	articleRoots := 0
+	depthExceeded := false
+	var visit func(*html.Node, bool, int, int)
+	visit = func(n *html.Node, inHead bool, articleDepth, depth int) {
+		if depth > 128 {
+			depthExceeded = true
+			return
 		}
-		if typ != html.StartTagToken && typ != html.SelfClosingTagToken {
-			continue
-		}
-		t := z.Token()
 		attrs := map[string]string{}
-		for _, a := range t.Attr {
-			if _, ok := attrs[a.Key]; !ok {
+		for _, a := range n.Attr {
+			if _, exists := attrs[a.Key]; !exists {
 				attrs[a.Key] = a.Val
 			}
 		}
-		key := strings.ToLower(firstNonEmpty(attrs["property"], attrs["name"], attrs["itemprop"]))
-		if (t.Data == "meta" && (key == "article:published_time" || key == "datepublished" || key == "pubdate")) || (t.Data == "time" && strings.EqualFold(attrs["itemprop"], "datePublished")) {
-			if d := metadataDate(firstNonEmpty(attrs["content"], attrs["datetime"])); explicit.IsZero() && !d.IsZero() {
-				explicit = d
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "aside", "nav", "footer", "template":
+				return
+			case "head":
+				inHead = true
 			}
-		}
-		if t.Data == "script" && strings.EqualFold(strings.TrimSpace(attrs["type"]), "application/ld+json") && z.Next() == html.TextToken {
-			var value any
-			if json.Unmarshal(z.Text(), &value) == nil {
-				for _, d := range jsonLDPublications(value, 0) {
-					if !structured.IsZero() && !structured.Equal(d) {
-						ambiguousStructured = true
+			articleScope := n.Data == "article"
+			for _, typ := range strings.Fields(attrs["itemtype"]) {
+				name := strings.TrimPrefix(strings.TrimPrefix(typ, "https://schema.org/"), "http://schema.org/")
+				articleScope = articleScope || name == "Article" || name == "NewsArticle" || name == "BlogPosting"
+			}
+			if articleScope {
+				if articleDepth == 0 {
+					articleRoots++
+				}
+				articleDepth++
+			}
+			// Nested articles are commonly comments/recommendations, not the page.
+			if articleDepth > 1 {
+				return
+			}
+			key := strings.ToLower(firstNonEmpty(attrs["property"], attrs["name"], attrs["itemprop"]))
+			publication := n.Data == "meta" && (key == "article:published_time" || key == "datepublished" || key == "pubdate") || n.Data == "time" && key == "datepublished"
+			if publication {
+				d := metadataDate(firstNonEmpty(attrs["content"], attrs["datetime"]))
+				if !d.IsZero() {
+					if inHead {
+						headDates = append(headDates, d)
+					} else if articleDepth == 1 {
+						articleDates = append(articleDates, d)
 					}
-					structured = d
+				}
+			}
+			if n.Data == "script" && strings.EqualFold(strings.TrimSpace(attrs["type"]), "application/ld+json") {
+				var text strings.Builder
+				for child := n.FirstChild; child != nil; child = child.NextSibling {
+					if child.Type == html.TextNode {
+						text.WriteString(child.Data)
+					}
+				}
+				var value any
+				if json.Unmarshal([]byte(text.String()), &value) == nil {
+					structured = append(structured, jsonLDPublications(value, 0)...)
 				}
 			}
 		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			visit(child, inHead, articleDepth, depth+1)
+		}
 	}
-	if !explicit.IsZero() {
-		return explicit
+	visit(doc, false, 0, 0)
+	if depthExceeded {
+		return time.Time{}
 	}
-	if !ambiguousStructured {
-		return structured
+	if len(headDates) > 0 {
+		return unambiguousPublication(headDates)
 	}
-	return time.Time{}
+	if articleRoots == 1 {
+		structured = append(structured, articleDates...)
+	}
+	return unambiguousPublication(structured)
+}
+
+func unambiguousPublication(dates []time.Time) time.Time {
+	if len(dates) == 0 {
+		return time.Time{}
+	}
+	for _, d := range dates[1:] {
+		if !dates[0].Equal(d) {
+			return time.Time{}
+		}
+	}
+	return dates[0]
 }
 
 func metadataDate(raw string) time.Time {
