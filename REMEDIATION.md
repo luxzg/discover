@@ -17,8 +17,8 @@ The normal branch has no automatic deployment; deployment is operator-run.
 | F02 | P1 | Installed Go compiler lacks current security patches | VERIFIED | 07d0d2b; SDK 1.26.10 full checks/scans; pushed; remote deployment separate |
 | F03 | P2 | Privileged deployment backup root lacks ancestry validation | VERIFIED | 7c37a50; full checks, 16 targeted cases and independent review; pushed |
 | F04 | P2 | Publication extraction accepts unrelated/partial HTML | VERIFIED | 9b45ce8; targeted/full checks and clean source/binary/npm scans; pushed |
-| F05 | P2 | Obsolete auth responses can undo successful sign-in | IN PROGRESS | Eight reproduced startup races now pass; browser-cookie/full checks pending |
-| F06 | P2 | Batch replacement can race a rule-based hide | PENDING | |
+| F05 | P2 | Obsolete auth responses can undo successful sign-in | VERIFIED | c49a2a4; 25 JS, twelve browser and full checks passed; pushed |
+| F06 | P2 | Batch replacement can race a rule-based hide | IN PROGRESS | Four race reproductions fixed; 30 JS tests pass; full/browser checks next |
 | F07 | P2 | Admin accepts malformed successful JSON as an empty object | PENDING | |
 | F08 | P2 | Save completion clears subsequent editor changes | PENDING | |
 | F09 | P2 | Score-hidden rows silently ignore positive actions | PENDING | |
@@ -169,3 +169,13 @@ deployment is authorized by this remediation task.
   real cookie/CSRF ordering for both roles, plus full race/vet/script/build/smoke.
   Inspected the synthetic mobile feed screenshot; no private login state used.
   No persistent data/config or migration changes.
+
+### F06
+
+- Four controlled races reproduced Hide This/Domain overlapping seen POST or
+  feed GET. Negative actions now stop before prompts/submission while the batch
+  lock is held. The helper independently enforces that boundary. Reverse hide/
+  next exclusion and startup recovery lock tests pass (30 JS tests total).
+- No API, persistent-data, schema or config changes. No automatic retry/queue;
+  accepted hides remain service-owned and positive actions keep cards visible.
+  Full race/vet/script/build/smoke and twelve shared-browser checks passed.

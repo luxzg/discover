@@ -31,6 +31,9 @@ does not depend on keeping the browser connection alive. The card and matching
 visible cards disappear once completion is confirmed. `Load Next` waits while
 the page is tracking this update so the current batch is not marked seen midway
 through it. Only one rule-based hide runs at a time.
+Conversely, while a batch is loading, negative actions show a wait message without
+opening prompts or submitting a hide. Startup recovery/loading has the same guard.
+There is no queued click to replay unexpectedly after the batch changes.
 
 If the connection fails, the UI does not falsely claim the hide failed or
 completed. Retrying the same action on that card reuses its request ID and checks

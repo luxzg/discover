@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 15:59 CET - v2.40
+
+- F06: exclude negative card actions during batch replacement and exclude Load
+  Next during rule hides or startup recovery. Guard the hide helper as well as
+  buttons, before prompts or request IDs are created. Busy clicks are not queued.
+- Added controlled seen/feed-response races plus reverse exclusion and startup
+  recovery checks; positive card behavior and background job contracts unchanged.
+
 ## 2026-11-06 15:54 CET - v2.39
 
 - F05: fence feed/Admin requests by authentication generation and serialize

@@ -269,3 +269,56 @@ test('Hide Domain click confirms completion before removal and reports uncertain
     else assert.deepEqual(Array.from(b.eval('currentIds')),[]);
   }
 });
+
+for (const phase of ['seen','feed']) {
+  for (const action of ['dont','domain']) {
+    test(`rule hide ${action} cannot overlap Load Next at ${phase}`, async () => {
+      const b=browser(); b.eval('authenticated=true; currentIds=[1]; setAuthUI()');
+      let ready,release;
+      const entered=new Promise(resolve=>{ready=resolve});
+      const pending=new Promise(resolve=>{release=resolve});
+      const calls=[]; let prompts=0;
+      b.c.prompt=()=> (++prompts%2 ? 'example.com' : '100');
+      const item={id:2,title:'New matching card',url:'https://example.com/new',score:10};
+      b.c.fetch=async url=>{
+        calls.push(url);
+        if(url===(phase==='seen'?'/api/feed/seen':'/api/feed')) { ready(); return pending; }
+        return {ok:true,json:async()=>url==='/api/feed'?{items:[item]}:{id:'hide',status:'completed',matched_ids:[1]}};
+      };
+      const card={dataset:{id:'1'},remove(){},querySelector(selector){
+        if(selector==='.card-link')return {href:'https://example.com/old'};
+        if(selector==='.card-title')return {textContent:'Old matching card'};
+        if(selector==='.menu')return {classList:{remove(){}}};
+        return {textContent:'',hidden:true};
+      }};
+      const target={dataset:{action},closest(){return card},matches(s){return s==='[data-action]'}};
+      const next=b.elements.get('nextBtn').listeners.click(); await entered;
+      await b.elements.get('feed').listeners.click({target});
+      release({ok:true,json:async()=>phase==='feed'?{items:[item]}:{ok:true}}); await next;
+      assert.equal(prompts,0);
+      assert.equal(calls.includes('/api/articles/dontshow'),false);
+      assert.equal(b.elements.get('nextBtn').disabled,false);
+    });
+  }
+}
+
+test('Load Next waits for accepted hide and initial recovery, including helper callers', async () => {
+  for (const initialization of [false,true]) {
+    const b=browser(); b.eval('authenticated=true; currentIds=[1]; setAuthUI()');
+    let ready,release; const entered=new Promise(r=>{ready=r}); const pending=new Promise(r=>{release=r});
+    const calls=[]; b.c.cardEl={querySelector(){return null}};
+    b.c.fetch=async url=>{
+      calls.push(url);
+      if(calls.length===1) { ready(); return pending; }
+      return {ok:true,json:async()=>({items:[{id:2,title:'New',score:10}]})};
+    };
+    const work=b.eval(initialization?'initializeFeed()':"applyHideRequest(cardEl,1,'example.com',100)");
+    await entered;
+    assert.equal(b.elements.get('nextBtn').disabled,true);
+    await b.elements.get('nextBtn').listeners.click();
+    assert.equal(calls.length,1);
+    await assert.rejects(b.eval("applyHideRequest(cardEl,1,'other.example',100)"), /Wait for/);
+    release({ok:true,json:async()=>({id:'job',status:'completed',matched_ids:[1]})}); await work;
+    assert.equal(b.elements.get('nextBtn').disabled,false);
+  }
+});

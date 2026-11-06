@@ -4,7 +4,7 @@ import "fmt"
 
 var (
 	// Version is the app version string. Keep this in sync with CHANGELOG code entries.
-	Version = "v2.39"
+	Version = "v2.40"
 	// Commit and BuildTime can be injected at build time with -ldflags if desired.
 	Commit    = "dev"
 	BuildTime = "unknown"

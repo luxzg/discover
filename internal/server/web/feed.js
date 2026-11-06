@@ -213,6 +213,7 @@ async function waitForHide(state, cardEl) {
 }
 
 async function applyHideRequest(cardEl, id, pattern, penalty) {
+  if (nextInFlight || hideInFlight > 0) throw new Error('Wait for the current batch or hide update to finish.');
   const generation = sessionGeneration;
   // Keep the same request ID on an uncertain network failure. A manual retry
   // checks/reuses the accepted job rather than applying another mutation.
@@ -249,6 +250,19 @@ async function resumeHide() {
   finally { if (generation === sessionGeneration) { hideInFlight--; setAuthUI(); } }
 }
 
+async function initializeFeed() {
+  if (nextInFlight) throw new Error('A batch is already loading.');
+  const generation = sessionGeneration;
+  nextInFlight = true;
+  setAuthUI();
+  try {
+    await resumeHide();
+    await loadFeed();
+  } finally {
+    if (generation === sessionGeneration) { nextInFlight = false; setAuthUI(); }
+  }
+}
+
 userLoginBtn.addEventListener('click', async () => {
   if (authInFlight || authenticated) return;
   const username = userNameEl.value.trim();
@@ -269,8 +283,7 @@ userLoginBtn.addEventListener('click', async () => {
     userSecretEl.value = '';
     setAuthUI();
     statusEl.textContent = `${new Date().toISOString()} signed in`;
-    await resumeHide();
-    await loadFeed();
+    await initializeFeed();
   } catch (e) {
     if (e.staleSession) return;
     statusEl.textContent = `${new Date().toISOString()} ${authenticated ? 'feed load failed' : 'sign in failed'}: ${e.message}`;
@@ -356,6 +369,10 @@ feed.addEventListener('click', async (e) => {
 
   if (e.target.matches('[data-action]')) {
     if (e.target.disabled) return;
+    if (['down','hide','dont','domain'].includes(e.target.dataset.action) && (nextInFlight || hideInFlight > 0)) {
+      cardActionStatus(cardEl, 'Wait for the current batch or hide update to finish.');
+      return;
+    }
     const actionButton = e.target;
     actionButton.disabled = true;
     const action = e.target.dataset.action;
@@ -435,8 +452,7 @@ statusEl.textContent = `${new Date().toISOString()} checking session...`;
     buildVersion = String(j.build_version || '');
     authenticated = true;
     setAuthUI();
-    await resumeHide();
-    await loadFeed();
+    await initializeFeed();
   } catch (err) {
     if (err.staleSession) return;
     if (err.status === 401 || err.status === 403) {
