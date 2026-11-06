@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-06 14:48 CET - Documentation / Audit Remediation Plan
+
+- Recorded the sixteen read-only audit findings and development-only execution
+  constraints in REMEDIATION.md, including per-finding validation, compatibility,
+  commit/push tracking and the outstanding operator compiler update.
+- No production changes or deployment authorized; existing data/config remain
+  outside test fixtures. App version unchanged for this planning entry.
+
 ## 2026-10-05 13:23 CEST - Documentation / SearXNG Startup Closeout
 
 - Recorded operator-applied inheritance/cooldown/Yahoo News edits and subsequent
