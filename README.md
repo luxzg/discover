@@ -11,6 +11,40 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 - Keep deployment simple: one Go binary + one JSON config + SQLite file
 - Provide `/admin` management for topic queries and negative rules
 
+## Current Status
+
+Handover reviewed **2026-11-13**, documentation only. The latest recorded prepared
+release is **v2.48**, code commit `5835f45`, with documentation closeout/build
+revision `0992900` on `main` (2026-11-06). All sixteen November audit findings and
+two shared-tooling requests are closed in `REMEDIATION.md`. Local validation and
+dated scans are in `MAINTENANCE.md`; they were not rerun for this handover.
+
+The latest explicit operator deployment confirmation available to this handover
+is **v2.31 on 2026-10-05**. A later live version is unknown, not assumed to be
+v2.31 or v2.48. Before the next feature pass, ask which version is actually running
+and whether v2.48's login, card/editor actions and background dedupe were tested.
+Use `INSTALL.md` section 7 if an update is needed; no new config keys or manual
+database conversion are required for the v2.31-to-v2.48 remediation upgrade.
+Do not run extra provider searches merely to close the handover.
+
+This is a single-reader/shared-feed service, not a multi-user tenant system.
+Feed and Admin credentials separate privileges, not personal libraries; actions
+and rules affect the shared database. Future ideas in `TODO.md` are not approved
+implementation or proof that domain learning/fuzzy grouping is already enabled.
+
+### Development Continuation / Last Working Context (2026-11-13)
+
+- **Last worked on:** October 5's v2.27-v2.31 freshness improvements: immutable
+  first-seen/36-hour scoring window, reversible age archives, date enrichment and
+  domain reports; then gentler searches, the SearXNG updater and Admin diagnostics.
+- **Where we stopped:** Fresher cards/reports and v2.31 were operator-confirmed;
+  some engines worked, others stayed blocked; scheduled-ingest feedback was pending.
+  Later v2.48 remediation is locally complete, but deployment is unconfirmed above.
+- **Intended next steps:** Confirm live version; review normal reading, scheduled
+  ingest and date coverage; then consider engine backoff and bounded Google/Yahoo
+  News trials. Fuzzy grouping/domain learning stay later ideas. See `TODO.md` and
+  October 5's `CHANGELOG.md`; these experiments are not approved next builds.
+
 ## Features
 
 - Standalone `net/http` server (no reverse proxy required)
@@ -120,8 +154,9 @@ For remote/server-side and manual fallback options, see `INSTALL.md` section `7`
 
 The wrapper builds before stopping the service, backs up SQLite/config/binary,
 then replaces the binary and restarts. It never automatically restores a database.
-The first upgraded start migrates derived story identities and date storage;
-existing scores and deliberate/legacy hide decisions are preserved. See `USAGE.md`
+When upgrading from before v2.23, the first upgraded start migrates derived story
+identities and date storage; see INSTALL.md section 7.4 for version-specific
+migrations. Existing scores and deliberate/legacy hide decisions are preserved. See `USAGE.md`
 for scoring and history limitations before changing thresholds.
 
 ## Project Docs
@@ -143,6 +178,22 @@ paces individual searches as well as topics; local hosting does not bypass
 upstream engine rate limits. Existing configs inherit the new pacing defaults
 without edits. A 32-topic run has 256 searches and roughly 25 minutes of request
 pauses with defaults, plus search/metadata work and your existing topic delays.
+
+### Documentation Authority
+
+`AGENTS.md` defines agent workflow; README/current `USAGE.md`, `INSTALL.md` and
+`DEVELOPMENT.md` describe the current product, operations and architecture.
+`TODO.md` contains open ideas/validation work, not completed audit findings.
+`CHANGELOG.md`, `FINISHED_TASKS.md`, dated maintenance results and `REMEDIATION.md`
+preserve history/evidence; old entries are not present-day instructions or scans.
+`SQLITE_DEBUG.md` provides read-only diagnostic examples, not the exact feed query.
+
+`INITIAL_PROMPT.md`, `IDEA.md` and `JSON_SAMPLES.md` are immutable historical inputs.
+`GITHUB.md` is a historical first-publication checklist, not an instruction to
+initialize this existing repository again. Superseded assumptions are summarized
+in DEVELOPMENT.md. Normal continuation must not require old chats, model memories,
+session archives or account-specific settings. Keep private operator settings
+local; examples and recorded observations do not replace the live configuration.
 
 ## Privacy Boundary
 

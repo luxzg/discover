@@ -123,6 +123,63 @@ diagnostics and cleanup without waiting two minutes or touching services.
 
 ## Architecture And Invariants
 
+### End-To-End Flows And State Ownership
+
+Discover is a small layered monolith, not a crawler or recommendation service
+with separately deployed workers. `cmd/discover` composes config, DB/store,
+authentication, ingestion, scheduler and HTTP/UI. The store owns scoring, story
+identity and state transitions; handlers/JavaScript must not invent parallel rules.
+
+1. Ingestion reserves the scheduler, harvests paced SearXNG JSON, normalizes URL
+   identity and records topic/evidence/rule effects transactionally. Dedupe,
+   bounded metadata enrichment, archive maintenance and eligible retention follow.
+2. A signed-in feed query selects eligible unread story representatives and
+   alternate sources. Positive actions record interest/read state while retaining
+   the current tile; Load Next advances the batch. Rule hides acknowledge receipt,
+   complete service-owned work, then confirm visible-card removal.
+3. Admin edits persist day-to-day topics/rules and selected settings in SQLite.
+   Boot/TLS/credentials/search transport settings remain in local JSON. Login
+   fields authenticate; they do not change server credentials. Background status
+   and sessions are memory-only, unlike article history/counters/settings.
+
+`article_topics` preserves many-to-many search provenance and powers per-topic
+unread/total statistics without creating one article per query. It is distinct
+from strongest per-topic relevance (`article_evidence`) and current negative
+effects (`article_rule_effects`). Multiple associations are not permission to
+accumulate identical rediscovery boosts indefinitely.
+
+Feed users may create global negative rules through Hide This/Domain by design;
+general topic/rule management remains Admin-only. Hidden UI panels are convenience,
+not authorization. Configured SearXNG endpoints/DNS are administrator-trusted;
+publisher metadata requires the separate public-only fetch boundary. Never replace
+that boundary with the trusted search client to improve image/date coverage.
+
+### Superseded Historical Assumptions
+
+Keep the original prompt/sample files unchanged. Later user decisions and release
+behavior supersede these earlier assumptions:
+
+| Earlier Idea / Workflow | Current Decision / Reason |
+| --- | --- |
+| Public SearXNG/RSS and daily-only ingestion | Private/local JSON integration; configurable interval or daily mode. Public anti-bot failures motivated self-hosting, not bypasses. RSS/Atom is future work. |
+| URL-only dedupe, or strip every query parameter | Preserve identity parameters; conservative title groups retain alternative URLs. Do not confuse URL identity with story identity or turn on fuzzy grouping silently. |
+| Boost score on every repeated hit | Strongest per-topic evidence within the original story window; preserve legacy baselines without continuing runaway inflation. |
+| Ingestion time as publication fallback | Unknown publication stays unknown; clearly labeled immutable First seen supplies discovery/age evidence only. |
+| Admin URL/header secret and browser localStorage | Separate feed/Admin cookie sessions plus CSRF; no compatibility credential bypass. Never revive the early URL-secret flow. |
+| Copy whichever local binary exists; stop before building | Reviewed remote build/config validation before downtime, retained snapshots and atomic swap. A generic successful build once left an old deployable artifact untouched. |
+| Service user's scripts/candidate inspection run as root | Administrator-controlled orchestration; build and candidate checks as dedicated service users. Service accounts do not need sudo. |
+| Manual testing only; no Node tools at all | Automated synthetic development tests are established. Node/Playwright are developer-only, never a deployed runtime requirement. |
+| Version every prompt/document edit | Current AGENTS policy versions code/runtime changes; docs-only timeline entries do not bump the app. |
+
+The documented operational target is Debian/Ubuntu Linux with systemd. Pure-Go
+SQLite makes other Go-supported targets plausible, not tested release platforms.
+There is no approved cross-platform release matrix or CI implementation. Do not
+replace this stack, add Docker/ORM/brokers, or require a proxy to satisfy an old
+discussion or generic checklist. Existing thumbnail caps, memory-only jobs and
+operator-managed TLS are deliberate proportional choices; see FINISHED_TASKS.md.
+
+### Current Implementation Constraints
+
 The reviewed HTML parser patch can be reproduced with
 `bash scripts/update-html-parser.sh apply`; its no-argument mode shows usage.
 It updates only x/net to v0.62.0, required sums/transitives, and refuses an
@@ -255,3 +312,22 @@ publisher metadata and remote systemd/TLS behavior require field testing.
 `TODO.md` tracks future features, not an assertion that all possible bugs are gone.
 External image requests remain a documented browser privacy tradeoff. Upstream
 engine filtering, missing dates and rate limits cannot be guaranteed by Discover.
+
+### Knowledge-Preservation Review (2026-11-13)
+
+Read all sixteen tracked Markdown documents, the installed coding skill revision
+2026-11-08.2, relevant Git history and the available Discover conversation context.
+Recovery included project-relevant excerpts of the February-November session's
+completed answers and reports from twenty historical child sessions, plus the
+available compacted context. This was not a verbatim replay of every tool trace,
+attachment or internal reasoning step. Retained compaction messages have incomplete
+history flags; independent conversations, missing evidence and the current live
+server cannot be assumed recovered. No old raw archive is needed for normal work.
+
+The closed November ledger remains the implementation record. Open product ideas
+and conditional scheduling questions belong in TODO.md. Suspect historical dates
+and lost exposure evidence require a separate evidence-backed, authorized repair,
+not guessed data or mass resets. The next operator checkpoint is README's Current
+Status, not a fresh claim that November's local tests establish production health.
+This documentation pass did not inspect source/config/DBs or run application validation,
+builds, installations, deployment, staging, commits or pushes.

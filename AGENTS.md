@@ -15,6 +15,12 @@ workflow documented in `README.md`, `INSTALL.md`, `USAGE.md`, and
 
 ## Read First (Every New Session)
 
+Read the installed `codex-coding-rules/SKILL.md`, its full
+`references/AGENT_RULES.md` and applicable operations guidance before this list.
+Revision `2026-11-08.2` was reread on 2026-11-13; resolve the installed revision
+again rather than treating this dated record as a permanent pin. System/developer
+constraints remain binding above the local rule precedence listed earlier.
+
 Read these before substantial work:
 
 1. `AGENTS.md` (this file)
@@ -26,6 +32,10 @@ Read these before substantial work:
 7. `SQLITE_DEBUG.md` when debugging DB/data behavior
 8. `SEARXNG.md` when touching SearXNG setup assumptions
 9. `DEVELOPMENT.md` and `MAINTENANCE.md` for tooling, dependency or validation work
+
+For a chat-free handover, start with README's Current Status and Documentation
+Authority sections, then the architecture/decision notes in DEVELOPMENT.md.
+REMEDIATION.md is the closed November audit ledger, not an active backlog.
 
 Historical context docs (read-only unless explicitly requested):
 
@@ -42,12 +52,17 @@ Historical context docs (read-only unless explicitly requested):
   identify user machines/services.
 - Treat production logs and DB contents as sensitive; summarize when possible.
 - Use destructive commands only with explicit user approval.
+- Account/session migration does not authorize exporting credentials, private
+  logs/DBs, changing SSH/keyring/Codex settings, or assuming saved helper approvals
+  carry over. Preserve project decisions in docs, not account-specific chat state.
 
 ## Project Versioning And Changelog
 
 - Version scheme in this repo is app versions like `v2.12` in `CHANGELOG.md`.
 - Code/runtime/UI behavior changes: bump to next version and add changelog entry.
 - Docs-only changes: no app version bump required, but add a docs changelog entry.
+- This later policy supersedes INITIAL_PROMPT.md's original bump-every-prompt
+  instruction; preserve the original file rather than editing it to match.
 - Changelog entries must include date/time and timezone (for example
   `2026-02-22 09:47 CET`).
 - Append entries; do not rewrite previous history unless user asks.

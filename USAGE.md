@@ -185,6 +185,11 @@ automatically changed by this report yet.
 
 ## Sessions
 
+Login fields only authenticate; change boot-time credentials deliberately in the
+local config and restart to apply them. Feed/Admin are separate roles on one shared
+feed, not separate per-user datasets. Client IP drift tolerance does not bypass
+the Admin CIDR allowlist. Do not use historical URL-secret/header fallback flows.
+
 Admin idle lifetime is 24 hours; feed idle lifetime is 90 days. Valid API activity
 renews server state and browser cookie expiry. Cookies are HttpOnly, SameSite
 Strict and Secure when TLS is enabled. Credentials/tokens are not stored in

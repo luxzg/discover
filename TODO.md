@@ -1,5 +1,18 @@
 # TODO
 
+## Continuation Order And Scope
+
+First reconcile the live deployment/field feedback with README's Current Status;
+the completed November audit is not an implementation backlog. After that, the
+owner's product priority remains fresh/relevant stories with less stale/repetitive
+coverage. Review upstream outcomes/date quality before broadening harvest traffic;
+evaluate story grouping before automatic domain personalization.
+
+The sections below are future ideas or conditional investigations, not permission
+to implement them all or access private data/providers automatically. Agree on the
+next bounded pass. No fuzzy algorithm, learned ranking or news-engine exception
+has been approved as a finalized behavior specification.
+
 ## Offline / Deferred Action Queue (Optional, Later)
 
 Explore partial offline mode for feed interactions:
@@ -84,6 +97,20 @@ before opt-in field testing. This remains an idea, not active v2.31 behavior.
 
 References checked 2026-10-05: [upstream request selection](https://github.com/searxng/searxng/blob/master/searx/webadapter.py)
 and [engine suspension settings](https://docs.searxng.org/admin/settings/settings_search.html).
+
+### Long-Run Fairness And Scheduled/Manual Collisions (Validation Idea)
+
+The November read-only review raised a risk, not a demonstrated production bug:
+if fixed-order harvests repeatedly exhaust the two-hour deadline, later topics
+could receive less coverage. Establish per-topic completion and deadline evidence
+before considering rotation/checkpoints. Do not raise safety bounds or add more
+parallel/upstream requests as a substitute for diagnosis.
+
+The same review identified a policy question when due automatic work conflicts
+with manual ingestion/cooldown. Checks/dedupe have explicit wait semantics; do not
+assume manual ingestion should queue another immediate harvest. Verify the current
+behavior in an authorized code/test pass and agree whether manual work substitutes
+for that due run before changing it. No new retry/queue policy is approved here.
 
 ## SearXNG Production Server And Settings Review
 

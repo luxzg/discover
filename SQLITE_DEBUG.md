@@ -49,6 +49,9 @@ Main tables used by Discover:
 - `article_topics`
   - Join table linking articles to topics
   - Key columns: `article_id`, `topic_id`
+  - Records which searches found an article and supports Admin's per-topic
+    unread/total counts. One URL can retain several topic associations without
+    duplicate article rows; relevance/penalties live in the separate ledgers below.
 - `app_settings`
   - Generic key/value app state
   - Key columns: `key`, `value`

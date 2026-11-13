@@ -3,6 +3,24 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-11-13 11:32 CET
+
+- **Chat-Free Documentation Handover**: reconciled current docs, immutable inputs,
+  accessible conversation outcomes and prior reviewer reports. Added authoritative
+  status/decision guidance and preserved remaining scheduling questions as ideas.
+  Current v2.48 local closure is distinct from the last recorded live confirmation.
+  Documentation-only; no runtime validation, source/config/system changes,
+  staging, commits or pushes.
+- **Recovered Field Confirmations**: on September 10 the operator confirmed v2.24
+  Hide/Hide Domain acknowledgement and completion in 1-2 seconds, visible dates and
+  Other sources. On September 12 v2.26 ran with retained articles/groups/topics/
+  rules. These historical confirmations do not validate the November release.
+- **Previously Closed Thumbnail Follow-Ups (May 25)**: no separate on-demand
+  thumbnail endpoint because normal/manual ingest already enriches images, and no
+  per-domain thumbnail cooldown/cache because no observed problem justified it
+  beyond existing caps. Restored the rationale to this archive, not active TODO.
+  This is separate from future search-engine cooldown/backoff work.
+
 ## 2026-11-06 20:41 CET
 
 - **November Application Audit Remediation (v2.32-v2.48)**: completed all sixteen

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-13 12:51 CET - Documentation / Development Continuation
+
+- Added a short README reminder of the last feature-development thread, its
+  outstanding field feedback and intended follow-up, separate from later audit
+  and migration work. Documentation only; no build, test, commit or push.
+
+## 2026-11-13 11:32 CET - Documentation / Knowledge Preservation
+
+- Reconciled all project Markdown with accessible conversation/reviewer history
+  for chat-free continuation, using coding skill revision 2026-11-08.2. Added a
+  current-status/authority map, state/flow rationale and superseded-decision notes.
+- Distinguished locally prepared v2.48 from unconfirmed later deployment; retained
+  dated validation limits, restored two intentionally dropped thumbnail ideas to
+  the task archive and recorded conditional scheduling/fairness questions. Scoped
+  README's historical migration warning to the originating upgrade versions.
+- No application, config, dependency or shared-skill changes; no builds/tests,
+  installations, deployments, staging, commits or pushes. App remains v2.48.
+
 ## 2026-11-06 20:41 CET - Documentation
 
 - Close all sixteen audit findings with per-commit evidence in REMEDIATION.md;
