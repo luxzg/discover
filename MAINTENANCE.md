@@ -139,6 +139,23 @@ including upstream SQLite engine vulnerabilities or local application logic flaw
 
 ## Dated Review Results
 
+### 2026-11-20 08:50 CET - Go 1.26.11 Patch Refresh
+
+- The existing shared-SDK selector uses Go 1.26.11 (linux/amd64) with
+  `GOTOOLCHAIN=local`. Verified Go 1.26.11 and 1.27.4 against
+  [official release history](https://go.dev/doc/devel/release); both include
+  security fixes. The module minimum remains 1.26.8 and dependency locks are
+  unchanged. This is a targeted Go refresh, not a full monthly review.
+- `./scripts/check.sh --race` passed, including vet, Go race tests, script/JS
+  regressions and isolated CLI/listener smoke tests. Binary metadata confirms
+  Discover v2.48 was built with Go 1.26.11. Browser tests were not rerun.
+- Source and binary govulncheck 1.8.0 reported no known vulnerabilities with
+  the 2026-11-11 02:51:11 UTC advisory database. Project and shared Playwright
+  npm audits (npm 10.9.9) each reported zero. These are dated scan results.
+- No server changes. Install a patched SDK for the server's service user if
+  needed, then rebuild/restart via INSTALL.md section 7 and verify the installed
+  binary's compiler, service status and login/feed. App version remains v2.48.
+
 ### 2026-11-13 11:32 CET - Documentation Handover Only
 
 - Reconciled session evidence with the docs; no new tool/version inventory,

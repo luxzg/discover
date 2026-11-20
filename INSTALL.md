@@ -5,7 +5,7 @@
 - Debian/Ubuntu server
 - `sudo` access
 - Git, Bash, curl, CA certificates, `sqlite3`, and standard coreutils/util-linux tools
-- Go 1.26.8 or newer; use a supported security-patched Go release
+- Go 1.26.8 is the module minimum; for deployment use a current security-patched Go release
 - Existing TLS cert/key files (Let’s Encrypt) if running HTTPS directly
 
 ### 1.1 Create dedicated service user
@@ -23,17 +23,17 @@ For downloads and official install instructions:
 - https://go.dev/dl/
 - https://go.dev/doc/install
 
-Example (amd64 Linux):
+Example (amd64 Linux, Go 1.26.11):
 
 ```bash
-curl -fLO https://go.dev/dl/go1.26.10.linux-amd64.tar.gz
-sha256sum go1.26.10.linux-amd64.tar.gz
+curl -fLO https://go.dev/dl/go1.26.11.linux-amd64.tar.gz
+sha256sum go1.26.11.linux-amd64.tar.gz
 # Compare with the SHA256 published on go.dev/dl before extracting.
 mkdir -p "$HOME/sdk"
-mkdir "$HOME/sdk/go1.26.10"
-tar -C "$HOME/sdk/go1.26.10" --strip-components=1 -xzf go1.26.10.linux-amd64.tar.gz
+mkdir "$HOME/sdk/go1.26.11"
+tar -C "$HOME/sdk/go1.26.11" --strip-components=1 -xzf go1.26.11.linux-amd64.tar.gz
 
-echo 'export PATH="$HOME/sdk/go1.26.10/bin:$HOME/go/bin:$PATH"' >> ~/.profile
+echo 'export PATH="$HOME/sdk/go1.26.11/bin:$HOME/go/bin:$PATH"' >> ~/.profile
 source ~/.profile
 
 go version
@@ -337,8 +337,10 @@ go version -m ./discover
 ```
 
 The local wrapper builds on the remote server, not on the laptop. If its compiler
-needs a security update, install that as an operator action before deployment;
-do not assume a recently rebuilt laptop binary is the one running remotely.
+needs a security update, install the patched SDK under the server's service-user
+`$HOME/sdk` as in section 1.2 before running the wrapper. Verify the compiler in
+the deployed binary with the command above: the app version can stay the same
+across a compiler-only rebuild.
 
 Permission model:
 - remote SSH user needs sudo permission to run the deployment orchestration, including `runuser`, service control and backup operations

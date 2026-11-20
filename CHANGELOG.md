@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-20 08:50 CET - Toolchain / Go 1.26.11
+
+- Rebuilt and validated Discover v2.48 with the existing shared Go 1.26.11 SDK.
+  Updated install guidance and recorded full local checks and dated advisory
+  results in MAINTENANCE.md. Application code, module minimum and dependency
+  locks are unchanged. The server needs its own patched compiler and rebuild.
+
 ## 2026-11-13 12:51 CET - Documentation / Development Continuation
 
 - Added a short README reminder of the last feature-development thread, its

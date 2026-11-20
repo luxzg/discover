@@ -76,10 +76,11 @@ implementation or proof that domain learning/fuzzy grouping is already enabled.
 
 ## Build
 
-Requires Go 1.26.8 or newer (a supported security-patched toolchain), Git, Bash
-and standard Linux utilities. The Go command can download the required toolchain
-when `GOTOOLCHAIN=auto`; otherwise install it yourself. See `DEVELOPMENT.md` for
-tests and dependencies.
+Requires Git, Bash, standard Linux utilities and Go 1.26.8 or newer. That is the
+module minimum, not the deployment recommendation: build with a current
+security-patched Go release (see `MAINTENANCE.md`). The Go command can download
+the module-required toolchain when `GOTOOLCHAIN=auto`; see `INSTALL.md` to install
+a newer patch and `DEVELOPMENT.md` for tests and dependencies.
 
 Helpers prefer the newest installed stable Go under `$HOME/sdk`, with no automatic
 compiler download when that SDK is selected. Legacy PATH installations still work
