@@ -15,6 +15,37 @@ spec.loader.exec_module(review)
 
 
 class CoverageReviewTests(unittest.TestCase):
+    def test_product_scope_and_measurements(self):
+        cases = [
+            (False, "different launch subjects",
+             "Orchid launches Zephyr Wave mini PC for coastal labs",
+             "Juniper launches Zephyr Wave mini PC for coastal labs"),
+            (False, "different reviewed models",
+             "Orchid Prism T16 review: Zephyr Wave workstation",
+             "Orchid Prism GR1X review: Zephyr Wave workstation"),
+            (False, "different coverage scope",
+             "Orchid Prism mobile and desktop details emerge with 28 cores",
+             "Orchid Prism-S engineering sample spotted with 28 cores"),
+            (True, "clock",
+             "Orchid Prism-H mobile processor specs reveal 4.8 GHz boost",
+             "Orchid Prism H leak reveals 16 cores with 4800MHz boost"),
+            (False, "conflicting clock",
+             "Orchid Prism-H mobile processor specs reveal 4.8 GHz boost",
+             "Orchid Prism-H mobile processor specs reveal 4.6 GHz boost"),
+            (False, "variant",
+             "Orchid Prism-H mobile processor specs reveal 4.8 GHz boost",
+             "Orchid Prism-S mobile processor specs reveal 4.8 GHz boost"),
+            (True, "availability",
+             "Orchid launches Zephyr Wave mini PC for coastal labs",
+             "Zephyr Wave mini PC from Orchid now available for coastal labs"),
+        ]
+        for expected, reason, a, b in cases:
+            for x, y in ((a, b), (b, a)):
+                with self.subTest(a=x, b=y):
+                    actual, why = review.same_event(review.claim(x), review.claim(y))
+                    self.assertEqual(actual, expected, why)
+                    self.assertIn(reason, why)
+
     def test_strict_claim_decisions(self):
         cases = [
             (True, "Orchid Lira generator reportedly delayed past Polaris 2030",

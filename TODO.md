@@ -26,10 +26,11 @@ Build an admin-side helper that analyzes articles marked as `read` or `useful`, 
 
 ## Grouped Feed Field Trial
 
-Next: label fresh pairs from the same week's **opened and passed cards** using
-the article-disjoint holdout in `SQLITE_DEBUG.md`. The first labeled shortlist
-was used for calibration, not independent validation. Keep the live matcher
-unchanged until the new examples support a change.
+Next: review the offline `--strict` report for a **different, non-overlapping
+week** of opened and passed cards (see `SQLITE_DEBUG.md`). The same-week
+holdout exposed wrong-product launches and reviews; it is now calibration
+data too. Look for false merges and obvious missed stories before porting
+any rule to the opt-in feed. No live matcher change yet.
 
 Compare Grouped and Standard before advancing; check several successive pages
 and reload. Use Admin Feed Grouping to distinguish sparse matches from matches

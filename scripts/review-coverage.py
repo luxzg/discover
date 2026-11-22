@@ -5,6 +5,7 @@ import hashlib
 from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from heapq import nlargest, heappush, heapreplace
 from math import log
 from pathlib import Path
@@ -68,6 +69,46 @@ MODEL = re.compile(r"\b([a-z]{1,16})[- ]?(\d{1,6}[a-z]{0,2})\b")
 UNCERTAIN = re.compile(r"\b(rumou?rs?|reportedly|unconfirmed|allegedly)\b")
 CONFIRMED = re.compile(r"\b(confirms?|confirmed|officially)\b")
 NEGATED = re.compile(r"\b(no|not|never|won't|cannot|can't|cancels?|cancelled|denies|denied)\b")
+CLOCK = re.compile(r"\b(\d{1,8}(?:\.\d{1,6})?)\s*(ghz|mhz)\b")
+BOOST_CLOCK = re.compile(CLOCK.pattern + r"\s+boost\b|\bboost\s+(?:clock|frequency)\b")
+LAUNCH_SUBJECT = re.compile(r"^\s*([A-Z][\w-]*)\s+(?i:launches|unveils|debuts)\b")
+REVIEW_CODE = re.compile(r"\b[a-z]+\d+[a-z\d]*\b")
+VARIANT = re.compile(r"\b([A-Za-z]{2,})[- ]([A-Z])\b")
+
+
+def product_details(title, text):
+    # Use only actors/codes in explicit roles. A shared component, outlet name
+    # or unrelated number elsewhere in the headline is not a product identity.
+    actor = LAUNCH_SUBJECT.match(title)
+    lead, review_word, _ = text.partition(" review")
+    variants = defaultdict(set)
+    for family, suffix in VARIANT.findall(title):
+        if family.casefold() not in WEAK and suffix not in {"A", "I"}:
+            variants[family.casefold()].add(suffix.lower())
+    clocks = {Decimal(n) * (1000 if unit == "ghz" else 1) for n, unit in CLOCK.findall(text)}
+    classes = {kind for kind in ("mobile", "desktop") if re.search(r"\b" + kind + r"\b", text)}
+    return {
+        "actor": actor[1].casefold() if actor else "",
+        "review_codes": set(REVIEW_CODE.findall(lead)) if review_word else set(),
+        "variants": variants, "clocks": clocks, "classes": classes,
+        "sample": bool(re.search(r"\bengineering sample\b", text)),
+    }
+
+
+def product_conflict(a, b):
+    if a["actor"] and b["actor"] and a["actor"] != b["actor"]:
+        return "different launch subjects"
+    if a["review_codes"] and b["review_codes"] and a["review_codes"].isdisjoint(b["review_codes"]):
+        return "different reviewed models"
+    for family in a["variants"].keys() & b["variants"].keys():
+        if a["variants"][family].isdisjoint(b["variants"][family]):
+            return "different product variants"
+    if a["clocks"] and b["clocks"] and a["clocks"].isdisjoint(b["clocks"]):
+        return "conflicting clock specifications"
+    for broad, narrow in ((a, b), (b, a)):
+        if len(broad["classes"]) == 2 and len(narrow["classes"]) < 2 and (narrow["classes"] or narrow["sample"]):
+            return "different coverage scope: family overview versus specific report"
+    return ""
 
 
 def claim(title):
@@ -87,7 +128,9 @@ def claim(title):
     return {
         "tokens": tokens, "strong": set(strong),
         "phrases": set(zip(tokens, tokens[1:])),
-        "kinds": {k for k, pattern in EVENT_PATTERNS.items() if pattern.search(text)},
+        "kinds": {k for k, pattern in EVENT_PATTERNS.items()
+                  if pattern.search(BOOST_CLOCK.sub(" ", text) if k == "improvement" else text)},
+        "product": product_details(title, text),
         "units": slots(UNIT.findall(text), True), "models": slots(models),
         "rumor": bool(UNCERTAIN.search(text)), "confirmed": bool(CONFIRMED.search(text)),
         "negative": bool(NEGATED.search(text)), "numbers": set(NUM.findall(text)),
@@ -98,6 +141,9 @@ def claim(title):
 
 def same_event(a, b):
     """Headline evidence only. No clicks, domains, activity times or article IDs."""
+    conflict = product_conflict(a["product"], b["product"])
+    if conflict:
+        return False, conflict
     if a["quote"] or b["quote"]:
         quoted = (set(a["quote_words"]) & set(b["quote_words"])) - STOP
         if not (a["quote"] and b["quote"] and len(quoted) >= 4):
@@ -113,6 +159,10 @@ def same_event(a, b):
     if left and right and not common:
         return False, "different development or coverage angle"
     strong = a["strong"] & b["strong"]
+    pa, pb = a["product"], b["product"]
+    same_variant = any(v & pb["variants"].get(k, set()) for k, v in pa["variants"].items())
+    if same_variant and pa["clocks"] & pb["clocks"] and len(strong) >= 3:
+        return True, "same product variant and clock specification"
     phrases = a["phrases"] & b["phrases"]
     distinctive_phrase = any(x in strong and y in strong for x, y in phrases)
     prefix = 0

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-22 20:02 CET - Tooling / Distinguish products in coverage review
+
+- Strict offline matching now checks for differing launch subjects, reviewed
+  model codes, variant letters and coverage scope before accepting a pair.
+  Equivalent MHz/GHz clocks with matching variants can support a spec match;
+  a boost clock is not itself evidence of a performance gain.
+- Synthetic regressions and calibration replay passed. A different-week field
+  check is pending; the live feed, schema and binary are unchanged.
+
 ## 2026-11-22 19:55 CET - Tooling / Offline event matching trial
 
 - Added a stricter headline comparison and private label replay to the

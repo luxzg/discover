@@ -40,6 +40,15 @@ helper recomputes and verifies the broad shortlist, then excludes **both
 articles** from every reviewed pair before selecting new strict matches. A
 changed shortlist stops the check rather than silently reusing examples.
 These are ranked candidates, not a random sample or an accuracy estimate.
+
+Once you adjust the matcher using a sample, test another week. Run with
+`--strict --days 7 --pairs 20 --until` followed by the previous report's
+**start** time in UTC (omit `--holdout`). The activity windows do not overlap;
+an article can still occur in both if its open and exposure fall in different
+weeks. Look for different products on the same platform, family summaries
+versus specific reports, and plausible repeats that the broader report
+(same arguments without `--strict`) finds but the strict one misses.
+
 For private calibration without opening SQLite, `--replay-labels` reads tab-separated
 `same`/`different`, title, title from standard input (optionally ID before each
 title). End with EOF or a blank line. No titles are printed by replay or stored.
