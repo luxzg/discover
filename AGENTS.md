@@ -245,7 +245,9 @@ Historical context docs (read-only unless explicitly requested):
 - Reading reports treat clicks/read as positive hints, not proof of finished
   reading. Current deliberate hides override positives. Automatic duplicate,
   score and age filtering must not train domain dislikes. Implement fuzzy/event
-  layers separately and conservatively; see TODO rather than enabling them here.
+  layers separately and conservatively. v2.49's opt-in Grouped view is
+  presentation, not duplicate hiding: never propagate read, vote, rule, or
+  domain-learning evidence across fuzzy matches. Keep Standard behavior intact.
 - Archive restoration clears age marks only; it must not bypass handled/score/
   duplicate gates or reset dates/scores to force first-page visibility. Preview
   and apply share predicates. Main-domain report grouping is display-only, uses

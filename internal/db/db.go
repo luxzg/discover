@@ -95,6 +95,7 @@ func migrate(db *sql.DB) error {
 	}
 
 	columns := []struct{ name, ddl string }{
+		{"event_id", "INTEGER REFERENCES coverage_events(id) ON DELETE SET NULL"},
 		{"hidden_reason", "TEXT NOT NULL DEFAULT ''"},
 		{"story_key", "TEXT NOT NULL DEFAULT ''"},
 		{"duplicate_of", "INTEGER REFERENCES articles(id) ON DELETE SET NULL"},
@@ -112,6 +113,11 @@ func migrate(db *sql.DB) error {
 		}
 	}
 	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS coverage_events (
+ id INTEGER PRIMARY KEY, kind TEXT NOT NULL, block TEXT NOT NULL, subject TEXT NOT NULL,
+ anchor_time INTEGER NOT NULL, advanced INTEGER NOT NULL DEFAULT 0)`,
+		`CREATE INDEX IF NOT EXISTS idx_event_anchor ON coverage_events(kind,block,anchor_time)`,
+		`CREATE INDEX IF NOT EXISTS idx_article_event ON articles(event_id) WHERE event_id IS NOT NULL`,
 		`CREATE TRIGGER IF NOT EXISTS immutable_article_first_seen BEFORE UPDATE OF first_seen_at ON articles
  WHEN OLD.first_seen_at IS NOT NULL AND NEW.first_seen_at IS NOT OLD.first_seen_at
  BEGIN SELECT RAISE(ABORT,'first_seen_at is immutable'); END`,

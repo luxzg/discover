@@ -243,8 +243,8 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 	}
 	var a scoredRow
 	firstSeen := in.IngestedAt
-	var firstRaw any
-	err = tx.QueryRowContext(ctx, `SELECT id,title,content,source_domain,url,score,score_base,COALESCE(first_seen_at,created_at) FROM articles WHERE url_hash=?`, in.URLHash).Scan(&a.id, &a.title, &a.content, &a.domain, &a.url, &a.score, &a.base, &firstRaw)
+	var firstRaw, pubRaw any
+	err = tx.QueryRowContext(ctx, `SELECT id,title,content,source_domain,url,score,score_base,COALESCE(first_seen_at,created_at),published_at FROM articles WHERE url_hash=?`, in.URLHash).Scan(&a.id, &a.title, &a.content, &a.domain, &a.url, &a.score, &a.base, &firstRaw, &pubRaw)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -275,6 +275,11 @@ func (s *Store) upsertArticle(ctx context.Context, in UpsertArticleInput) error 
 	}
 	if err != nil {
 		return err
+	}
+	if a.title != in.Title || (!in.PublishedAt.IsZero() && (pubRaw == nil || in.PublishedAt.Before(parseDBTime(pubRaw)))) {
+		if err := indexStoredEvent(ctx, tx, a.id); err != nil {
+			return err
+		}
 	}
 	if in.TopicID > 0 {
 		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO article_topics(article_id,topic_id) VALUES(?,?)`, a.id, in.TopicID); err != nil {

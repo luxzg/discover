@@ -122,7 +122,11 @@ func (a *API) handleFeed(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-	items, err := a.store.FetchTopUnread(r.Context(), limit, a.cfg.FeedMinScore)
+	fetch := a.store.FetchTopUnread
+	if r.URL.Query().Get("view") == "grouped" {
+		fetch = a.store.FetchGrouped
+	}
+	items, err := fetch(r.Context(), limit, a.cfg.FeedMinScore)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
@@ -136,13 +140,18 @@ func (a *API) handleMarkSeen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		IDs []int64 `json:"ids"`
+		IDs    []int64         `json:"ids"`
+		Events map[int64]int64 `json:"events,omitempty"`
 	}
 	if err := decodeJSON(r, a.cfg.MaxBodyBytes, &req); err != nil {
 		respondErr(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := a.store.MarkIDsAsSeen(r.Context(), req.IDs); err != nil {
+	if len(req.IDs) > 100 || len(req.Events) > 100 {
+		respondErr(w, http.StatusBadRequest, errors.New("too many cards"))
+		return
+	}
+	if err := a.store.AdvanceFeed(r.Context(), req.IDs, req.Events); err != nil {
 		respondErr(w, http.StatusInternalServerError, err)
 		return
 	}

@@ -32,6 +32,13 @@ func dedupeTitleKey(title string, maxChars int) string {
 // Prepare upgrades derived identities and timestamp representations only once.
 // Legacy hidden decisions remain hidden; their unknown origin is not guessed.
 func (s *Store) Prepare(ctx context.Context, keyChars int) error {
+	if err := s.prepareStories(ctx, keyChars); err != nil {
+		return err
+	}
+	return s.prepareEvents(ctx)
+}
+
+func (s *Store) prepareStories(ctx context.Context, keyChars int) error {
 	if keyChars < 10 || keyChars > 200 {
 		return errors.New("invalid story key length")
 	}
@@ -350,8 +357,8 @@ func (s *Store) dedupeTransaction(ctx context.Context, at *time.Time, keyChars i
 	return stats, total, nil
 }
 
-const feedSelectionSQL = ageCTE + `, eligible AS (
- SELECT id,status,score,story_key,story_first_seen,story_published,age_date,
+const feedRankingSQL = ageCTE + `, eligible AS (
+ SELECT id,event_id,status,score,story_key,story_first_seen,story_published,age_date,
  CASE WHEN ?>0 AND score>0 THEN score/(1+MAX(0,julianday('now')-age_date)/?) ELSE score END AS feed_rank
  FROM aged WHERE archived_at IS NULL AND (?=0 OR age_date>=julianday('now')-?)
 ), ranked AS (
@@ -359,14 +366,39 @@ const feedSelectionSQL = ageCTE + `, eligible AS (
  FROM eligible a WHERE status='unread' AND score>=?
  AND (story_key='' OR NOT EXISTS (
  SELECT 1 FROM articles h WHERE h.story_key=a.story_key AND
- (h.status IN ('seen','read','useful') OR (h.status='hidden' AND h.hidden_reason IN ('manual','legacy',''))))))
- , selected AS (SELECT * FROM ranked WHERE rank=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?)
+ (h.status IN ('seen','read','useful') OR (h.status='hidden' AND h.hidden_reason IN ('manual','legacy',''))))))`
+
+const feedSelectionSQL = feedRankingSQL + `, selected AS (SELECT * FROM ranked WHERE rank=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?)
  SELECT a.id,a.url,a.normalized_url,a.url_hash,a.title,a.content,a.thumbnail_url,a.source_domain,
  COALESCE(a.published_at,strftime('%Y-%m-%dT%H:%M:%fZ',s.story_published)),a.ingested_at,a.status,a.score,a.hit_count,a.engine_count,a.searx_score,a.story_key,
  strftime('%Y-%m-%dT%H:%M:%fZ',s.story_first_seen),s.feed_rank
  FROM selected s JOIN articles a ON a.id=s.id ORDER BY s.feed_rank DESC,s.age_date DESC,s.id DESC`
 
+const groupedFeedSQL = feedRankingSQL + `, visible AS (
+ SELECT r.*,COALESCE(r.event_id,-r.id) AS bucket,e.kind,e.subject FROM ranked r
+ LEFT JOIN coverage_events e ON e.id=r.event_id WHERE r.rank=1 AND COALESCE(e.advanced,0)=0
+), members AS (
+ SELECT v.*,ROW_NUMBER() OVER(PARTITION BY bucket ORDER BY feed_rank DESC,age_date DESC,id DESC) AS member,
+ COUNT(*) OVER(PARTITION BY bucket) AS size FROM visible v
+), leads AS (
+ SELECT * FROM members WHERE member=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?
+)
+ SELECT a.id,a.url,a.normalized_url,a.url_hash,a.title,CASE WHEN m.member=1 THEN a.content ELSE '' END,
+ CASE WHEN m.member=1 THEN a.thumbnail_url ELSE '' END,a.source_domain,
+ COALESCE(a.published_at,strftime('%Y-%m-%dT%H:%M:%fZ',m.story_published)),a.ingested_at,a.status,a.score,a.hit_count,a.engine_count,a.searx_score,a.story_key,
+ strftime('%Y-%m-%dT%H:%M:%fZ',m.story_first_seen),m.feed_rank,COALESCE(m.event_id,0),COALESCE(m.kind||': '||m.subject,''),m.size-1,m.member
+ FROM leads l JOIN members m ON m.bucket=l.bucket AND m.member<=21 JOIN articles a ON a.id=m.id
+ ORDER BY l.feed_rank DESC,l.age_date DESC,l.id DESC,m.member`
+
 func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) ([]model.Article, error) {
+	return s.fetchView(ctx, limit, minScore, false)
+}
+
+func (s *Store) FetchGrouped(ctx context.Context, limit int, minScore float64) ([]model.Article, error) {
+	return s.fetchView(ctx, limit, minScore, true)
+}
+
+func (s *Store) fetchView(ctx context.Context, limit int, minScore float64, grouped bool) ([]model.Article, error) {
 	if limit < 1 || limit > 100 {
 		return nil, errors.New("limit must be 1..100")
 	}
@@ -374,7 +406,11 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, feedSelectionSQL, s.decayDays, s.decayDays, days, days, minScore, limit)
+	query := feedSelectionSQL
+	if grouped {
+		query = groupedFeedSQL
+	}
+	rows, err := s.db.QueryContext(ctx, query, s.decayDays, s.decayDays, days, days, minScore, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -382,9 +418,19 @@ func (s *Store) fetchStories(ctx context.Context, limit int, minScore float64) (
 	for rows.Next() {
 		var a model.Article
 		var pub, ing, first any
-		if err := rows.Scan(&a.ID, &a.URL, &a.NormalizedURL, &a.URLHash, &a.Title, &a.Content, &a.ThumbnailURL, &a.SourceDomain, &pub, &ing, &a.Status, &a.Score, &a.HitCount, &a.EngineCount, &a.SearxScore, &a.StoryKey, &first, &a.FeedRank); err != nil {
+		member := 1
+		dest := []any{&a.ID, &a.URL, &a.NormalizedURL, &a.URLHash, &a.Title, &a.Content, &a.ThumbnailURL, &a.SourceDomain, &pub, &ing, &a.Status, &a.Score, &a.HitCount, &a.EngineCount, &a.SearxScore, &a.StoryKey, &first, &a.FeedRank}
+		if grouped {
+			dest = append(dest, &a.EventID, &a.EventReason, &a.RelatedCount, &member)
+		}
+		if err := rows.Scan(dest...); err != nil {
 			rows.Close()
 			return nil, err
+		}
+		if member > 1 {
+			lead := &out[len(out)-1]
+			lead.Related = append(lead.Related, model.CoverageLink{ID: a.ID, Title: a.Title, URL: a.URL, Domain: a.SourceDomain})
+			continue
 		}
 		a.PublishedAt = parseDBTime(pub)
 		a.IngestedAt = parseDBTime(ing)
@@ -461,6 +507,12 @@ func (s *Store) fillStorySources(ctx context.Context, out []model.Article) error
 }
 
 func (s *Store) markSeen(ctx context.Context, ids []int64) error {
+	return s.AdvanceFeed(ctx, ids, nil)
+}
+
+// Only the original rendered event may be advanced, never a new event assigned
+// after the page loaded. Votes, reads and ordinary article status stay separate.
+func (s *Store) AdvanceFeed(ctx context.Context, ids []int64, events map[int64]int64) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -472,12 +524,21 @@ func (s *Store) markSeen(ctx context.Context, ids []int64) error {
 	keys := map[string]bool{}
 	for _, id := range ids {
 		var key string
-		err := tx.QueryRowContext(ctx, `SELECT story_key FROM articles WHERE id=?`, id).Scan(&key)
+		var currentEvent int64
+		err := tx.QueryRowContext(ctx, `SELECT story_key,COALESCE(event_id,0) FROM articles WHERE id=?`, id).Scan(&key, &currentEvent)
 		if errors.Is(err, sql.ErrNoRows) {
 			continue
 		}
 		if err != nil {
 			return err
+		}
+		if event := events[id]; event > 0 {
+			if event != currentEvent {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE coverage_events SET advanced=1 WHERE id=?`, event); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE articles SET status='seen',hidden_reason='',duplicate_of=NULL,last_seen_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND (status='unread' OR (status='hidden' AND hidden_reason='duplicate'))`, id); err != nil {
 			return err

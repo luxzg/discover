@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-22 18:23 CET - v2.49
+
+- Added the opt-in Grouped feed: match distinctive headline claims to a fixed
+  event anchor before pagination, show ranked related headlines and a match
+  explanation, and remember advanced events separately from reads and votes.
+- Standard remains the default. No AI, provider traffic or config changes are
+  required. The additive SQLite index covers recent existing candidates on
+  upgrade and is maintained on ingest and publication-date correction.
+
 ## 2026-11-20 08:50 CET - Toolchain / Go 1.26.11
 
 - Rebuilt and validated Discover v2.48 with the existing shared Go 1.26.11 SDK.

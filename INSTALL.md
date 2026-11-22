@@ -364,6 +364,12 @@ If you changed config keys in a new release, review and update `config.json` bef
 
 ### 7.4 Upgrade Checks And Recovery
 
+For v2.49 use the normal backed-up update. At first startup Discover indexes
+recent candidate headlines in small resumable batches. No re-ingestion, config
+edit, AI runtime or SearXNG change is required. After login, compare Standard
+and Grouped before advancing. An empty Related coverage list is not a failed
+migration: only confident matches are combined.
+
 - v2.48 completes the November audit remediation (see REMEDIATION.md). No new
   config keys, schema migration, score reset or manual re-ingestion is required
   when upgrading from v2.31. Use a supported patched compiler on the server;

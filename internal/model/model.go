@@ -37,23 +37,34 @@ type StorySource struct {
 }
 
 type Article struct {
-	StoryKey      string        `json:"story_key"`
-	Sources       []StorySource `json:"sources,omitempty"`
-	ID            int64         `json:"id"`
-	URL           string        `json:"url"`
-	NormalizedURL string        `json:"normalized_url"`
-	URLHash       string        `json:"url_hash"`
-	Title         string        `json:"title"`
-	Content       string        `json:"content"`
-	ThumbnailURL  string        `json:"thumbnail_url"`
-	SourceDomain  string        `json:"source_domain"`
-	PublishedAt   time.Time     `json:"published_at"`
-	IngestedAt    time.Time     `json:"ingested_at"`
-	FirstSeenAt   time.Time     `json:"first_seen_at"`
-	FeedRank      float64       `json:"feed_rank"`
-	Status        ArticleStatus `json:"status"`
-	Score         float64       `json:"score"`
-	HitCount      int           `json:"hit_count"`
-	EngineCount   int           `json:"engine_count"`
-	SearxScore    float64       `json:"searx_score"`
+	EventID       int64          `json:"event_id,omitempty"`
+	EventReason   string         `json:"event_reason,omitempty"`
+	RelatedCount  int            `json:"related_count,omitempty"`
+	Related       []CoverageLink `json:"related,omitempty"`
+	StoryKey      string         `json:"story_key"`
+	Sources       []StorySource  `json:"sources,omitempty"`
+	ID            int64          `json:"id"`
+	URL           string         `json:"url"`
+	NormalizedURL string         `json:"normalized_url"`
+	URLHash       string         `json:"url_hash"`
+	Title         string         `json:"title"`
+	Content       string         `json:"content"`
+	ThumbnailURL  string         `json:"thumbnail_url"`
+	SourceDomain  string         `json:"source_domain"`
+	PublishedAt   time.Time      `json:"published_at"`
+	IngestedAt    time.Time      `json:"ingested_at"`
+	FirstSeenAt   time.Time      `json:"first_seen_at"`
+	FeedRank      float64        `json:"feed_rank"`
+	Status        ArticleStatus  `json:"status"`
+	Score         float64        `json:"score"`
+	HitCount      int            `json:"hit_count"`
+	EngineCount   int            `json:"engine_count"`
+	SearxScore    float64        `json:"searx_score"`
+}
+
+type CoverageLink struct {
+	ID     int64  `json:"id"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+	Domain string `json:"domain"`
 }

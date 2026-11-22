@@ -60,5 +60,10 @@ func (s *Store) RecordMetadata(ctx context.Context, id int64, thumb string, publ
 	if err != nil {
 		return false, false, err
 	}
+	if dateFilled {
+		if err := indexStoredEvent(ctx, tx, id); err != nil {
+			return false, false, err
+		}
+	}
 	return imageFilled, dateFilled, tx.Commit()
 }

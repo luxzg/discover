@@ -10,8 +10,8 @@ evaluate story grouping before automatic domain personalization.
 
 The sections below are future ideas or conditional investigations, not permission
 to implement them all or access private data/providers automatically. Agree on the
-next bounded pass. No fuzzy algorithm, learned ranking or news-engine exception
-has been approved as a finalized behavior specification.
+next bounded pass. The v2.49 Grouped trial is opt-in; learned ranking and
+news-engine exceptions remain proposals.
 
 ## Offline / Deferred Action Queue (Optional, Later)
 
@@ -24,17 +24,13 @@ Explore partial offline mode for feed interactions:
 
 Build an admin-side helper that analyzes articles marked as `read` or `useful`, extracts frequent meaningful keywords/phrases, removes terms already covered by existing topics, and proposes a ranked list of candidate topics for one-click prefill into the Topic editor (with editable weight and enabled state before save).
 
-## Advanced Subject Similarity Dedupe
+## Grouped Feed Field Trial
 
-Extend the conservative normalized-title story groups with optional fuzzy matching
-(for example 90% token overlap). Evaluate false merges on real headlines before
-enabling it; preserve separate sources and handled history rather than deleting URLs.
-Keep exact/conservative same-story grouping as a distinct layer. Consider softer
-matching during the first configurable 24-36 hours, stronger consolidation later,
-using the immutable original story clock, entities/model numbers and a bounded
-time window. Do not merge release announcements with reviews, benchmarks or new
-findings solely because they share a product name. Avoid transitive-chain merges;
-make derived grouping reversible and expose alternative sources.
+Compare Grouped and Standard before advancing; check several successive pages
+and reload. Collect one false merge and one missed merge (headlines and displayed
+reason). Judge whether the reduction is useful without losing material follow-ups.
+Do not relax thresholds, mark related sources read or introduce topic-wide
+suppression just to increase the compression ratio.
 
 ## Coverage Fatigue / Enough Of This Story
 

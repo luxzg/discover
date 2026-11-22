@@ -1,5 +1,22 @@
 # Development And Validation
 
+## Grouped Feed Trial
+
+`internal/store/events.go` assigns membership on ingest/title/date changes
+and backfills recent candidates once, in resumable batches. Compare against a
+fixed anchor, never another member. Bound the candidate lookup by kind, headline
+token and time; if ambiguous or crowded, abstain. Both views use the same
+ranked/eligible exact-story selection in `stories.go`. Grouped applies a second
+partition before LIMIT; only visible leads get normal seen writes. Event
+advancement and those writes share a transaction. The matcher adds no provider
+traffic. Desktop/mobile browser tests cover opt-in, switching and advancement;
+use real-reading feedback before broadening matching.
+
+The 2026-11-22 synthetic `bash scripts/audit-check.sh bench` run measured
+1.02-1.07 s per 15-card Grouped query on the development laptop (40,000 URLs,
+25 URLs per exact story, four exact stories per event). This measures SQLite
+selection and source lookup, not match accuracy or live-server latency.
+
 ## Environment
 
 - Go 1.26.8 or newer, Git and Bash.

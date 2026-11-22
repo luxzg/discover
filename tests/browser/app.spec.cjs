@@ -49,6 +49,27 @@ for (const role of ['feed', 'admin']) {
   });
 }
 
+test('grouped coverage is opt-in and advancing it survives reload without consuming Standard alternatives', async ({page,app}) => {
+  await page.goto(app.url);
+  await page.locator('#userName').fill('fixture-reader'); await page.locator('#userSecret').fill(app.secret);
+  await page.locator('#userLoginBtn').click();
+  const view=page.getByLabel('Feed view'), next=page.locator('#nextBtn'), titles=page.locator('.card-title');
+  await expect(next).toBeEnabled();
+  const initial=await titles.allTextContents();
+  await expect(view).toHaveValue('standard');
+  await view.selectOption('grouped');
+  const related=page.locator('details').filter({has:page.getByText('Related coverage (1)',{exact:true})});
+  await related.locator('summary').click();
+  await expect(related.locator('a')).toContainText('Quasar 7090');
+  const alternative=await related.locator('a').textContent();
+  await view.selectOption('standard'); await expect(titles).toHaveText(initial);
+  await view.selectOption('grouped'); await expect(related).toBeVisible();
+  await next.click(); await expect(next).toBeEnabled();
+  await page.reload(); await expect(view).toHaveValue('grouped'); await expect(next).toBeEnabled();
+  await expect(page.locator('#feed')).not.toContainText('Quasar 7090');
+  await view.selectOption('standard'); await expect(page.locator('#feed')).toContainText(alternative);
+});
+
 test('topic and rule saves retain later drafts in the rendered editor', async ({page,app}) => {
   await page.goto(app.url+'/admin');
   await page.locator('#secret').fill(app.admin);

@@ -7,6 +7,24 @@
 - While signed in, feed header/auth row shows current app version next to `Sign Out`
 - Feed shows eligible unread stories ordered by freshness-adjusted relevance (stored score is unchanged).
 - One card represents a conservative normalized-title story; expand `Other sources` for up to 20 alternate URLs. Reading an alternate also handles that story.
+- **Feed view** defaults to **Standard**. Choose **Grouped (trial)** to combine
+  eligible stories about the same event before choosing a page. The preference
+  stays in this browser. Switching or reloading never advances a batch.
+  Expand **Related coverage** to see why the headlines matched and up to 20
+  ranked headline/domain links; the count includes all eligible related stories.
+  **Other sources** still means the existing normalized-title match.
+- Grouped **Load Next** marks the displayed leads seen as usual and remembers
+  the offered events, even if you didn't expand them. Later matching coverage
+  of those events stays off subsequent grouped pages. Related stories aren't
+  marked read/seen/hidden, don't get votes, and remain available in Standard
+  subject to its usual filters. Opening a related link credits the actual
+  article. Event progress is shared by this single-reader service; the view
+  preference is per browser. An exhausted Grouped page does not start ingestion.
+- The trial uses headline words/model numbers, known event phrases or a closely
+  matching distinctive claim. It compares publication time (otherwise first
+  seen) within 36 hours of a fixed anchor; ambiguous matches stay separate.
+  Recent eligible history from the last 45 days is indexed on upgrade.
+  No topic dictionary, AI model, new service or extra searches are needed.
 - Card metadata is `domain | score | Published today` or `First seen 3 days ago` when publication is unknown. A database discovery date is never presented as publication.
 - Tap/click or middle-click a card/source link to open it (marks that source as `read`). Native new-tab behavior is retained. Browser context-menu opens may not emit a trackable click, so read history is not guaranteed complete.
 - Card menu actions:
@@ -20,7 +38,7 @@
 - The `Article actions` button exposes its open/closed state to assistive tools. Use Enter/Space to open, Tab through actions, and Escape to close and return focus to the button.
 - Negative actions remove card(s) from the current view after the server confirms completion
 - `Load Next` marks current batch as `seen`, loads next top unread batch, and scrolls to top
-- If `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
+- In Standard, if `Load Next` finds zero cards, feed triggers manual ingest refresh automatically (subject to scheduler cooldown/running guards)
 - User session uses long-lived cookie/session refresh behavior to reduce surprise sign-outs during normal use
 - `Load Next` is disabled while its request/refresh is active. Refresh ingestion returns immediately and is polled; network errors never masquerade as empty results or trigger refresh. Cooldown messages remain visible.
 

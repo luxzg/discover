@@ -22,11 +22,13 @@ async function startFixture() {
   const thumbnail = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   const results = Array.from({ length: 14 }, (_, i) => ({
     url: `https://source${i}.example.test/story`,
-    title: i < 2 ? 'Battery research reaches a synthetic milestone' : `Fixture ${i} news for browser validation`,
+    title: i < 2 ? 'Battery research reaches a synthetic milestone'
+      : i === 2 ? 'Fixture Quasar 7090 starts shipping'
+      : i === 3 ? 'First Fixture Quasar 7090 units reach customers' : `Fixture ${i} news for browser validation`,
     content: 'Synthetic news, no private data.',
     thumbnail: i % 3 === 0 ? thumbnail : '',
     publishedDate: i % 2 === 0 ? new Date().toISOString() : '',
-    score: i < 2 ? 100 - i : 20 - i / 10,
+    score: i < 2 ? 100 - i : i < 4 ? 60 - i : 20 - i / 10,
     engines: ['fixture'],
   }));
   const requests = [];

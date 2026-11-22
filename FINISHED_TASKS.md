@@ -3,6 +3,11 @@
 Archive of completed (or intentionally closed) TODO items.  
 `TODO.md` should contain only active open work.
 
+## 2026-11-22 - v2.49
+
+- Implemented the first optional event-grouping trial as a presentation layer,
+  not fuzzy duplicate hiding. Field accuracy and future tuning stay in TODO.
+
 ## 2026-11-13 11:32 CET
 
 - **Chat-Free Documentation Handover**: reconciled current docs, immutable inputs,

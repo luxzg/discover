@@ -1,4 +1,7 @@
 let currentIds = [];
+let currentEvents = {};
+let feedView = 'standard';
+try { if (localStorage.getItem('discover.feedView') === 'grouped') feedView = 'grouped'; } catch (_) {}
 let authenticated = false;
 let csrfToken = '';
 let defaultHidePenalty = 10;
@@ -129,9 +132,14 @@ function setAuthUI() {
   userLoginBtn.disabled = authenticated || authInFlight;
   userLogoutBtn.disabled = !authenticated || authInFlight;
   nextBtn.disabled = !authenticated || authInFlight || nextInFlight || hideInFlight > 0;
+  document.getElementById('feedViewLabel').hidden = !authenticated;
+  const selector = document.getElementById('feedView');
+  selector.value = feedView;
+  selector.disabled = nextBtn.disabled;
   if (!authenticated) {
     feed.innerHTML = '';
     currentIds = [];
+    currentEvents = {};
   }
 }
 
@@ -142,6 +150,8 @@ function card(item) {
   const pubPart = pub ? ` | Published ${esc(pub)}` : firstSeen ? ` | First seen ${esc(firstSeen)}` : '';
   const sources = (item.sources || []).filter(s => safeLink(s.url));
   const otherSources = sources.length ? `<details class="story-sources"><summary>Other sources (${sources.length})</summary><ul>${sources.map(s => `<li><a href="${esc(safeLink(s.url))}" target="_blank" rel="noopener noreferrer" data-click="1" data-source-id="${s.id}">${esc(s.source_domain || s.title)}</a></li>`).join('')}</ul></details>` : '';
+  const links = (item.related || []).filter(s => safeLink(s.url));
+  const related = links.length ? `<details class="story-sources"><summary>Related coverage (${Number(item.related_count)})</summary><p>Matched: ${esc(item.event_reason)}</p><ul>${links.map(s => `<li><a href="${esc(safeLink(s.url))}" target="_blank" rel="noopener noreferrer" data-click="1" data-source-id="${Number(s.id)}">${esc(s.title)}</a> · ${esc(s.domain)}</li>`).join('')}</ul>${item.related_count > links.length ? '<small>Showing the highest-ranked available links.</small>' : ''}</details>` : '';
   return `<article class="card" data-id="${item.id}">
     ${img}
     <div class="card-body"><a class="card-link" href="${esc(safeLink(item.url))}" target="_blank" rel="noopener noreferrer" data-click="1">
@@ -149,7 +159,7 @@ function card(item) {
         <h3 class="card-title">${esc(item.title)}</h3>
         <div class="card-source">${esc(item.source_domain || 'unknown')} | score ${Number(item.score).toFixed(2)}${pubPart}</div>
       </div>
-    </a>${otherSources}<p class="card-action-status" role="status" hidden></p></div>
+    </a>${otherSources}${related}<p class="card-action-status" role="status" hidden></p></div>
     <div class="menu"><button type="button" data-menu="1" aria-label="Article actions" aria-expanded="false" aria-controls="card-menu-${item.id}">⋯</button><div class="menu-panel" id="card-menu-${item.id}">
       <button data-action="up">👍 Useful</button>
       <button data-action="down">👎 Hide</button>
@@ -168,16 +178,21 @@ function setMenuOpen(menu, open, restoreFocus = false) {
   if (!open && restoreFocus) trigger?.focus();
 }
 
-async function loadFeed() {
+async function loadFeed(view = feedView) {
   if (!authenticated) throw new Error('sign in required');
   const generation = sessionGeneration;
   try {
-    const data = await api('/api/feed');
+    const data = await api(view === 'grouped' ? '/api/feed?view=grouped' : '/api/feed');
     if (!authenticated || generation !== sessionGeneration) throw staleSessionError();
     const items = data.items || [];
     currentIds = items.map(i => i.id);
+    currentEvents = Object.fromEntries(items.filter(i => i.event_id).map(i => [i.id, i.event_id]));
     feed.innerHTML = items.map(card).join('');
     statusEl.textContent = `${new Date().toISOString()} loaded ${items.length} cards`;
+    if (view === 'grouped') {
+      const total = items.reduce((n,i) => n + 1 + (Number(i.related_count) || 0), 0);
+      statusEl.textContent = `Grouped: ${total} eligible stories on ${items.length} cards.`;
+    }
     return items.length;
   } catch (e) {
     if (e.staleSession) throw e;
@@ -191,6 +206,23 @@ async function loadFeed() {
     throw e;
   }
 }
+
+document.getElementById('feedView').addEventListener('change', async e => {
+  if (!authenticated || authInFlight || nextInFlight || hideInFlight) return;
+  const view = e.target.value === 'grouped' ? 'grouped' : 'standard';
+  const generation = sessionGeneration;
+  nextInFlight = true;
+  setAuthUI();
+  try {
+    await loadFeed(view);
+    feedView = view;
+    try { localStorage.setItem('discover.feedView', view); } catch (_) {}
+  } catch (err) {
+    if (!err.staleSession && authenticated) statusEl.textContent = `Could not switch view: ${err.message}`;
+  } finally {
+    if (generation === sessionGeneration) { nextInFlight = false; setAuthUI(); }
+  }
+});
 
 function cardActionStatus(cardEl, message) {
   const local = cardEl?.querySelector('.card-action-status');
@@ -333,9 +365,11 @@ nextBtn.addEventListener('click', async () => {
   setAuthUI();
   const generation = sessionGeneration;
   try {
-    if (currentIds.length) await api('/api/feed/seen', { method: 'POST', body: JSON.stringify({ ids: currentIds }) });
+    if (currentIds.length) await api('/api/feed/seen', { method: 'POST', body: JSON.stringify({ ids: currentIds, ...(feedView === 'grouped' ? {events:currentEvents} : {}) }) });
     let count = await loadFeed();
-    if (count === 0) {
+    if (count === 0 && feedView === 'grouped') {
+      statusEl.textContent = 'No more grouped cards. Switch to Standard for unread alternatives, or wait for scheduled ingestion.';
+    } else if (count === 0) {
       statusEl.textContent = `${new Date().toISOString()} no cards left; trying ingest refresh...`;
       try {
         const accepted = await api('/api/feed/refresh', { method: 'POST', body: JSON.stringify({}) });
@@ -407,6 +441,9 @@ feed.addEventListener('click', async (e) => {
     actionButton.disabled = true;
     const action = e.target.dataset.action;
     let matchedIds = [];
+    const generation = sessionGeneration;
+    const groupedDown = action === 'down' && feedView === 'grouped';
+    if (groupedDown) { hideInFlight++; setAuthUI(); }
     try {
       if (action === 'dont') {
         const suggested = (cardEl.querySelector('.card-title')?.textContent || '').trim();
@@ -442,6 +479,18 @@ feed.addEventListener('click', async (e) => {
         const removed = new Set(matchedIds.map(Number));
         feed.querySelectorAll('.card').forEach(c => { if (removed.has(Number(c.dataset.id))) c.remove(); });
         currentIds = currentIds.filter(v => !removed.has(v));
+        // A hidden lead need not be the only eligible member, and rules can
+        // also remove nested links. Refresh without advancing this batch.
+        if (feedView === 'grouped' && !nextInFlight) {
+          nextInFlight = true;
+          setAuthUI();
+          try { await loadFeed(); }
+          catch (err) {
+            if (!err.staleSession && authenticated) statusEl.textContent = `Hide applied; could not reload grouped coverage: ${err.message}`;
+            return;
+          }
+          finally { if (generation === sessionGeneration) { nextInFlight = false; setAuthUI(); } }
+        }
       }
       statusEl.textContent = `${new Date().toISOString()} action applied`;
     } catch (err) {
@@ -451,6 +500,7 @@ feed.addEventListener('click', async (e) => {
       }
     } finally {
       actionButton.disabled = false;
+      if (groupedDown && generation === sessionGeneration) { hideInFlight--; setAuthUI(); }
     }
     return;
   }

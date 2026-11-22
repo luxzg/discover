@@ -1,5 +1,12 @@
 # SQLite Debug Guide
 
+## Grouped Feed State
+
+In v2.49, nullable `articles.event_id` links an article to a derived
+`coverage_events` anchor. Its `advanced` flag affects only Grouped pagination,
+not article status, votes, dedupe totals or Standard eligibility. A null ID
+means no confident assignment; it does not indicate an ingestion error.
+
 ## Engine Versus CLI Version
 
 Discover v2.26 embeds SQLite 3.53.4 through `modernc.org/sqlite` v1.58.0.

@@ -13,24 +13,16 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 
 ## Current Status
 
-Handover reviewed **2026-11-13**, documentation only. The latest recorded prepared
-release is **v2.48**, code commit `5835f45`, with documentation closeout/build
-revision `0992900` on `main` (2026-11-06). All sixteen November audit findings and
-two shared-tooling requests are closed in `REMEDIATION.md`. Local validation and
-dated scans are in `MAINTENANCE.md`; they were not rerun for this handover.
-
-The latest explicit operator deployment confirmation available to this handover
-is **v2.31 on 2026-10-05**. A later live version is unknown, not assumed to be
-v2.31 or v2.48. Before the next feature pass, ask which version is actually running
-and whether v2.48's login, card/editor actions and background dedupe were tested.
-Use `INSTALL.md` section 7 if an update is needed; no new config keys or manual
-database conversion are required for the v2.31-to-v2.48 remediation upgrade.
-Do not run extra provider searches merely to close the handover.
+**2026-11-22:** v2.49 introduces a switchable Grouped feed trial. v2.48 with
+Go 1.26.11 is the last operator-confirmed live build: Admin sign-in, existing
+history and the domain report worked; the engine sample had partial results.
+Use the normal backed-up update in `INSTALL.md` section 7. No manual conversion,
+new config or ingestion is needed to try Grouped. Its accuracy on the live
+feed is not yet established. The closed November audit is in `REMEDIATION.md`.
 
 This is a single-reader/shared-feed service, not a multi-user tenant system.
 Feed and Admin credentials separate privileges, not personal libraries; actions
-and rules affect the shared database. Future ideas in `TODO.md` are not approved
-implementation or proof that domain learning/fuzzy grouping is already enabled.
+and rules affect the shared database. Automatic domain learning is not enabled.
 
 ### Development Continuation / Last Working Context (2026-11-13)
 
@@ -39,7 +31,8 @@ implementation or proof that domain learning/fuzzy grouping is already enabled.
   domain reports; then gentler searches, the SearXNG updater and Admin diagnostics.
 - **Where we stopped:** Fresher cards/reports and v2.31 were operator-confirmed;
   some engines worked, others stayed blocked; scheduled-ingest feedback was pending.
-  Later v2.48 remediation is locally complete, but deployment is unconfirmed above.
+  At this November 13 checkpoint the v2.48 remediation was locally complete,
+  but deployment was not yet confirmed. See Current Status for newer evidence.
 - **Intended next steps:** Confirm live version; review normal reading, scheduled
   ingest and date coverage; then consider engine backoff and bounded Google/Yahoo
   News trials. Fuzzy grouping/domain learning stay later ideas. See `TODO.md` and
@@ -60,6 +53,7 @@ implementation or proof that domain learning/fuzzy grouping is already enabled.
 - Background retroactive unread dedupe in Admin with immediate acceptance and reconnect-safe status
 - URL normalization + hash dedup
 - Conservative story groups with one highest-score unread card and expandable other sources
+- Optional Grouped view combines differently worded coverage of the same event before pagination; Standard keeps existing behavior
 - Ingest-time title dedupe preserves handled history without letting automatic duplicate hides suppress the retained story
 - Persistent dedupe counter:
   - stores cumulative hidden-duplicate total in DB and shows it in admin status
