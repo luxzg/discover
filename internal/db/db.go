@@ -117,6 +117,13 @@ func migrate(db *sql.DB) error {
  id INTEGER PRIMARY KEY, kind TEXT NOT NULL, block TEXT NOT NULL, subject TEXT NOT NULL,
  anchor_time INTEGER NOT NULL, advanced INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE INDEX IF NOT EXISTS idx_event_anchor ON coverage_events(kind,block,anchor_time)`,
+		`CREATE TABLE IF NOT EXISTS coverage_anchor_titles (
+ event_id INTEGER PRIMARY KEY REFERENCES coverage_events(id) ON DELETE CASCADE,
+ title TEXT NOT NULL, mixed INTEGER NOT NULL DEFAULT 0)`,
+		`CREATE TABLE IF NOT EXISTS coverage_anchor_terms (
+ term TEXT NOT NULL, stamp INTEGER NOT NULL, event_id INTEGER NOT NULL REFERENCES coverage_events(id) ON DELETE CASCADE,
+ PRIMARY KEY(term,stamp,event_id)) WITHOUT ROWID`,
+		`CREATE INDEX IF NOT EXISTS idx_anchor_terms_event ON coverage_anchor_terms(event_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_article_event ON articles(event_id) WHERE event_id IS NOT NULL`,
 		`CREATE TRIGGER IF NOT EXISTS immutable_article_first_seen BEFORE UPDATE OF first_seen_at ON articles
  WHEN OLD.first_seen_at IS NOT NULL AND NEW.first_seen_at IS NOT OLD.first_seen_at

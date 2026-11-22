@@ -4,13 +4,22 @@
 
 `internal/store/events.go` assigns membership on ingest/title/date changes
 and backfills recent candidates once, in resumable batches. Compare against a
-fixed anchor, never another member. Bound the candidate lookup by kind, headline
+fixed anchor, never by following a chain. Bound the candidate lookup by kind, headline
 token and time; if ambiguous or crowded, abstain. Both views use the same
 ranked/eligible exact-story selection in `stories.go`. Grouped applies a second
 partition before LIMIT; only visible leads get normal seen writes. Event
 advancement and those writes share a transaction. The matcher adds no provider
 traffic. Desktop/mobile browser tests cover opt-in, switching and advancement;
 use real-reading feedback before broadening matching.
+
+v2.51 adds Go claim checks in `coverage_claim.go` and an indexed fallback in
+`coverage_index.go`. Probe at most ten anchor words within the existing time
+window, ignore saturated words and require two shared retrieval keys. Compare
+both the anchor and every member before broadening a group; do not extend a
+broad group beyond 20 articles. Pure v2.49 close-headline groups keep their
+original size behavior. The Python reviewer is an offline calibration aid, not
+a runtime dependency or a guarantee of identical output: live time bounds,
+ambiguity, eligibility and group membership also affect results.
 
 The 2026-11-22 synthetic `bash scripts/audit-check.sh bench` run measured
 1.02-1.07 s per 15-card Grouped query on the development laptop (40,000 URLs,

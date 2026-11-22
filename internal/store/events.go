@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"log"
 	"strings"
 	"time"
 	"unicode"
@@ -154,52 +155,41 @@ var claimAliases = []struct{ from, to string }{
 
 const eventSpan = int64(36 * time.Hour / time.Second)
 
-func indexEvent(ctx context.Context, tx *sql.Tx, id int64, title string, stamp time.Time) error {
-	var group any
-	if claim, ok := headlineClaim(title); ok && !stamp.IsZero() {
-		t := stamp.Unix()
-		rows, err := tx.QueryContext(ctx, `SELECT id,subject FROM coverage_events
+// Negative means too many candidates or more than one matching anchor.
+func exactAnchor(ctx context.Context, tx *sql.Tx, claim eventClaim, t int64) (int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id,subject FROM coverage_events
  WHERE kind=? AND block=? AND anchor_time BETWEEN ? AND ? ORDER BY id LIMIT 33`, claim.kind, claim.block, t-eventSpan, t+eventSpan)
-		if err != nil {
-			return err
+	if err != nil {
+		return 0, err
+	}
+	var matches []int64
+	n := 0
+	for rows.Next() {
+		var candidate int64
+		var subject string
+		if err := rows.Scan(&candidate, &subject); err != nil {
+			rows.Close()
+			return 0, err
 		}
-		var matches []int64
-		n := 0
-		for rows.Next() {
-			var candidate int64
-			var subject string
-			if err := rows.Scan(&candidate, &subject); err != nil {
-				rows.Close()
-				return err
-			}
-			n++
-			if similarClaim(claim.subject, subject) {
-				matches = append(matches, candidate)
-			}
-		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
-			return err
-		}
-		if n <= 32 {
-			switch len(matches) {
-			case 0:
-				res, err := tx.ExecContext(ctx, `INSERT INTO coverage_events(kind,block,subject,anchor_time) VALUES(?,?,?,?)`, claim.kind, claim.block, claim.subject, t)
-				if err != nil {
-					return err
-				}
-				group, err = res.LastInsertId()
-				if err != nil {
-					return err
-				}
-			case 1:
-				group = matches[0]
-			}
+		n++
+		if similarClaim(claim.subject, subject) {
+			matches = append(matches, candidate)
 		}
 	}
-	_, err := tx.ExecContext(ctx, `UPDATE articles SET event_id=? WHERE id=? AND event_id IS NOT ?`, group, id, group)
-	return err
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return 0, err
+	}
+	if n <= 32 {
+		switch len(matches) {
+		case 0:
+			return 0, nil
+		case 1:
+			return matches[0], nil
+		}
+	}
+	return -1, nil
 }
 
 func indexStoredEvent(ctx context.Context, tx *sql.Tx, id int64) error {
@@ -214,15 +204,17 @@ func indexStoredEvent(ctx context.Context, tx *sql.Tx, id int64) error {
 // Keyset batches avoid holding the single SQLite writer over the entire
 // upgrade. Only recent, potentially displayable history needs trial indexing.
 func (s *Store) prepareEvents(ctx context.Context) error {
-	done, err := s.GetSettingInt(ctx, "event_index_v1", 0)
+	done, err := s.GetSettingInt(ctx, "event_index_v2", 0)
 	if err != nil || done == 1 {
 		return err
 	}
-	cursor, err := s.GetSettingInt(ctx, "event_index_v1_after", 0)
+	cursor, err := s.GetSettingInt(ctx, "event_index_v2_after", 0)
 	if err != nil {
 		return err
 	}
 	after := int64(cursor)
+	processed := 0
+	log.Printf("coverage: preparing recent headline index (resumable)")
 	for {
 		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
@@ -233,9 +225,9 @@ func (s *Store) prepareEvents(ctx context.Context) error {
 			tx.Rollback()
 			return err
 		}
-		key, value := "event_index_v1_after", last
+		key, value := "event_index_v2_after", last
 		if !more {
-			key, value = "event_index_v1", 1
+			key, value = "event_index_v2", 1
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(key,value) VALUES(?,CAST(? AS TEXT))
  ON CONFLICT(key) DO UPDATE SET value=excluded.value`, key, value); err != nil {
@@ -246,9 +238,14 @@ func (s *Store) prepareEvents(ctx context.Context) error {
 			return err
 		}
 		if !more {
+			log.Printf("coverage: recent headline index ready")
 			return nil
 		}
 		after = last
+		processed += 256
+		if processed%2048 == 0 {
+			log.Printf("coverage: indexed %d recent articles this startup", processed)
+		}
 	}
 }
 

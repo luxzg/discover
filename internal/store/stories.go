@@ -375,8 +375,10 @@ const feedSelectionSQL = feedRankingSQL + `, selected AS (SELECT * FROM ranked W
  FROM selected s JOIN articles a ON a.id=s.id ORDER BY s.feed_rank DESC,s.age_date DESC,s.id DESC`
 
 const eventMembersSQL = feedRankingSQL + `, visible AS (
- SELECT r.*,COALESCE(r.event_id,-r.id) AS bucket,e.kind,e.subject FROM ranked r
- LEFT JOIN coverage_events e ON e.id=r.event_id WHERE r.rank=1 AND COALESCE(e.advanced,0)=0
+ SELECT r.*,COALESCE(r.event_id,-r.id) AS bucket,CASE WHEN f.mixed=1 THEN 'Related headline' ELSE e.kind END AS kind,
+ CASE WHEN f.mixed=1 THEN f.title ELSE e.subject END AS subject FROM ranked r
+ LEFT JOIN coverage_events e ON e.id=r.event_id LEFT JOIN coverage_anchor_titles f ON f.event_id=e.id
+ WHERE r.rank=1 AND COALESCE(e.advanced,0)=0
 ), members AS (
  SELECT v.*,ROW_NUMBER() OVER(PARTITION BY bucket ORDER BY feed_rank DESC,age_date DESC,id DESC) AS member,
  COUNT(*) OVER(PARTITION BY bucket) AS size FROM visible v

@@ -67,6 +67,9 @@ In v2.49, nullable `articles.event_id` links an article to a derived
 `coverage_events` anchor. Its `advanced` flag affects only Grouped pagination,
 not article status, votes, dedupe totals or Standard eligibility. A null ID
 means no confident assignment; it does not indicate an ingestion error.
+v2.51 adds derived `coverage_anchor_titles` and `coverage_anchor_terms`
+for broader matches. They describe search anchors, not clicks, article
+status, or training labels. No manual SQL update is needed.
 
 ## Engine Versus CLI Version
 

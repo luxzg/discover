@@ -26,11 +26,10 @@ Build an admin-side helper that analyzes articles marked as `read` or `useful`, 
 
 ## Grouped Feed Field Trial
 
-Next: review the offline `--strict` report for a **different, non-overlapping
-week** of opened and passed cards (see `SQLITE_DEBUG.md`). The same-week
-holdout exposed wrong-product launches and reviews; it is now calibration
-data too. Look for false merges and obvious missed stories before porting
-any rule to the opt-in feed. No live matcher change yet.
+Next: field-test v2.51 on several Grouped pages and the Admin report. Two
+offline weeks supported trying broader matches, but the operator identified
+a downstream system launch versus its component announcement as a false
+merge. Check for that distinction and cross-page repeats on the live feed.
 
 Compare Grouped and Standard before advancing; check several successive pages
 and reload. Use Admin Feed Grouping to distinguish sparse matches from matches

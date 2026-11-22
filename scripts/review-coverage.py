@@ -89,6 +89,7 @@ def product_details(title, text):
     classes = {kind for kind in ("mobile", "desktop") if re.search(r"\b" + kind + r"\b", text)}
     return {
         "actor": actor[1].casefold() if actor else "",
+        "system_scope": bool(re.search(r"\b(?:rack[- ]scale|rack systems?|servers? powered by|systems? powered by)\b", text)),
         "review_codes": set(REVIEW_CODE.findall(lead)) if review_word else set(),
         "variants": variants, "clocks": clocks, "classes": classes,
         "sample": bool(re.search(r"\bengineering sample\b", text)),
@@ -144,6 +145,8 @@ def same_event(a, b):
     conflict = product_conflict(a["product"], b["product"])
     if conflict:
         return False, conflict
+    if a["product"]["system_scope"] != b["product"]["system_scope"]:
+        return False, "system launch versus component availability"
     if a["quote"] or b["quote"]:
         quoted = (set(a["quote_words"]) & set(b["quote_words"])) - STOP
         if not (a["quote"] and b["quote"] and len(quoted) >= 4):

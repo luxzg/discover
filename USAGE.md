@@ -31,6 +31,10 @@
 - The trial uses headline words/model numbers, known event phrases or a closely
   matching distinctive claim. It compares publication time (otherwise first
   seen) within 36 hours of a fixed anchor; ambiguous matches stay separate.
+  Differently worded reports can match on a distinctive claim or measured
+  specification. Shared platforms alone are not enough: a CPU going on sale
+  and a partner launching racks based on it are different developments.
+  A broader group must still make sense if another member becomes its lead.
   Recent eligible history from the last 45 days is indexed on upgrade.
   No topic dictionary, AI model, new service or extra searches are needed.
 - Card metadata is `domain | score | Published today` or `First seen 3 days ago` when publication is unknown. A database discovery date is never presented as publication.

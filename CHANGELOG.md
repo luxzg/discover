@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-22 20:14 CET - v2.51
+
+- Grouped (trial) can now recognize differently worded reports of a shared
+  development. Product/model conflicts and component availability versus
+  rack-system launches stay separate. Broader groups require direct matches
+  between members, not chains of loosely related headlines.
+- Recent event assignments are revisited in resumable batches at startup.
+  Standard feed, scoring, read states and automatic duplicate hides are unchanged.
+
 ## 2026-11-22 20:02 CET - Tooling / Distinguish products in coverage review
 
 - Strict offline matching now checks for differing launch subjects, reviewed

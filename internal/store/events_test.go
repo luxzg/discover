@@ -129,7 +129,7 @@ func TestEventIndexUpgradeKeepsHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("UPDATE app_settings SET value='0' WHERE key='event_index_v1'"); err != nil {
+	if _, err = s.db.Exec("UPDATE app_settings SET value='0' WHERE key='event_index_v2'"); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Prepare(ctx, 50); err != nil {

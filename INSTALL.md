@@ -364,8 +364,10 @@ If you changed config keys in a new release, review and update `config.json` bef
 
 ### 7.4 Upgrade Checks And Recovery
 
-For v2.49 use the normal backed-up update. At first startup Discover indexes
-recent candidate headlines in small resumable batches. No re-ingestion, config
+For v2.51 use the normal backed-up update. At first startup Discover reindexes
+the last 45 days of candidate headlines before serving HTTP, in small resumable
+batches. On a large database, follow `journalctl -u discover -f` and wait for
+`coverage: recent headline index ready` and the usual version/listener log. No re-ingestion, config
 edit, AI runtime or SearXNG change is required. After login, compare Standard
 and Grouped before advancing. An empty Related coverage list is not a failed
 migration: only confident matches are combined.

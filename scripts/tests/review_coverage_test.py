@@ -17,6 +17,9 @@ spec.loader.exec_module(review)
 class CoverageReviewTests(unittest.TestCase):
     def test_product_scope_and_measurements(self):
         cases = [
+            (False, "system launch",
+             "River Works brings sixth generation Lumen Prism processors to market at rack scale",
+             "Sixth generation Lumen Prism now available from Lumen"),
             (False, "different launch subjects",
              "Orchid launches Zephyr Wave mini PC for coastal labs",
              "Juniper launches Zephyr Wave mini PC for coastal labs"),
