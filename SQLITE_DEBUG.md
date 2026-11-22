@@ -26,6 +26,24 @@ matcher. A shared topic does **not** prove the same event. Pairs already sharing
 a current exact key or event assignment are omitted. Nothing is regrouped.
 Identify both real repeats and similar-looking headlines that should stay separate.
 
+Add `--strict` to preview a second, headline-only check: it asks whether the
+articles report the same development, not just whether the subject overlaps.
+Opens determine report sections, **not** whether a pair matches. For a fresh
+test after labeling the default (up to five per section) broad shortlist:
+
+```bash
+python3 scripts/review-coverage.py --database discover.db --until <original-UTC-end> --holdout <original-shortlist-ID>
+```
+
+Replace both placeholders and reuse the original `--days` if not seven. The
+helper recomputes and verifies the broad shortlist, then excludes **both
+articles** from every reviewed pair before selecting new strict matches. A
+changed shortlist stops the check rather than silently reusing examples.
+These are ranked candidates, not a random sample or an accuracy estimate.
+For private calibration without opening SQLite, `--replay-labels` reads tab-separated
+`same`/`different`, title, title from standard input (optionally ID before each
+title). End with EOF or a blank line. No titles are printed by replay or stored.
+
 Options: `--days 1..31`, `--pairs 1..20` per shortlist, and `--until` with
 the printed UTC end time to reuse a window. This is not a persistent snapshot:
 later edits/exposures can change results. At most the 3,000 most recent qualifying

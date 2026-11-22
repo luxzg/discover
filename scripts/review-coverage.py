@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only candidate pairs from a reader's recorded opens AND exposures."""
 import argparse
+import hashlib
 from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -9,6 +10,7 @@ from math import log
 from pathlib import Path
 import re
 import sqlite3
+import sys
 import unicodedata
 
 CAP = 3000
@@ -46,7 +48,94 @@ def recent(db_path, start, end):
         """, {"start": start.isoformat(), "end": end.isoformat(), "cap": CAP}).fetchall()
 
 
-def candidate_pairs(rows, limit):
+EVENTS = {
+    "delay": r"\b(delay(?:ed|s)?|postpone[ds]?|slips? (?:past|to|until)|pushed (?:back|to))\b",
+    "availability": r"\b(launch(?:es|ed)?|ships?|shipping|out now|now available|bring(?:s)? .{1,65} to)\b",
+    "benchmarks": r"\bbenchmarks?\b",
+    "improvement": r"\b(improves?|improved|boost(?:s|ed)?|enhance[ds]?)\b",
+    "preview": r"\b(teases?|teased|teaser|previews?)\b",
+    "recall": r"\brecall(?:s|ed)?\b",
+    "review": r"\b(review|reviewed|hands.on)\b",
+}
+EVENT_PATTERNS = {k: re.compile(v) for k, v in EVENTS.items()}
+WEAK = STOP | set("""gpu cpu cpus gpus gpu graphics card chip chips company tech news
+models ai next gen desktop desktops prices report reports reportedly claims says first
+time quote day scientific launches launch out bring benchmark benchmarks shares nextgen
+for is announcement release by review new latest revealed official reveals""".split())
+NUM = re.compile(r"\b\d+(?:\.\d+)?\b")
+UNIT = re.compile(r"\b(\d+(?:\.\d+)?)\+?\s*(%|(?:[a-z]+\s+)?(?:cores|watts|gigabytes|kilometers)\b|gb\b|tb\b)")
+MODEL = re.compile(r"\b([a-z]{1,16})[- ]?(\d{1,6}[a-z]{0,2})\b")
+UNCERTAIN = re.compile(r"\b(rumou?rs?|reportedly|unconfirmed|allegedly)\b")
+CONFIRMED = re.compile(r"\b(confirms?|confirmed|officially)\b")
+NEGATED = re.compile(r"\b(no|not|never|won't|cannot|can't|cancels?|cancelled|denies|denied)\b")
+
+
+def claim(title):
+    text = re.sub(r"(?<=\d),(?=\d{3}\b)", "", title.casefold().replace("’", "'"))
+    tokens = re.findall(r"[^\W_]+", text)[:64]
+    strong = [w for w in tokens if len(w) > 1 and w not in WEAK]
+    def slots(matches, reverse=False):
+        out = defaultdict(set)
+        for x, y in matches:
+            key, value = (y, x) if reverse else (x, y)
+            out[key].add(value)
+        return out
+    # Extract number-bearing identifiers and named numeric milestones from the
+    # headlines, not from a product catalog. Avoid incidental "to 30" / "at 5".
+    models = [(k, v) for k, v in MODEL.findall(text)
+              if k not in STOP | {"past", "until", "than", "over", "under", "around"}]
+    return {
+        "tokens": tokens, "strong": set(strong),
+        "phrases": set(zip(tokens, tokens[1:])),
+        "kinds": {k for k, pattern in EVENT_PATTERNS.items() if pattern.search(text)},
+        "units": slots(UNIT.findall(text), True), "models": slots(models),
+        "rumor": bool(UNCERTAIN.search(text)), "confirmed": bool(CONFIRMED.search(text)),
+        "negative": bool(NEGATED.search(text)), "numbers": set(NUM.findall(text)),
+        "quote": "quote of the day" in text,
+        "quote_words": re.findall(r"[^\W_]+", text.partition(":")[2]) if ":" in text else [],
+    }
+
+
+def same_event(a, b):
+    """Headline evidence only. No clicks, domains, activity times or article IDs."""
+    if a["quote"] or b["quote"]:
+        quoted = (set(a["quote_words"]) & set(b["quote_words"])) - STOP
+        if not (a["quote"] and b["quote"] and len(quoted) >= 4):
+            return False, "not enough quoted words to identify the quotation"
+    if a["negative"] != b["negative"] or (a["rumor"] and b["confirmed"]) or (b["rumor"] and a["confirmed"]):
+        return False, "different certainty or polarity"
+    for slot in ("units", "models"):
+        for key in a[slot].keys() & b[slot].keys():
+            if a[slot][key].isdisjoint(b[slot][key]):
+                return False, "conflicting " + key
+    left, right = a["kinds"], b["kinds"]
+    common = left & right
+    if left and right and not common:
+        return False, "different development or coverage angle"
+    strong = a["strong"] & b["strong"]
+    phrases = a["phrases"] & b["phrases"]
+    distinctive_phrase = any(x in strong and y in strong for x, y in phrases)
+    prefix = 0
+    for x, y in zip(a["tokens"], b["tokens"]):
+        if x != y:
+            break
+        prefix += 1
+    if prefix >= 8 and len(set(a["tokens"][:prefix]) & strong) >= 3:
+        return True, "same long distinctive headline opening"
+    if common and len(strong) >= 3 and (distinctive_phrase or len(strong) >= 4 or a["numbers"] & b["numbers"]):
+        return True, "shared " + "/".join(sorted(common)) + " claim and subject details"
+    quantity = any(values & b["units"].get(unit, set()) for unit, values in a["units"].items())
+    if quantity and len(strong - a["numbers"]) >= 3 and distinctive_phrase:
+        return True, "same measured specification and distinctive subject"
+    if len(strong) >= 5 and len(phrases) >= 3 and distinctive_phrase:
+        coverage = len(strong) / max(1, min(len(a["strong"]), len(b["strong"])))
+        if coverage >= .8:
+            return True, "substantial distinctive wording and phrase agreement"
+    return False, "insufficient shared claim; topic overlap alone"
+
+
+def candidate_pairs(rows, limit, *, strict=False, excluded=frozenset()):
+    claims = [claim(r["title"]) for r in rows] if strict else []
     terms = [re.findall(r"[^\W_]+", r["title"].casefold())[:64] for r in rows]
     words = [set(w for w in line if w not in STOP and len(w) > 1) for line in terms]
     phrases = [set(zip(line, line[1:])) for line in terms]
@@ -57,6 +146,8 @@ def candidate_pairs(rows, limit):
     best = {k: [] for k in KINDS}
     counts = Counter()
     for i, ws in enumerate(words):
+        if excluded and rows[i]["id"] in excluded:
+            continue
         # Stop very common terms from generating all-pairs work. They can still
         # corroborate pairs retrieved by a more distinctive word or model.
         keys = sorted((w for w in ws if df[w] <= 128), key=lambda w: (df[w], w))
@@ -74,6 +165,8 @@ def candidate_pairs(rows, limit):
             phrase = any(x in shared and y in shared for x, y in phrases[i] & phrases[j])
             overlap = sum(weight[w] for w in sorted(shared)) / min(sizes[i], sizes[j])
             if overlap < .24 or not (phrase or has_model or len(shared) >= 3):
+                continue
+            if strict and not same_event(claims[i], claims[j])[0]:
                 continue
             kind = KINDS[int(bool(a["opened"])) + int(bool(b["opened"]))]
             counts[kind] += 1
@@ -101,14 +194,63 @@ def candidate_pairs(rows, limit):
         yield kind, counts[kind], selected
 
 
+def shortlist_id(pairs):
+    key = ",".join(f"{a}:{b}" for a, b in sorted(tuple(sorted(p)) for p in pairs))
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
+def replay(stream):
+    """Private TSV from stdin; blank line/EOF ends. Do not echo headlines."""
+    totals = Counter()
+    pairs = []
+    for n, line in enumerate(stream, 1):
+        if not line.strip():
+            break
+        if n > 200 or len(line) > 4096:
+            raise ValueError("replay limited to 200 pairs, 4096 characters per line")
+        fields = line.rstrip("\r\n").split("\t")
+        if len(fields) == 5:
+            a, b = int(fields[1]), int(fields[3])
+            if min(a, b) < 1 or a == b:
+                raise ValueError(f"line {n}: expected distinct positive IDs")
+            pairs.append((a, b))
+            fields = [fields[0], fields[2], fields[4]]
+        if len(fields) != 3 or fields[0] not in {"same", "different"} or not all(fields[1:]):
+            raise ValueError(f"line {n}: expected same/different, title, title (tab-separated)")
+        actual, reason = same_event(claim(fields[1]), claim(fields[2]))
+        expected = fields[0] == "same"
+        totals[expected, actual] += 1
+        print(f"{n}: {fields[0]} -> {'match' if actual else 'separate'} ({reason})")
+    if not totals:
+        raise ValueError("no labeled pairs supplied")
+    print(f"Recovered {totals[True, True]} of {totals[True, True]+totals[True, False]} labeled repeats; "
+          f"rejected {totals[False, False]} of {totals[False, False]+totals[False, True]} labeled nonmatches.")
+    if len(pairs) == sum(totals.values()):
+        print("Reviewed shortlist ID:", shortlist_id(pairs))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--database", required=True, type=Path, help="existing Discover SQLite file; never created")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--database", type=Path, help="existing Discover SQLite file; never created")
+    source.add_argument("--replay-labels", action="store_true", help="evaluate labeled tab-separated pairs on stdin, without a DB")
+    parser.add_argument("--holdout", metavar="SHORTLIST_ID", help="strict preview excluding every article in a verified previous broad shortlist")
+    parser.add_argument("--strict", action="store_true", help="apply the experimental headline-only decision to broad candidates")
     parser.add_argument("--days", type=int, default=7, choices=range(1, 32), metavar="1..31")
     parser.add_argument("--pairs", type=int, default=5, choices=range(1, 21), metavar="1..20", help="max headline pairs per section")
     parser.add_argument("--until", help="optional UTC window endpoint, e.g. 2026-11-22T19:00:00Z")
     parser.add_argument("--list-headlines", action="store_true", help="also print all selected history; private, potentially long")
     args = parser.parse_args()
+    if args.replay_labels:
+        if args.holdout or args.strict or args.list_headlines:
+            parser.error("--replay-labels cannot be combined with database report modes")
+        try:
+            replay(sys.stdin)
+        except ValueError as exc:
+            parser.error(str(exc))
+        return
+    if args.holdout and (not args.until or args.list_headlines):
+        parser.error("--holdout needs a fixed --until and cannot list reviewed headlines")
     end = datetime.now(timezone.utc).replace(microsecond=0)
     if args.until:
         try:
@@ -128,13 +270,29 @@ def main():
         print(f"Truncated to the latest {CAP} by activity. Use shorter windows with --until to investigate the rest.")
     print("Shown includes Load Next and positive actions; not literal viewport tracking.")
     print("Possible misses only: same exact-story key or assigned event excluded. Shared subject is not proof of the same event.")
-    for kind, count, pairs in candidate_pairs(rows, args.pairs):
+    baseline = list(candidate_pairs(rows, 5))
+    reference = [(rows[i]["id"], rows[j]["id"]) for _, _, pairs in baseline for i, j, _ in pairs]
+    identity = shortlist_id(reference)
+    reviewed = {article for pair in reference for article in pair}
+    print("Broad five-per-section shortlist ID:", identity)
+    if args.holdout and args.holdout != identity:
+        parser.exit(1, "Broad shortlist changed; cannot verify the original sample. No holdout produced.\n")
+    strict = bool(args.strict or args.holdout)
+    if strict:
+        print("Strict offline trial: candidates require headline evidence for a common claim. No live feed change.")
+    if args.holdout:
+        print(f"Fresh article sample: excluded all {len(reviewed)} articles in the verified broad shortlist.")
+    report = baseline if not strict and args.pairs == 5 else candidate_pairs(
+        rows, args.pairs, strict=strict, excluded=reviewed if args.holdout else frozenset())
+    for kind, count, pairs in report:
         print(f"\n{kind}: {count} candidate pairs; showing {len(pairs)}")
         for i, j, shared in pairs:
             for row in (rows[i], rows[j]):
                 action = "opened" if row["opened"] else "shown"
                 print(f"  #{row['id']} {action} {printable(row['opened'] or row['shown'])} | {printable(row['title'])}")
             print("  Shared words:", ", ".join(shared))
+            if strict:
+                print("  Event evidence:", same_event(claim(rows[i]["title"]), claim(rows[j]["title"]))[1])
     if args.list_headlines:
         print("\nAll selected headlines, most recent activity first:")
         for row in rows:

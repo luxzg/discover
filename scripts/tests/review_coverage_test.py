@@ -1,10 +1,13 @@
 """Synthetic exposure history, never an operator database."""
 from datetime import datetime, timedelta, timezone
+from contextlib import redirect_stdout, redirect_stderr, closing
 import importlib.util
+import io
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("coverage_review", Path(__file__).parents[1] / "review-coverage.py")
 review = importlib.util.module_from_spec(spec)
@@ -12,6 +15,59 @@ spec.loader.exec_module(review)
 
 
 class CoverageReviewTests(unittest.TestCase):
+    def test_strict_claim_decisions(self):
+        cases = [
+            (True, "Orchid Lira generator reportedly delayed past Polaris 2030",
+             "Polaris 2030: Lira generator from Orchid reportedly postponed"),
+            (True, "Nimbus quartz reactor has 28,000 photonic cores",
+             "Helios reveals Nimbus quartz reactor packing 28000+ photonic cores"),
+            (False, "Orchid Lira generator reportedly delayed past Polaris 2030",
+             "Orchid confirms Lira generator delayed past Polaris 2030"),
+            (False, "Orchid unveils Lira 7 tidal generator at summit",
+             "Orchid unveils Lira 8 tidal generator at summit"),
+            (False, "Orchid unveils Lira quartz reactor with 420 photonic cores",
+             "Orchid unveils Lira quartz reactor with 840 photonic cores"),
+            (False, "Report on tablet prices and subsidies", "Tablet prices in Eastern Europe"),
+            (False, "Quote of the day by wind pioneer Ada: turbines keep turning",
+             "Quote of the day by wind pioneer Ada: the ..."),
+        ]
+        for expected, a, b in cases:
+            with self.subTest(a=a,b=b):
+                self.assertEqual(review.same_event(review.claim(a), review.claim(b))[0], expected)
+                self.assertEqual(review.same_event(review.claim(b), review.claim(a))[0], expected)
+
+    def test_label_replay_and_fresh_article_holdout(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            review.replay(io.StringIO("different\t22\tRiver rises\t11\tBattery test\n"))
+        self.assertIn("rejected 1 of 1", output.getvalue())
+        self.assertIn(review.shortlist_id([(11,22)]), output.getvalue())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "test.db"
+            when = "2030-01-07T00:00:00Z"
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("CREATE TABLE articles(id INTEGER PRIMARY KEY,title,story_key,event_id,read_at,last_seen_at)")
+                db.executemany("INSERT INTO articles VALUES(?,?,?,NULL,NULL,?)",
+                               [(i, f"Orchid launches tidal quartz generator | dispatch {chr(96+i)}", str(i), when)
+                                for i in range(1,25)])
+                db.commit()
+            end = datetime(2030,1,7,tzinfo=timezone.utc)
+            rows = review.recent(path,end-timedelta(days=7),end)
+            broad = list(review.candidate_pairs(rows,5))
+            pairs = [(rows[i]["id"],rows[j]["id"]) for _,_,selected in broad for i,j,_ in selected]
+            # The same candidate generator and thresholds are used in the CLI.
+            args = ["review","--database",str(path),"--until",when,"--holdout",review.shortlist_id(pairs)]
+            with patch.object(review.sys,"argv",args), redirect_stdout(io.StringIO()) as out:
+                review.main()
+            self.assertIn("excluded all 10 articles",out.getvalue())
+            self.assertIn("Event evidence:",out.getvalue())
+            for i,j in pairs:
+                for article in (i,j):
+                    self.assertNotIn(f"#{article} shown",out.getvalue())
+            args[-1]="bad-fingerprint"
+            with patch.object(review.sys,"argv",args),redirect_stderr(io.StringIO()),redirect_stdout(io.StringIO()),self.assertRaises(SystemExit):
+                review.main()
+
     def test_passed_and_opened_from_live_wal(self):
         end = datetime(2026, 11, 22, 12, tzinfo=timezone.utc)
         start = end - timedelta(days=7)

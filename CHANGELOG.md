@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-22 19:55 CET - Tooling / Offline event matching trial
+
+- Added a stricter headline comparison and private label replay to the
+  reading-history helper. A verified holdout excludes previously reviewed
+  articles for independent inspection. No change to live grouping or feed data.
+
 ## 2026-11-22 19:39 CET - Tooling / Reading-history coverage review
 
 - Added a read-only server helper to look for possible missed groups in the
