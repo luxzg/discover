@@ -13,9 +13,9 @@ Discover is a single-binary Go application that builds a personal, Discover-like
 
 ## Current Status
 
-**2026-11-22:** v2.49 introduces a switchable Grouped feed trial. v2.48 with
-Go 1.26.11 is the last operator-confirmed live build: Admin sign-in, existing
-history and the domain report worked; the engine sample had partial results.
+**2026-11-22:** v2.49's switchable Grouped feed trial is operator-confirmed
+live. Its effect was hard to distinguish during normal reading; v2.50 adds an
+on-demand Admin Feed Grouping report, without changing the matcher.
 Use the normal backed-up update in `INSTALL.md` section 7. No manual conversion,
 new config or ingestion is needed to try Grouped. Its accuracy on the live
 feed is not yet established. The closed November audit is in `REMEDIATION.md`.

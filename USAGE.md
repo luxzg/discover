@@ -13,6 +13,14 @@
   Expand **Related coverage** to see why the headlines matched and up to 20
   ranked headline/domain links; the count includes all eligible related stories.
   **Other sources** still means the existing normalized-title match.
+- To check whether grouping is doing anything without paging through cards, open
+  **Admin → Feed Grouping → Generate / Refresh Report**. It compares current
+  Standard cards with remaining Grouped cards, separating stories folded into a
+  visible group from stories skipped because an event was already advanced.
+  Retained matches can include read, hidden, or archived stories; they are not
+  necessarily visible now. Examples give the current card/page position and
+  a headline pair for up to three eligible events. This is a read-only snapshot
+  for the default page size, not a lifetime counter or a record of prior pages.
 - Grouped **Load Next** marks the displayed leads seen as usual and remembers
   the offered events, even if you didn't expand them. Later matching coverage
   of those events stays off subsequent grouped pages. Related stories aren't

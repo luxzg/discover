@@ -68,20 +68,28 @@ func BenchmarkRemediationFeed(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.Run("grouped-15", func(b *testing.B) {
-		// Four distinct exact stories (25 URLs each) per synthetic event.
-		if _, err := s.db.Exec(`INSERT OR IGNORE INTO coverage_events(id,kind,block,subject,anchor_time)
+	// Four distinct exact stories (25 URLs each) per synthetic event.
+	if _, err := s.db.Exec(`INSERT OR IGNORE INTO coverage_events(id,kind,block,subject,anchor_time)
  SELECT 1+(id-1)/100,'fixture','fixture','fixture',0 FROM articles WHERE (id-1)%100=0`); err != nil {
-			b.Fatal(err)
-		}
-		if _, err := s.db.Exec(`UPDATE articles SET event_id=1+(id-1)/100`); err != nil {
-			b.Fatal(err)
-		}
+		b.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE articles SET event_id=1+(id-1)/100`); err != nil {
+		b.Fatal(err)
+	}
+	b.Run("grouped-15", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			items, err := s.FetchGrouped(ctx, 15, 1)
 			if err != nil || len(items) != 15 || len(items[0].Related) != 3 {
 				b.Fatalf("grouped cards=%d err=%v", len(items), err)
+			}
+		}
+	})
+	b.Run("grouping-report", func(b *testing.B) {
+		for b.Loop() {
+			r, err := s.GroupReport(ctx, 15, 1)
+			if err != nil || r.Standard != 1600 || r.OtherSources != 1600 || r.RelatedGroups != 400 || r.Folded != 1200 || len(r.Examples) != 3 {
+				b.Fatalf("report=%+v err=%v", r, err)
 			}
 		}
 	})

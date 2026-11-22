@@ -78,6 +78,7 @@ func (a *API) Routes() http.Handler {
 	mux.Handle("/admin/api/status", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminStatus))))
 	mux.Handle("/admin/api/archive", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleAdminArchive)))))
 	mux.Handle("/admin/api/domains", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleAdminDomains))))
+	mux.Handle("/admin/api/grouping", a.guard.AdminOnly(a.withJSON(http.HandlerFunc(a.handleGroupReport))))
 	mux.Handle("/admin/api/search-check", a.guard.AdminOnly(a.adminCSRF(a.withJSON(http.HandlerFunc(a.handleEngineCheck)))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")

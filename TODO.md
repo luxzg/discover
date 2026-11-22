@@ -27,7 +27,8 @@ Build an admin-side helper that analyzes articles marked as `read` or `useful`, 
 ## Grouped Feed Field Trial
 
 Compare Grouped and Standard before advancing; check several successive pages
-and reload. Collect one false merge and one missed merge (headlines and displayed
+and reload. Use Admin Feed Grouping to distinguish sparse matches from matches
+outside the next page. Collect one false merge and one missed merge (headlines and displayed
 reason). Judge whether the reduction is useful without losing material follow-ups.
 Do not relax thresholds, mark related sources read or introduce topic-wide
 suppression just to increase the compression ratio.

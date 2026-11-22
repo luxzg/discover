@@ -374,13 +374,15 @@ const feedSelectionSQL = feedRankingSQL + `, selected AS (SELECT * FROM ranked W
  strftime('%Y-%m-%dT%H:%M:%fZ',s.story_first_seen),s.feed_rank
  FROM selected s JOIN articles a ON a.id=s.id ORDER BY s.feed_rank DESC,s.age_date DESC,s.id DESC`
 
-const groupedFeedSQL = feedRankingSQL + `, visible AS (
+const eventMembersSQL = feedRankingSQL + `, visible AS (
  SELECT r.*,COALESCE(r.event_id,-r.id) AS bucket,e.kind,e.subject FROM ranked r
  LEFT JOIN coverage_events e ON e.id=r.event_id WHERE r.rank=1 AND COALESCE(e.advanced,0)=0
 ), members AS (
  SELECT v.*,ROW_NUMBER() OVER(PARTITION BY bucket ORDER BY feed_rank DESC,age_date DESC,id DESC) AS member,
  COUNT(*) OVER(PARTITION BY bucket) AS size FROM visible v
-), leads AS (
+)`
+
+const groupedFeedSQL = eventMembersSQL + `, leads AS (
  SELECT * FROM members WHERE member=1 ORDER BY feed_rank DESC,age_date DESC,id DESC LIMIT ?
 )
  SELECT a.id,a.url,a.normalized_url,a.url_hash,a.title,CASE WHEN m.member=1 THEN a.content ELSE '' END,

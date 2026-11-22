@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-22 19:24 CET - v2.50
+
+- Added an on-demand, read-only Admin Feed Grouping report. Compare exact
+  Other sources, retained fuzzy matches and their actual impact on the eligible
+  feed/next page, with ranked example headline pairs. No matcher changes.
+
 ## 2026-11-22 18:23 CET - v2.49
 
 - Added the opt-in Grouped feed: match distinctive headline claims to a fixed

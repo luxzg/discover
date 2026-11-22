@@ -30,6 +30,7 @@ let topicSaveInFlight = false;
 let ruleSaveInFlight = false;
 let archiveInFlight = false;
 let domainReportInFlight = false;
+let groupingReportInFlight = false;
 let lastSchedulerState = {};
 let requestedRunID = 0;
 let statusInFlight = false;
@@ -58,6 +59,7 @@ function advanceSession() {
   ruleSaveInFlight = false;
   archiveInFlight = false;
   domainReportInFlight = false;
+  groupingReportInFlight = false;
   lastSchedulerState = {};
 }
 
@@ -156,20 +158,23 @@ function setAuthUI() {
   countsPanel.hidden = !authenticated;
   document.getElementById('archivePanel').hidden = !authenticated;
   document.getElementById('domainsPanel').hidden = !authenticated;
+  document.getElementById('groupingPanel').hidden = !authenticated;
   document.getElementById('enginePanel').hidden = !authenticated;
   checkEnginesBtn.disabled = !authenticated || authInFlight || checking || checkCooling || running || manualDedupeInFlight || dedupeSubmitInFlight;
-  for (const id of ['addTopic','addRule','previewArchive','applyArchive','loadDomains']) {
+  for (const id of ['addTopic','addRule','previewArchive','applyArchive','loadDomains','loadGrouping']) {
     document.getElementById(id).disabled = !authenticated || authInFlight || manualDedupeInFlight || dedupeSubmitInFlight;
   }
   document.getElementById('addTopic').disabled ||= topicSaveInFlight;
   document.getElementById('addRule').disabled ||= ruleSaveInFlight;
   document.getElementById('applyArchive').disabled ||= archiveInFlight;
   document.getElementById('loadDomains').disabled ||= domainReportInFlight;
+  document.getElementById('loadGrouping').disabled ||= groupingReportInFlight;
   if (!authenticated) {
     latestEngineCheckID = 0;
     document.getElementById('engineRows').innerHTML = '';
     document.getElementById('engineCheckState').textContent = '';
     document.getElementById('domainRows').innerHTML = '';
+    document.getElementById('groupingResult').textContent = '';
     document.getElementById('archiveResult').textContent = '';
     document.getElementById('dedupeState').textContent = '';
   }
@@ -623,6 +628,41 @@ document.getElementById('applyArchive').onclick = async () => {
     await refreshStatus();
   } catch (e) { if (!e.staleSession) status(`archive failed: ${e.message}; reload to verify the active limit before retrying`); }
   finally { if (generation === sessionGeneration) { archiveInFlight = false; setAuthUI(); } }
+};
+
+document.getElementById('loadGrouping').onclick = async () => {
+  if (!authenticated || document.getElementById('loadGrouping').disabled || groupingReportInFlight) return;
+  const generation = sessionGeneration;
+  const output = document.getElementById('groupingResult');
+  groupingReportInFlight = true;
+  setAuthUI();
+  output.textContent = 'Counting stories in the current feed...';
+  try {
+    const r = await call('/admin/api/grouping');
+    if (!authenticated || generation !== sessionGeneration) return;
+    const lines = [
+      `Next Grouped page: ${r.on_page} of ${Math.min(r.page_size,r.grouped)} cards have Related coverage.`,
+      `Standard: ${r.standard} eligible cards; ${r.other_sources} have Other sources.`,
+      `Grouped: ${r.grouped} remaining cards; ${r.related_groups} have Related coverage.`,
+      `Difference: ${r.folded} stories folded under visible cards; ${r.advanced} eligible stories belong to already advanced events.`,
+      '',
+      `Retained history: ${r.retained_groups} of ${r.retained_anchors} assigned events link at least two distinct story keys (before feed filters).`,
+    ];
+    if (r.examples.length) {
+      lines.push('', 'Highest-ranked visible groups (lead + one related headline):');
+      for (const e of r.examples) {
+        lines.push(`Card ${e.position}, page ${Math.ceil(e.position/r.page_size)} · ${e.size} stories`, e.lead, e.related, `Matched: ${e.reason}`, '');
+      }
+    } else {
+      lines.push('', r.retained_groups ? 'Matches exist in history, but none currently combine eligible cards.' : 'No retained event currently contains two distinct story keys.');
+    }
+    lines.push(`Snapshot: ${new Date().toLocaleString()}`);
+    output.textContent = lines.join('\n');
+  } catch (e) {
+    if (!e.staleSession && authenticated) output.textContent = `Grouping report failed: ${e.message}`;
+  } finally {
+    if (generation === sessionGeneration) { groupingReportInFlight = false; setAuthUI(); }
+  }
 };
 
 document.getElementById('loadDomains').onclick = async () => {

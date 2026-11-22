@@ -6,6 +6,19 @@ import (
 	"strconv"
 )
 
+func (a *API) handleGroupReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	report, err := a.store.GroupReport(r.Context(), a.cfg.DefaultBatchSize, a.cfg.FeedMinScore)
+	if err != nil {
+		respondErr(w, http.StatusInternalServerError, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, report)
+}
+
 func (a *API) handleAdminArchive(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

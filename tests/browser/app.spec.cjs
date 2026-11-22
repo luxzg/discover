@@ -70,6 +70,25 @@ test('grouped coverage is opt-in and advancing it survives reload without consum
   await view.selectOption('standard'); await expect(page.locator('#feed')).toContainText(alternative);
 });
 
+test('grouping diagnostics are admin-only and generated on demand', async ({page,context,app}) => {
+  const path='/admin/api/grouping';
+  expect((await context.request.get(app.url+path)).status()).toBe(401);
+  let requests=0; page.on('request', r=>{if(new URL(r.url()).pathname===path)requests++});
+  await page.goto(app.url+'/admin');
+  await expect(page.locator('#groupingPanel')).toBeHidden();
+  await page.locator('#secret').fill(app.admin); await page.locator('#loginBtn').click();
+  await page.locator('#groupingPanel summary').click();
+  expect(requests).toBe(0);
+  await page.locator('#loadGrouping').click();
+  const result=page.locator('#groupingResult');
+  await expect(result).toContainText('Next Grouped page: 1 of 5');
+  await expect(result).toContainText('1 have Other sources');
+  await expect(result).toContainText('Quasar 7090');
+  expect(requests).toBe(1);
+  await page.locator('#logoutBtn').click();
+  await expect(result).toHaveText('');
+});
+
 test('topic and rule saves retain later drafts in the rendered editor', async ({page,app}) => {
   await page.goto(app.url+'/admin');
   await page.locator('#secret').fill(app.admin);

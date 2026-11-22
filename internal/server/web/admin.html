@@ -73,6 +73,15 @@
       <pre id="archiveResult"></pre>
     </section>
 
+    <section id="groupingPanel" class="panel" hidden>
+      <details class="collapsible"><summary>Feed Grouping</summary>
+        <div class="collapsible-body">
+          <p class="hint">Compare Other sources (exact-title story keys) with Related coverage (the fuzzy event matcher). This snapshot uses current feed filters and ranking; it does not track past pages or trigger searches.</p>
+          <button id="loadGrouping">Generate / Refresh Report</button>
+          <pre id="groupingResult" role="status"></pre>
+        </div>
+      </details>
+    </section>
     <section id="domainsPanel" class="panel" hidden>
       <details class="collapsible">
         <summary>Reading By Domain</summary>

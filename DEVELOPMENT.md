@@ -17,6 +17,12 @@ The 2026-11-22 synthetic `bash scripts/audit-check.sh bench` run measured
 25 URLs per exact story, four exact stories per event). This measures SQLite
 selection and source lookup, not match accuracy or live-server latency.
 
+The v2.50 on-demand Admin report reuses the Grouped membership query. The
+same 40,000-URL benchmark (2026-11-22) returned 1,600 Standard cards, 400
+visible events and 1,200 folded stories in 1.09-1.12 s per report. Do not put
+this query in Admin polling. Retained match counts describe current database
+contents, not cumulative impressions or how earlier pages looked.
+
 ## Environment
 
 - Go 1.26.8 or newer, Git and Bash.
