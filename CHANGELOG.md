@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 19:39 CET - Tooling / Reading-history coverage review
+
+- Added a read-only server helper to look for possible missed groups in the
+  past week's opens and exposures, including pairs of unclicked cards. Includes
+  synthetic WAL/history tests and usage in SQLITE_DEBUG.md. No Discover binary,
+  production matcher, schema or Admin change.
+
 ## 2026-11-22 19:24 CET - v2.50
 
 - Added an on-demand, read-only Admin Feed Grouping report. Compare exact

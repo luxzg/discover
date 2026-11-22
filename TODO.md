@@ -26,6 +26,10 @@ Build an admin-side helper that analyzes articles marked as `read` or `useful`, 
 
 ## Grouped Feed Field Trial
 
+Next: review the prior week's recorded opens **and passed cards** using the
+read-only terminal helper in `SQLITE_DEBUG.md`. Classify real examples before
+changing grouping thresholds; no Admin preview or new provider traffic needed.
+
 Compare Grouped and Standard before advancing; check several successive pages
 and reload. Use Admin Feed Grouping to distinguish sparse matches from matches
 outside the next page. Collect one false merge and one missed merge (headlines and displayed

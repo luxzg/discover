@@ -1,5 +1,39 @@
 # SQLite Debug Guide
 
+## Find possible missed groups in your reading history
+
+On the server, as the Discover service user, run from the updated checkout:
+
+```bash
+python3 scripts/review-coverage.py --database discover.db
+```
+
+No rebuild, service stop, config access, downloads or Admin sign-in needed.
+This Python 3 standard-library helper opens the existing SQLite database
+read-only and includes committed WAL data. It prints private headlines and
+article IDs to your terminal only. Do not commit the output.
+
+The default is the last **seven rolling days of activity**, not publication or
+ingestion. Rows qualify by first recorded open (`read_at`) **or** latest recorded
+exposure (`last_seen_at`), not current status. It includes cards passed with
+**Load Next** even if neither was clicked. Upvotes also record exposure.
+These timestamps cannot reconstruct literal scrolling, every repeated click,
+or an unadvanced page.
+
+The separate **shown/shown**, **opened/shown**, and **opened/opened** shortlists
+compare headline words, phrases and model numbers more loosely than the live
+matcher. A shared topic does **not** prove the same event. Pairs already sharing
+a current exact key or event assignment are omitted. Nothing is regrouped.
+Identify both real repeats and similar-looking headlines that should stay separate.
+
+Options: `--days 1..31`, `--pairs 1..20` per shortlist, and `--until` with
+the printed UTC end time to reuse a window. This is not a persistent snapshot:
+later edits/exposures can change results. At most the 3,000 most recent qualifying
+rows are analyzed; the report says if truncated. Use smaller windows if needed.
+If obvious repeats don't make the shortlist, `--list-headlines` also prints
+all selected titles (up to 480 characters each), without requiring a lexical match.
+It can produce long, sensitive output; leave it off initially.
+
 ## Grouped Feed State
 
 In v2.49, nullable `articles.event_id` links an article to a derived
